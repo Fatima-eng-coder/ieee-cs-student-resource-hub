@@ -18,5 +18,5 @@ export const navLinks: NavLinkItem[] = [
   { id: 'nl-datesheets', label: 'Date Sheets', to: '/date-sheets', enabled: false },
   { id: 'nl-contribute', label: 'Contribute', to: '/contribute', enabled: false },
   { id: 'nl-gallery', label: 'Gallery', to: '/gallery', enabled: false },
-  { id: 'nl-announcements', label: 'Announcements', to: '/announcements', enabled: false },
+  { id: 'nl-announcements', label: 'Announcements', to: '/announcements', enabled: true },
 ];
