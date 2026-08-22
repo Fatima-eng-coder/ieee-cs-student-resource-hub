@@ -13,9 +13,14 @@ interface AdminTopbarProps {
 }
 
 const roleLabel: Record<string, string> = {
-  'super-admin': 'Super Admin',
-  editor: 'Editor',
-  moderator: 'Moderator',
+  webmaster: 'Webmaster',
+  vice_chairperson: 'Vice Chairperson',
+  chairperson: 'Chairperson',
+  general_secretary: 'General Secretary',
+  joint_secretary: 'Joint Secretary',
+  graphic_designer: 'Graphic Designer',
+  operations_manager: 'Operations Manager',
+  treasurer: 'Treasurer',
 };
 
 export default function AdminTopbar({ title, subtitle, action }: AdminTopbarProps) {
@@ -23,8 +28,8 @@ export default function AdminTopbar({ title, subtitle, action }: AdminTopbarProp
   const admin = adminAuthService.getCurrentAdmin();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const logout = () => {
-    adminAuthService.logoutAdmin();
+  const logout = async () => {
+    await adminAuthService.logoutAdmin();
     navigate('/portal/login', { replace: true });
   };
 

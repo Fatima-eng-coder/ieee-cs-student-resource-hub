@@ -1,11 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Pin, ArrowUpRight } from 'lucide-react';
-import { announcements as announcementsSeed } from '@/data/announcements';
-import { useCollection } from '@/hooks/useCollection';
+import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
 import type { Announcement } from '@/types';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
+import EmptyState from '@/components/ui/EmptyState';
 
 const categoryColors: Record<string, string> = {
   general: 'bg-slate-100 text-slate-700',
@@ -20,8 +21,33 @@ function formatDate(iso: string) {
 }
 
 export default function AnnouncementsPage() {
-  const { items: announcements } = useCollection<Announcement>('announcements', announcementsSeed);
-  const ordered = [...announcements].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => announcementsService
+      .list()
+      .then((items) => {
+        if (!ignore) setAnnouncements(items);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load announcements.');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    const unsubscribe = subscribeAnnouncementsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="relative">
@@ -38,8 +64,15 @@ export default function AnnouncementsPage() {
       />
 
       <PageSection tone="cream" top width="narrow">
-        <div className="flex flex-col gap-4">
-          {ordered.map((a, idx) => (
+        {loading ? (
+          <EmptyState title="Loading announcements" description="Fetching the latest posts from the society database." />
+        ) : error ? (
+          <EmptyState title="Announcements unavailable" description={error} />
+        ) : announcements.length === 0 ? (
+          <EmptyState title="No announcements yet" description="Fresh updates will appear here once the team publishes them." />
+        ) : (
+          <div className="flex flex-col gap-4">
+          {announcements.map((a, idx) => (
             <motion.div
               key={a.id}
               initial={{ opacity: 0, y: 12 }}
@@ -50,34 +83,42 @@ export default function AnnouncementsPage() {
               <Link
                 to={`/announcements/${a.id}`}
                 data-cursor="link"
-                className="group block rounded-2xl border border-black/5 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-ieee-orange/30 hover:shadow-lg"
+                className="group block overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-ieee-orange/30 hover:shadow-lg"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${categoryColors[a.category]}`}
-                    >
-                      {a.category}
-                    </span>
-                    {a.pinned && (
-                      <span className="flex items-center gap-1 rounded-full bg-ieee-orange/10 px-2.5 py-0.5 text-xs font-semibold text-ieee-orange">
-                        <Pin className="h-3 w-3" /> Pinned
-                      </span>
-                    )}
+                {a.posterUrl && (
+                  <div className="aspect-[16/7] w-full overflow-hidden bg-slate-100">
+                    <img src={a.posterUrl} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
                   </div>
-                  <span className="font-mono text-[11px] uppercase tracking-wide text-slate-400">
-                    {formatDate(a.date)}
-                  </span>
+                )}
+                <div className="p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${categoryColors[a.category]}`}
+                      >
+                        {a.category}
+                      </span>
+                      {a.pinned && (
+                        <span className="flex items-center gap-1 rounded-full bg-ieee-orange/10 px-2.5 py-0.5 text-xs font-semibold text-ieee-orange">
+                          <Pin className="h-3 w-3" /> Pinned
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono text-[11px] uppercase tracking-wide text-slate-400">
+                      {formatDate(a.date)}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 flex items-center gap-1.5 font-display text-lg font-bold text-slate-900">
+                    {a.title}
+                    <ArrowUpRight className="h-4 w-4 text-slate-300 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ieee-orange" />
+                  </h3>
+                  <p className="mt-1.5 text-sm text-slate-600">{a.summary}</p>
                 </div>
-                <h3 className="mt-3 flex items-center gap-1.5 font-display text-lg font-bold text-slate-900">
-                  {a.title}
-                  <ArrowUpRight className="h-4 w-4 text-slate-300 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ieee-orange" />
-                </h3>
-                <p className="mt-1.5 text-sm text-slate-600">{a.summary}</p>
               </Link>
             </motion.div>
           ))}
-        </div>
+          </div>
+        )}
       </PageSection>
     </div>
   );

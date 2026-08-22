@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -26,8 +27,8 @@ import { events as eventsSeed } from '@/data/events';
 import { projectSeed } from '@/data/projectSeed';
 import { submissions as submissionsSeed } from '@/data/submissions';
 import { dateSheets as dateSheetsSeed } from '@/data/dateSheets';
-import { announcements as announcementsSeed } from '@/data/announcements';
 import { galleryAlbums as gallerySeed } from '@/data/gallery';
+import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
 import type { Paper, Course, EventItem, ProjectPost, Submission, DateSheet, Announcement, GalleryAlbum } from '@/types';
 
 const quickActions = [
@@ -45,8 +46,29 @@ export default function DashboardPage() {
   const { items: projects } = useCollection<ProjectPost>('projectPosts', projectSeed);
   const { items: submissions } = useCollection<Submission>('submissions', submissionsSeed);
   const { items: dateSheets } = useCollection<DateSheet>('dateSheets', dateSheetsSeed);
-  const { items: announcements } = useCollection<Announcement>('announcements', announcementsSeed);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const { items: gallery } = useCollection<GalleryAlbum>('gallery', gallerySeed);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => announcementsService
+      .list()
+      .then((items) => {
+        if (!ignore) setAnnouncements(items);
+      })
+      .catch((error) => {
+        console.error('Failed to load announcement metrics', error);
+      });
+    const unsubscribe = subscribeAnnouncementsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
 
   const papersToVerify = papers.filter((p) => p.verification !== 'verified').length;
   const submissionsPending = submissions.filter((s) => s.status === 'pending').length;

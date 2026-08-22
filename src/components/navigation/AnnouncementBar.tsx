@@ -1,10 +1,31 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { announcements as announcementsSeed } from '@/data/announcements';
-import { useCollection } from '@/hooks/useCollection';
+import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
 import type { Announcement } from '@/types';
 
 export default function AnnouncementBar() {
-  const { items: announcements } = useCollection<Announcement>('announcements', announcementsSeed);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => announcementsService
+      .list()
+      .then((items) => {
+        if (!ignore) setAnnouncements(items);
+      })
+      .catch((error) => {
+        console.error('Failed to load announcements ticker', error);
+      });
+    const unsubscribe = subscribeAnnouncementsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
 
   // Prefer pinned announcements, fall back to the latest — these drive the ticker live.
   const pinned = announcements.filter((a) => a.pinned);

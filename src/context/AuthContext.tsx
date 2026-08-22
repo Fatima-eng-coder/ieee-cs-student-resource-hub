@@ -18,7 +18,7 @@ interface AuthContextValue {
   user: User | null;
   login: (input: LoginInput) => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   /** Returns true if already signed in; otherwise opens the login modal and
    *  runs `action` after a successful sign-in. */
   ensureAuth: (action?: () => void, reason?: string) => boolean;
@@ -42,9 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await authService.signup(input));
   }, []);
 
-  const logout = useCallback(() => {
-    authService.logout();
+  const logout = useCallback(async () => {
+    await authService.logout();
     setUser(null);
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    authService.loadCurrentUser().then((currentUser) => {
+      if (!ignore) setUser(currentUser);
+    });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const ensureAuth = useCallback(

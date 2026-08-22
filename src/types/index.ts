@@ -11,6 +11,7 @@ export interface Announcement {
   date: string;
   category: 'general' | 'event' | 'academic' | 'navigation' | 'projects';
   pinned?: boolean;
+  posterUrl?: string | null;
 }
 
 export interface Banner {
@@ -441,3 +442,41 @@ export interface Developer {
   skills: string[];
   links: DeveloperLinks;
 }
+
+
+export type ProfileRole =
+  | 'student'
+  | 'webmaster'
+  | 'vice_chairperson'
+  | 'chairperson'
+  | 'general_secretary'
+  | 'joint_secretary'
+  | 'graphic_designer'
+  | 'operations_manager'
+  | 'treasurer';
+
+export interface Profile {
+  id: string;
+  name: string;
+  email: string;
+  role: ProfileRole;
+  createdAt: string;
+}
+
+export const SOCIETY_ROLES = [
+  'webmaster',
+  'vice_chairperson',
+  'chairperson',
+  'general_secretary',
+  'joint_secretary',
+  'graphic_designer',
+  'operations_manager',
+  'treasurer',
+] as const satisfies readonly ProfileRole[];
+
+export const CONTENT_MANAGER_ROLES = [
+  'webmaster',
+  'vice_chairperson',
+  'chairperson',
+  'general_secretary',
+] as const satisfies readonly ProfileRole[];

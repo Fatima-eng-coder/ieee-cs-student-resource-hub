@@ -12,8 +12,8 @@ export default function AdminMobileNav({ open, onClose }: { open: boolean; onClo
   const navigate = useNavigate();
   const admin = adminAuthService.getCurrentAdmin();
 
-  const logout = () => {
-    adminAuthService.logoutAdmin();
+  const logout = async () => {
+    await adminAuthService.logoutAdmin();
     onClose();
     navigate('/portal/login', { replace: true });
   };

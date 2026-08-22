@@ -1,31 +1,11 @@
+import { supabase } from '@/lib/supabase';
 import type { User } from '@/types';
-import { readJSON, writeJSON, makeId } from '@/utils/storage';
 
-/**
- * Mock authentication backed by localStorage. Every method is async and returns
- * the same shapes a real REST endpoint would, so wiring a real backend later is
- * a matter of replacing the bodies with `fetch` calls — no consumer changes.
- *
- * NOTE: this is a prototype. Passwords are lightly obfuscated, NOT securely
- * hashed. Real auth (hashing, tokens, httpOnly cookies) lands with the backend.
- */
-
-const USERS_KEY = 'ieeecs_users';
-const SESSION_KEY = 'ieeecs_session';
-
-interface StoredUser extends User {
-  password: string;
-}
-
-const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms));
-
-function getUsers(): StoredUser[] {
-  return readJSON<StoredUser[]>(USERS_KEY, []);
-}
-
-function toPublic({ password: _password, ...user }: StoredUser): User {
-  void _password;
-  return user;
+interface ProfileRow {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
 }
 
 export interface SignupInput {
@@ -41,17 +21,67 @@ export interface LoginInput {
 
 export class AuthError extends Error {}
 
+const toUser = (profile: ProfileRow): User => ({
+  id: profile.id,
+  name: profile.name,
+  email: profile.email,
+  avatar: '',
+  createdAt: profile.created_at,
+});
+
+async function getProfile(userId: string): Promise<User | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id,name,email,created_at')
+    .eq('id', userId)
+    .single();
+
+  if (error) return null;
+  return data ? toUser(data as ProfileRow) : null;
+}
+
+async function ensureStudentProfile(userId: string, name: string, email: string): Promise<User> {
+  const existing = await getProfile(userId);
+  if (existing) return existing;
+
+  const profile = {
+    id: userId,
+    name: name.trim() || email.split('@')[0],
+    email: email.trim().toLowerCase(),
+    role: 'student',
+  };
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert(profile)
+    .select('id,name,email,created_at')
+    .single();
+
+  if (error) throw new AuthError(error.message);
+  return toUser(data as ProfileRow);
+}
+
+const profileFallback = (userId: string, name: string | undefined, email: string): User => ({
+  id: userId,
+  name: name?.trim() || email.split('@')[0],
+  email,
+  avatar: '',
+  createdAt: new Date().toISOString(),
+});
+
 export const authService = {
-  /** Synchronous read of the persisted session for first paint (no flash). */
+  /** Supabase restores sessions async, so AuthProvider refreshes this after mount. */
   getCurrentUser(): User | null {
-    const id = readJSON<string | null>(SESSION_KEY, null);
-    if (!id) return null;
-    const user = getUsers().find((u) => u.id === id);
-    return user ? toPublic(user) : null;
+    return null;
+  },
+
+  async loadCurrentUser(): Promise<User | null> {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return null;
+    return getProfile(data.user.id);
   },
 
   async signup({ name, email, password }: SignupInput): Promise<User> {
-    await delay();
     const normalized = email.trim().toLowerCase();
     if (!name.trim()) throw new AuthError('Please enter your name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw new AuthError('Enter a valid email address.');
@@ -59,36 +89,48 @@ export const authService = {
     if (!/[0-9]/.test(password)) throw new AuthError('Password must include at least one number.');
     if (!/[^A-Za-z0-9]/.test(password)) throw new AuthError('Password must include at least one special character.');
 
-    const users = getUsers();
-    if (users.some((u) => u.email === normalized)) {
-      throw new AuthError('An account with this email already exists.');
+    const { data, error } = await supabase.auth.signUp({
+      email: normalized,
+      password,
+      options: {
+        data: { name: name.trim() },
+      },
+    });
+
+    if (error || !data.user) {
+      throw new AuthError(error?.message ?? 'Could not create account.');
     }
 
-    const user: StoredUser = {
-      id: makeId('user'),
-      name: name.trim(),
-      email: normalized,
-      avatar: '',
-      createdAt: new Date().toISOString(),
-      password: btoa(password),
-    };
-    writeJSON(USERS_KEY, [user, ...users]);
-    writeJSON(SESSION_KEY, user.id);
-    return toPublic(user);
+    if (!data.session) {
+      throw new AuthError('Account created. Please confirm your email, then log in.');
+    }
+
+    const profile = await getProfile(data.user.id);
+    return profile ?? profileFallback(data.user.id, name, normalized);
   },
 
   async login({ email, password }: LoginInput): Promise<User> {
-    await delay();
     const normalized = email.trim().toLowerCase();
-    const user = getUsers().find((u) => u.email === normalized);
-    if (!user || user.password !== btoa(password)) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalized,
+      password,
+    });
+
+    if (error || !data.user) {
       throw new AuthError('Incorrect email or password.');
     }
-    writeJSON(SESSION_KEY, user.id);
-    return toPublic(user);
+
+    const profile = await getProfile(data.user.id);
+    if (profile) return profile;
+
+    return ensureStudentProfile(
+      data.user.id,
+      data.user.user_metadata.name ?? normalized.split('@')[0],
+      normalized
+    );
   },
 
-  logout(): void {
-    writeJSON<string | null>(SESSION_KEY, null);
+  async logout(): Promise<void> {
+    await supabase.auth.signOut();
   },
 };
