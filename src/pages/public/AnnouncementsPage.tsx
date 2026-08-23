@@ -85,11 +85,6 @@ export default function AnnouncementsPage() {
                 data-cursor="link"
                 className="group block overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-ieee-orange/30 hover:shadow-lg"
               >
-                {a.posterUrl && (
-                  <div className="aspect-[16/7] w-full overflow-hidden bg-slate-100">
-                    <img src={a.posterUrl} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
-                  </div>
-                )}
                 <div className="p-6">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">

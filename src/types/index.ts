@@ -11,7 +11,6 @@ export interface Announcement {
   date: string;
   category: 'general' | 'event' | 'academic' | 'navigation' | 'projects';
   pinned?: boolean;
-  posterUrl?: string | null;
 }
 
 export interface Banner {

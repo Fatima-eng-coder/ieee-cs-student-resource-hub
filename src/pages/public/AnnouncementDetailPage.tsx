@@ -89,11 +89,6 @@ export default function AnnouncementDetailPage() {
         </Link>
 
         <article className="mt-6 overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
-          {announcement.posterUrl && (
-            <div className="aspect-[16/9] w-full bg-slate-100">
-              <img src={announcement.posterUrl} alt="" className="h-full w-full object-cover" />
-            </div>
-          )}
           <div className="p-8 sm:p-10">
             <p className="leading-relaxed text-slate-700">{announcement.body}</p>
           </div>

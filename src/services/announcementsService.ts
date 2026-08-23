@@ -9,10 +9,8 @@ interface AnnouncementRow {
   date: string;
   category: Announcement['category'];
   pinned: boolean;
-  poster_url: string | null;
 }
 
-const POSTER_BUCKET = 'announcement-posters';
 const ANNOUNCEMENTS_CHANGED_EVENT = 'ieeecs:announcements-changed';
 const ANNOUNCEMENTS_CHANNEL = 'ieeecs-announcements';
 
@@ -24,32 +22,7 @@ const toAnnouncement = (row: AnnouncementRow): Announcement => ({
   date: row.date,
   category: row.category,
   pinned: row.pinned,
-  posterUrl: row.poster_url,
 });
-
-function posterPathFromPublicUrl(url?: string | null): string | null {
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url);
-    const marker = `/storage/v1/object/public/${POSTER_BUCKET}/`;
-    const markerIndex = parsed.pathname.indexOf(marker);
-    if (markerIndex === -1) return null;
-
-    const path = parsed.pathname.slice(markerIndex + marker.length);
-    return path ? decodeURIComponent(path) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function removePosterIfOwned(url?: string | null): Promise<void> {
-  const path = posterPathFromPublicUrl(url);
-  if (!path) return;
-
-  const { error } = await supabase.storage.from(POSTER_BUCKET).remove([path]);
-  if (error) console.error('Failed to remove announcement poster', error);
-}
 
 async function refreshAuthSession(): Promise<void> {
   const { error } = await supabase.auth.refreshSession();
@@ -97,7 +70,7 @@ export const announcementsService = {
   async list(): Promise<Announcement[]> {
     const { data, error } = await supabase
       .from('announcements')
-      .select('id,title,summary,body,date,category,pinned,poster_url')
+      .select('id,title,summary,body,date,category,pinned')
       .order('pinned', { ascending: false })
       .order('date', { ascending: false });
 
@@ -117,10 +90,9 @@ export const announcementsService = {
         date: input.date,
         category: input.category,
         pinned: Boolean(input.pinned),
-        poster_url: input.posterUrl || null,
         created_by: userData.user?.id ?? null,
       })
-      .select('id,title,summary,body,date,category,pinned,poster_url')
+      .select('id,title,summary,body,date,category,pinned')
       .single();
 
     if (error) throw new Error(error.message);
@@ -131,19 +103,6 @@ export const announcementsService = {
 
   async update(id: string, patch: Partial<Omit<Announcement, 'id'>>): Promise<Announcement> {
     await refreshAuthSession();
-    let previousPosterUrl: string | null = null;
-
-    if (patch.posterUrl !== undefined) {
-      const { data: existing, error: existingError } = await supabase
-        .from('announcements')
-        .select('poster_url')
-        .eq('id', id)
-        .single();
-
-      if (existingError) throw new Error(existingError.message);
-      previousPosterUrl = (existing as Pick<AnnouncementRow, 'poster_url'>).poster_url;
-    }
-
     const payload: Record<string, unknown> = {};
     if (patch.title !== undefined) payload.title = patch.title.trim();
     if (patch.summary !== undefined) payload.summary = patch.summary.trim();
@@ -151,21 +110,16 @@ export const announcementsService = {
     if (patch.date !== undefined) payload.date = patch.date;
     if (patch.category !== undefined) payload.category = patch.category;
     if (patch.pinned !== undefined) payload.pinned = Boolean(patch.pinned);
-    if (patch.posterUrl !== undefined) payload.poster_url = patch.posterUrl || null;
 
     const { data, error } = await supabase
       .from('announcements')
       .update(payload)
       .eq('id', id)
-      .select('id,title,summary,body,date,category,pinned,poster_url')
+      .select('id,title,summary,body,date,category,pinned')
       .single();
 
     if (error) throw new Error(error.message);
     const updated = toAnnouncement(data as AnnouncementRow);
-
-    if (patch.posterUrl !== undefined && previousPosterUrl !== updated.posterUrl) {
-      await removePosterIfOwned(previousPosterUrl);
-    }
 
     notifyAnnouncementsChanged();
     return updated;
@@ -173,39 +127,9 @@ export const announcementsService = {
 
   async remove(id: string): Promise<void> {
     await refreshAuthSession();
-    const { data: existing, error: existingError } = await supabase
-      .from('announcements')
-      .select('poster_url')
-      .eq('id', id)
-      .single();
-
-    if (existingError) throw new Error(existingError.message);
-
     const { error } = await supabase.from('announcements').delete().eq('id', id);
     if (error) throw new Error(error.message);
 
-    await removePosterIfOwned((existing as Pick<AnnouncementRow, 'poster_url'>).poster_url);
     notifyAnnouncementsChanged();
-  },
-
-  async uploadPoster(file: File): Promise<string> {
-    await refreshAuthSession();
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-    const safeName = file.name
-      .replace(/\.[^.]+$/, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 48);
-    const path = `${Date.now()}-${safeName || 'poster'}.${ext}`;
-
-    const { error } = await supabase.storage
-      .from(POSTER_BUCKET)
-      .upload(path, file, { cacheControl: '3600', upsert: false });
-
-    if (error) throw new Error(error.message);
-
-    const { data } = supabase.storage.from(POSTER_BUCKET).getPublicUrl(path);
-    return data.publicUrl;
   },
 };
