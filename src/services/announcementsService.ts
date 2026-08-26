@@ -11,9 +11,6 @@ interface AnnouncementRow {
   pinned: boolean;
 }
 
-const ANNOUNCEMENTS_CHANGED_EVENT = 'ieeecs:announcements-changed';
-const ANNOUNCEMENTS_CHANNEL = 'ieeecs-announcements';
-
 const toAnnouncement = (row: AnnouncementRow): Announcement => ({
   id: row.id,
   title: row.title,
@@ -29,40 +26,23 @@ async function refreshAuthSession(): Promise<void> {
   if (error) console.warn('Could not refresh auth session before protected action', error);
 }
 
-function notifyAnnouncementsChanged(): void {
-  if (typeof window === 'undefined') return;
-
-  window.dispatchEvent(new Event(ANNOUNCEMENTS_CHANGED_EVENT));
-
-  try {
-    const channel = new BroadcastChannel(ANNOUNCEMENTS_CHANNEL);
-    channel.postMessage('changed');
-    channel.close();
-  } catch {
-    /* BroadcastChannel is optional; same-tab updates still work. */
-  }
-}
-
 export function subscribeAnnouncementsChanged(callback: () => void): () => void {
   if (typeof window === 'undefined') return () => undefined;
 
-  let channel: BroadcastChannel | null = null;
-  const onLocalChange = () => callback();
-  const onBroadcast = () => callback();
+  let timeout: number | null = null;
+  const realtimeChannel = supabase.channel(`announcements-sync-${crypto.randomUUID()}`);
+  const scheduleCallback = () => {
+    if (timeout) window.clearTimeout(timeout);
+    timeout = window.setTimeout(callback, 150);
+  };
 
-  window.addEventListener(ANNOUNCEMENTS_CHANGED_EVENT, onLocalChange);
-
-  try {
-    channel = new BroadcastChannel(ANNOUNCEMENTS_CHANNEL);
-    channel.addEventListener('message', onBroadcast);
-  } catch {
-    channel = null;
-  }
+  realtimeChannel
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, scheduleCallback)
+    .subscribe();
 
   return () => {
-    window.removeEventListener(ANNOUNCEMENTS_CHANGED_EVENT, onLocalChange);
-    channel?.removeEventListener('message', onBroadcast);
-    channel?.close();
+    if (timeout) window.clearTimeout(timeout);
+    void supabase.removeChannel(realtimeChannel);
   };
 }
 
@@ -96,9 +76,7 @@ export const announcementsService = {
       .single();
 
     if (error) throw new Error(error.message);
-    const created = toAnnouncement(data as AnnouncementRow);
-    notifyAnnouncementsChanged();
-    return created;
+    return toAnnouncement(data as AnnouncementRow);
   },
 
   async update(id: string, patch: Partial<Omit<Announcement, 'id'>>): Promise<Announcement> {
@@ -119,17 +97,12 @@ export const announcementsService = {
       .single();
 
     if (error) throw new Error(error.message);
-    const updated = toAnnouncement(data as AnnouncementRow);
-
-    notifyAnnouncementsChanged();
-    return updated;
+    return toAnnouncement(data as AnnouncementRow);
   },
 
   async remove(id: string): Promise<void> {
     await refreshAuthSession();
     const { error } = await supabase.from('announcements').delete().eq('id', id);
     if (error) throw new Error(error.message);
-
-    notifyAnnouncementsChanged();
   },
 };

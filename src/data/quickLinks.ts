@@ -6,7 +6,7 @@ export const quickLinks: QuickLink[] = [
   { id: 'ql-3', label: 'Academic Calendar', url: 'https://example.edu/calendar', category: 'University Portals' },
   { id: 'ql-4', label: 'Department Website', url: 'https://example.edu/cs', category: 'University Portals' },
   { id: 'ql-5', label: 'Past Papers Archive', url: '/past-papers', category: 'Past Paper Links' },
-  { id: 'ql-6', label: 'Contribute a Past Paper', url: '/past-papers/contribute', category: 'Past Paper Links' },
+  { id: 'ql-6', label: 'Contribute Course Material', url: '/past-papers/contribute', category: 'Past Paper Links' },
   { id: 'ql-7', label: 'Request a Missing Paper', url: '/past-papers/request', category: 'Past Paper Links' },
   { id: 'ql-8', label: 'Course Directory', url: '/courses', category: 'Academic Resources' },
   { id: 'ql-9', label: 'Teacher Directory', url: '/courses/teachers', category: 'Academic Resources' },

@@ -14,11 +14,25 @@ type Listener = () => void;
 
 const cache = new Map<string, unknown>();
 const listeners = new Map<string, Set<Listener>>();
+let storageListenerAttached = false;
 
 const storageKey = (key: string) => PREFIX + key;
 
+function ensureStorageListener() {
+  if (storageListenerAttached || typeof window === 'undefined') return;
+  storageListenerAttached = true;
+
+  window.addEventListener('storage', (event) => {
+    if (!event.key?.startsWith(PREFIX)) return;
+    const key = event.key.slice(PREFIX.length);
+    cache.delete(key);
+    listeners.get(key)?.forEach((fn) => fn());
+  });
+}
+
 /** Stable snapshot read (safe for useSyncExternalStore). Persists nothing. */
 export function readCollection<T>(key: string, seed: T[]): T[] {
+  ensureStorageListener();
   if (cache.has(key)) return cache.get(key) as T[];
   let value: T[] = seed;
   try {
@@ -32,6 +46,7 @@ export function readCollection<T>(key: string, seed: T[]): T[] {
 }
 
 export function writeCollection<T>(key: string, items: T[]): void {
+  ensureStorageListener();
   cache.set(key, items);
   try {
     localStorage.setItem(storageKey(key), JSON.stringify(items));
@@ -42,6 +57,7 @@ export function writeCollection<T>(key: string, items: T[]): void {
 }
 
 export function subscribeCollection(key: string, cb: Listener): () => void {
+  ensureStorageListener();
   let set = listeners.get(key);
   if (!set) {
     set = new Set();

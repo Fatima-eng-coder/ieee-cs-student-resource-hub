@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Plus, Eye, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
@@ -64,7 +64,26 @@ export default function AdminResourcePage<T extends { id: string }>({
   reorderable = false,
 }: AdminResourcePageProps<T>) {
   const { items: rows, upsert, update, remove, setAll } = useCollection<T>(collectionKey, seed);
-  const canManage = adminAuthService.canManageContent();
+  const [admin, setAdmin] = useState(() => adminAuthService.getCurrentAdmin());
+  const canManage = adminAuthService.canManageContent(admin);
+
+  useEffect(() => {
+    if (admin) return;
+
+    let ignore = false;
+    adminAuthService
+      .loadCurrentAdmin()
+      .then((profile) => {
+        if (!ignore) setAdmin(profile);
+      })
+      .catch(() => {
+        if (!ignore) setAdmin(null);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [admin]);
 
   const move = (row: T, dir: -1 | 1) => {
     const i = rows.findIndex((r) => r.id === row.id);

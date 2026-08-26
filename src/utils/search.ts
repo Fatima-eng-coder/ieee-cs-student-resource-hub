@@ -1,6 +1,5 @@
 import type {
   SearchResult,
-  Paper,
   Course,
   EventItem,
   FAQ,
@@ -10,7 +9,6 @@ import type {
   DateSheet,
 } from '@/types';
 import { readCollection } from '@/services/store';
-import { papers as papersSeed } from '@/data/papers';
 import { courses as coursesSeed } from '@/data/courses';
 import { events as eventsSeed } from '@/data/events';
 import { faqs as faqsSeed } from '@/data/faqs';
@@ -27,26 +25,13 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 function buildIndex(): SearchResult[] {
   const results: SearchResult[] = [];
 
-  readCollection<Paper>('papers', papersSeed)
-    .filter((p) => p.verification === 'verified')
-    .forEach((p) =>
-      results.push({
-        id: p.id,
-        title: p.title,
-        type: 'Past Paper',
-        description: `${p.courseName} — ${p.term} ${p.year} ${p.examType}`,
-        tags: p.tags,
-        link: `/past-papers/${p.id}`,
-      })
-    );
-
   readCollection<Course>('courses', coursesSeed).forEach((c) =>
     results.push({
       id: c.id,
       title: `${c.code} — ${c.name}`,
       type: 'Course',
       description: c.description,
-      tags: [c.code, c.department, c.semester ? `Semester ${c.semester}` : ''].filter(Boolean),
+      tags: [c.code, c.department],
       link: `/courses/${c.id}`,
     })
   );

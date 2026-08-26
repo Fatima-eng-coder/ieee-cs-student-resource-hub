@@ -18,7 +18,7 @@ export default function AuthScreen({ mode }: { mode: 'login' | 'signup' }) {
   const { user, login, signup } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const redirect = params.get('redirect') || '/projects-expo';
+  const redirect = params.get('redirect') || '/';
 
   useEffect(() => {
     if (user) navigate(redirect, { replace: true });

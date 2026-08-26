@@ -58,7 +58,7 @@ export interface Paper {
   courseId: string;
   courseName: string;
   title: string;
-  term: string;
+  session: string;
   year: number;
   examType: 'Midterm' | 'Final' | 'Quiz' | 'Assignment';
   instructor: string;
@@ -70,30 +70,25 @@ export interface Paper {
   downloads: number;
 }
 
-export interface WeeklyTopic {
-  week: number;
-  topic: string;
-}
-
 export interface Course {
   id: string;
   code: string;
   name: string;
   creditHours: number;
-  /** Recommended semester (1-8). */
-  semester?: number;
+  /** Lab/contact hours from the credit structure. 0 means this is not lab-based. */
+  labHours?: number;
   department: string;
   description: string;
   outcomes: string[];
-  syllabus: WeeklyTopic[];
   cdfUrl?: string;
+  cdfPath?: string | null;
   labManualUrl?: string;
+  labManualPath?: string | null;
   teacherIds: string[];
   /** Course codes this course requires beforehand. */
   prerequisites?: string[];
   usefulLinks: { label: string; url: string }[];
   tips: string[];
-  verification: VerificationStatus;
 }
 
 /** Degree programs offered — used to scope date sheets. */

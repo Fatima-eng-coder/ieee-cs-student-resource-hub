@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { teachers } from '@/data/teachers';
+import { useFaculty } from '@/hooks/useFaculty';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SearchBar from '@/components/ui/SearchBar';
@@ -8,6 +8,7 @@ import EmptyState from '@/components/ui/EmptyState';
 
 export default function TeachersPage() {
   const [query, setQuery] = useState('');
+  const { teachers, loading, error } = useFaculty();
   const filtered = teachers.filter(
     (t) =>
       !query ||
@@ -28,7 +29,16 @@ export default function TeachersPage() {
 
       <PageSection tone="cream" top>
         <SearchBar placeholder="Search by name or department..." onSearch={setQuery} size="lg" />
-        {filtered.length === 0 ? (
+        {error && (
+          <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+            {error}
+          </div>
+        )}
+        {loading ? (
+          <div className="mt-8">
+            <EmptyState title="Loading faculty" description="Please wait a moment." />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="mt-8">
             <EmptyState title="No teachers found" />
           </div>

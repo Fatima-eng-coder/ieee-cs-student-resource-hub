@@ -8,6 +8,7 @@ import SearchBar from '@/components/ui/SearchBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { search } from '@/utils/search';
 import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
+import { papersService, subscribeMaterialsChanged } from '@/services/papersService';
 import type { SearchResult } from '@/types';
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -16,6 +17,7 @@ export default function SearchPage() {
   const [params] = useSearchParams();
   const [query, setQuery] = useState(params.get('q') ?? '');
   const [announcementResults, setAnnouncementResults] = useState<SearchResult[]>([]);
+  const [paperResults, setPaperResults] = useState<SearchResult[]>([]);
 
   useEffect(() => {
     let ignore = false;
@@ -48,16 +50,49 @@ export default function SearchPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => papersService
+      .list()
+      .then((papers) => {
+        if (ignore) return;
+        setPaperResults(
+          papers
+            .filter((paper) => paper.verification === 'verified')
+            .map((paper) => ({
+              id: paper.id,
+              title: paper.title,
+              type: paper.examType === 'Quiz' || paper.examType === 'Assignment' ? 'Course Material' : 'Past Paper',
+              description: `${paper.courseName} - ${paper.session} ${paper.year} ${paper.examType}`,
+              tags: paper.tags,
+              link: paper.examType === 'Quiz' || paper.examType === 'Assignment' ? `/courses/${paper.courseId}` : `/past-papers/${paper.id}`,
+            }))
+        );
+      })
+      .catch((error) => {
+        console.error('Failed to load papers for search', error);
+      });
+    const unsubscribe = subscribeMaterialsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     const nq = norm(q);
-    const liveAnnouncements = announcementResults.filter((item) => {
+    const liveResults = [...announcementResults, ...paperResults].filter((item) => {
       const hay = `${item.title} ${item.description} ${item.tags.join(' ')}`.toLowerCase();
       return hay.includes(q) || (nq.length >= 2 && norm(hay).includes(nq));
     });
-    return [...search(query), ...liveAnnouncements];
-  }, [announcementResults, query]);
+    return [...search(query), ...liveResults];
+  }, [announcementResults, paperResults, query]);
 
   return (
     <div className="relative">

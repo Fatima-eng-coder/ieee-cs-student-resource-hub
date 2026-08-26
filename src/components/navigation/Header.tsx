@@ -6,13 +6,11 @@ import Magnetic from '@/components/effects/Magnetic';
 import Avatar from '@/components/ui/Avatar';
 import BrandLogo from '@/components/ui/BrandLogo';
 import { useAuth } from '@/context/AuthContext';
-import { useCollection } from '@/hooks/useCollection';
-import { navLinks as navLinksSeed } from '@/data/navLinks';
-import type { NavLinkItem } from '@/types';
+import { useNavLinks } from '@/hooks/useNavLinks';
 
 export default function Header() {
   const { user, logout } = useAuth();
-  const { items: allNavLinks } = useCollection<NavLinkItem>('navLinks', navLinksSeed);
+  const { items: allNavLinks } = useNavLinks();
   const navItems = allNavLinks.filter((n) => n.enabled);
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);

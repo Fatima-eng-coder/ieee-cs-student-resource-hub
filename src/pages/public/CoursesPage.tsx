@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Users, PencilLine } from 'lucide-react';
-import { courses as coursesSeed } from '@/data/courses';
-import { useCollection } from '@/hooks/useCollection';
-import type { Course } from '@/types';
+import { useCourses } from '@/hooks/useCourses';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import Magnetic from '@/components/effects/Magnetic';
@@ -12,20 +10,48 @@ import FilterPanel, { type FilterGroup } from '@/components/ui/FilterPanel';
 import CourseCard from '@/components/cards/CourseCard';
 import EmptyState from '@/components/ui/EmptyState';
 
+const featuredCourseRules = [
+  { codes: ['CSC103', 'CS-101', 'CS101'], names: ['programming fundamentals', 'fundamentals of programming'] },
+  { codes: ['CSC241', 'CS-210', 'CS210'], names: ['object oriented programming', 'oop'] },
+  { codes: ['CSC211', 'CS-301', 'CS301'], names: ['data structures'] },
+  { codes: ['CSC270', 'CS-405', 'CS405'], names: ['database systems'] },
+  { codes: ['CSC323', 'CS-450', 'CS450'], names: ['operating systems', 'operating system'] },
+  { codes: ['CSC275', 'CS-360', 'CS360'], names: ['computer networks', 'computer network'] },
+];
+
+const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
 export default function CoursesPage() {
-  const { items: courses } = useCollection<Course>('courses', coursesSeed);
+  const { courses, loading, error } = useCourses();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const hasSearch = query.trim().length > 0;
+  const hasFilters = Object.values(filters).some(Boolean);
+
+  const featuredCourses = useMemo(() => {
+    const ranked = courses
+      .map((course) => {
+        const normalizedCode = normalize(course.code);
+        const normalizedName = normalize(course.name);
+        const featuredIndex = featuredCourseRules.findIndex((rule) => {
+          const codeMatch = rule.codes.some((code) => normalize(code) === normalizedCode);
+          const nameMatch = rule.names.some((name) => normalize(name) === normalizedName);
+          return codeMatch || nameMatch;
+        });
+
+        return {
+          course,
+          rank: featuredIndex === -1 ? Number.POSITIVE_INFINITY : featuredIndex,
+        };
+      })
+      .filter((item) => Number.isFinite(item.rank))
+      .sort((a, b) => a.rank - b.rank || a.course.code.localeCompare(b.course.code));
+
+    return ranked.slice(0, 6).map((item) => item.course);
+  }, [courses]);
 
   const filterGroups: FilterGroup[] = useMemo(
     () => [
-      {
-        label: 'Semester',
-        key: 'semester',
-        options: [...new Set(courses.map((c) => c.semester).filter((s): s is number => !!s))]
-          .sort((a, b) => a - b)
-          .map((s) => ({ label: `Semester ${s}`, value: String(s) })),
-      },
       {
         label: 'Credit Hours',
         key: 'creditHours',
@@ -38,16 +64,16 @@ export default function CoursesPage() {
   );
 
   const filtered = useMemo(() => {
-    return courses.filter((c) => {
+    const source = hasSearch || hasFilters ? courses : featuredCourses;
+    return source.filter((c) => {
       const matchesQuery =
         !query ||
         c.name.toLowerCase().includes(query.toLowerCase()) ||
         c.code.toLowerCase().includes(query.toLowerCase());
-      const matchesSemester = !filters.semester || String(c.semester) === filters.semester;
       const matchesCredit = !filters.creditHours || String(c.creditHours) === filters.creditHours;
-      return matchesQuery && matchesSemester && matchesCredit;
+      return matchesQuery && matchesCredit;
     });
-  }, [courses, query, filters]);
+  }, [courses, featuredCourses, hasSearch, hasFilters, query, filters]);
 
   return (
     <div className="relative">
@@ -56,10 +82,10 @@ export default function CoursesPage() {
         eyebrow="Academics"
         breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Courses' }]}
         title="Course Resources"
-        subtitle="Course outlines, weekly syllabus, CDFs, lab manuals and study tips — everything you need to get ahead, in one place."
+        subtitle="Course outlines, CDFs, lab manuals and study tips — everything you need to get ahead, in one place."
         meta={[
-          { value: `${courses.length}`, label: 'Courses' },
-          { value: `${courses.reduce((s, c) => s + c.syllabus.length, 0)}`, label: 'Weeks Mapped' },
+          { value: `${featuredCourses.length}`, label: 'Featured' },
+          { value: `${courses.length}`, label: 'Catalog' },
         ]}
       >
         <Magnetic>
@@ -94,13 +120,22 @@ export default function CoursesPage() {
               onReset={() => setFilters({})}
             />
           </div>
-          {filtered.length === 0 ? (
+          {loading ? (
+            <EmptyState title="Loading courses" description="Fetching the latest course catalog." />
+          ) : error ? (
+            <EmptyState title="Could not load courses" description={error} />
+          ) : filtered.length === 0 ? (
             <EmptyState title="No courses found" description="Try a different search term or filter." />
           ) : (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((course) => (
-                <CourseCard key={course.id} course={course} />
-              ))}
+            <div>
+              <p className="mb-4 font-mono text-xs uppercase tracking-wider text-slate-500">
+                {hasSearch || hasFilters ? `${filtered.length} matching courses` : 'Featured computer science courses'}
+              </p>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {filtered.map((course) => (
+                  <CourseCard key={course.id} course={course} />
+                ))}
+              </div>
             </div>
           )}
         </div>

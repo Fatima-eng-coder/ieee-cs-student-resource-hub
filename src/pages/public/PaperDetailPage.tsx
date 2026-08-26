@@ -1,9 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Download, FileText, FlagTriangleRight, BookOpen, ShieldCheck } from 'lucide-react';
 import type { Paper } from '@/types';
-import { papers as seedPapers } from '@/data/papers';
-import { useCollection } from '@/hooks/useCollection';
+import { papersService, subscribeMaterialsChanged } from '@/services/papersService';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SectionHeading from '@/components/layout/SectionHeading';
@@ -22,22 +22,49 @@ function isImg(url: string) {
 
 export default function PaperDetailPage() {
   const { id } = useParams();
-  const { items: papers, update } = useCollection<Paper>('papers', seedPapers);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => papersService
+      .list()
+      .then((items) => {
+        if (!ignore) setPapers(items);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load paper.');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    const unsubscribe = subscribeMaterialsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
+
   const paper = papers.find((p) => p.id === id);
 
-  if (!paper) {
+  if (loading || error || !paper) {
     return (
       <div className="relative">
         <PageHero
           compact
           eyebrow="Resources"
           breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Past Papers', to: '/past-papers' }, { label: 'Not found' }]}
-          title="Paper not found"
-          subtitle="This paper may have been removed or the link is incorrect."
+          title={loading ? 'Loading paper' : error ? 'Past papers unavailable' : 'Paper not found'}
+          subtitle={loading ? 'Fetching the paper from the society database.' : error ?? 'This paper may have been removed or the link is incorrect.'}
         />
         <PageSection tone="cream" top>
           <EmptyState
-            title="Nothing here"
+            title={loading ? 'Loading' : error ? 'Unable to load' : 'Nothing here'}
             description="Head back to the archive to find what you need."
             action={
               <Link to="/past-papers" className="rounded-lg bg-ieee-orange px-5 py-2.5 text-sm font-semibold text-white hover:bg-ieee-orange-dark">
@@ -56,7 +83,7 @@ export default function PaperDetailPage() {
   const fileReady = hasFile(paper.fileUrl);
 
   const details = [
-    { label: 'Term', value: `${paper.term} ${paper.year}` },
+    { label: 'Session', value: `${paper.session} ${paper.year}` },
     { label: 'Exam Type', value: paper.examType },
     { label: 'Instructor', value: paper.instructor },
     { label: 'Uploaded', value: paper.uploadedDate },
@@ -74,7 +101,7 @@ export default function PaperDetailPage() {
           { label: paper.title },
         ]}
         title={paper.title}
-        subtitle={`${paper.term} ${paper.year} · ${paper.examType} · ${paper.instructor}`}
+        subtitle={`${paper.session} ${paper.year} · ${paper.examType} · ${paper.instructor}`}
       />
 
       <PageSection tone="cream" top>
@@ -143,7 +170,6 @@ export default function PaperDetailPage() {
                   filename={`${paper.courseName}-${paper.examType}-${paper.year}`}
                   label="Download Paper"
                   icon={<Download className="h-4 w-4" />}
-                  onClick={() => update(paper.id, { downloads: paper.downloads + 1 })}
                   className="flex items-center justify-center gap-2 rounded-xl bg-ieee-orange px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(255,108,12,0.3)] transition hover:bg-ieee-orange-dark"
                 />
               </Magnetic>

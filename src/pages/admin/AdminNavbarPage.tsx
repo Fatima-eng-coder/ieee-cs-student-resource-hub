@@ -3,15 +3,13 @@ import { Plus, ArrowUp, ArrowDown, Trash2, GripVertical, Info } from 'lucide-rea
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import NavbarPreview from '@/components/admin/NavbarPreview';
 import { AdminField, AdminInput } from '@/components/admin/AdminField';
-import { useCollection } from '@/hooks/useCollection';
-import { navLinks as navLinksSeed } from '@/data/navLinks';
+import { useNavLinks } from '@/hooks/useNavLinks';
 import { makeId } from '@/utils/storage';
-import type { NavLinkItem } from '@/types';
 
 export default function AdminNavbarPage() {
-  const { items, update, setAll, add, remove } = useCollection<NavLinkItem>('navLinks', navLinksSeed);
+  const { items, update, setAll, add, remove, error: loadError } = useNavLinks();
   const [draft, setDraft] = useState({ label: '', to: '' });
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const enabled = items.filter((l) => l.enabled);
 
@@ -25,11 +23,11 @@ export default function AdminNavbarPage() {
   };
 
   const addLink = () => {
-    setError(null);
+    setFormError(null);
     const label = draft.label.trim();
     let to = draft.to.trim();
-    if (!label) return setError('Give the link a label.');
-    if (!to) return setError('Add the path the link points to.');
+    if (!label) return setFormError('Give the link a label.');
+    if (!to) return setFormError('Add the path the link points to.');
     if (!to.startsWith('/') && !to.startsWith('http')) to = `/${to}`;
     add({ id: makeId('nl'), label, to, enabled: true });
     setDraft({ label: '', to: '' });
@@ -39,6 +37,12 @@ export default function AdminNavbarPage() {
     <div>
       <AdminTopbar title="Navbar" subtitle="Choose which links show in the site navbar, and their order" />
       <div className="p-4 sm:p-6">
+        {loadError && (
+          <p className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
+            {loadError}
+          </p>
+        )}
+
         {/* Live replica */}
         <NavbarPreview links={enabled} />
 
@@ -132,7 +136,7 @@ export default function AdminNavbarPage() {
               <AdminField label="Path" hint="e.g. /events or /forms/123">
                 <AdminInput value={draft.to} onChange={(e) => setDraft({ ...draft, to: e.target.value })} placeholder="/events" />
               </AdminField>
-              {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">{error}</p>}
+              {formError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">{formError}</p>}
               <button
                 onClick={addLink}
                 className="flex items-center justify-center gap-1.5 rounded-xl bg-ieee-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark"

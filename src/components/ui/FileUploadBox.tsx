@@ -36,7 +36,7 @@ export default function FileUploadBox({ label = 'Upload File', accept, onFileSel
     >
       <Icon name="upload" className="h-7 w-7 text-slate-400" />
       <p className="text-sm font-medium text-slate-600">{label}</p>
-      <p className="text-xs text-slate-400">{fileName ?? 'Drag & drop, or click to browse (dummy upload)'}</p>
+      <p className="text-xs text-slate-400">{fileName ?? 'Drag & drop, or click to browse'}</p>
       <input
         ref={inputRef}
         type="file"

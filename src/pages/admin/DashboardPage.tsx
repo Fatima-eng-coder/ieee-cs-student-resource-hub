@@ -18,33 +18,31 @@ import {
 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminMetricCard from '@/components/admin/AdminMetricCard';
-import StatusBadge from '@/components/ui/StatusBadge';
+import VerificationBadge from '@/components/ui/VerificationBadge';
 import { adminAuthService } from '@/services/adminAuthService';
 import { useCollection } from '@/hooks/useCollection';
-import { papers as papersSeed } from '@/data/papers';
-import { courses as coursesSeed } from '@/data/courses';
+import { useCourses } from '@/hooks/useCourses';
 import { events as eventsSeed } from '@/data/events';
 import { projectSeed } from '@/data/projectSeed';
-import { submissions as submissionsSeed } from '@/data/submissions';
 import { dateSheets as dateSheetsSeed } from '@/data/dateSheets';
 import { galleryAlbums as gallerySeed } from '@/data/gallery';
 import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
-import type { Paper, Course, EventItem, ProjectPost, Submission, DateSheet, Announcement, GalleryAlbum } from '@/types';
+import { papersService, subscribeMaterialsChanged } from '@/services/papersService';
+import type { Paper, EventItem, ProjectPost, DateSheet, Announcement, GalleryAlbum } from '@/types';
 
 const quickActions = [
   { label: 'New Event', to: '/portal/events', icon: CalendarPlus },
-  { label: 'Add Past Paper', to: '/portal/papers', icon: FileUp },
+  { label: 'Add Material', to: '/portal/papers', icon: FileUp },
   { label: 'Build a Form', to: '/portal/forms/new', icon: ClipboardList },
   { label: 'Review Submissions', to: '/portal/submissions', icon: Inbox },
 ];
 
 export default function DashboardPage() {
   const admin = adminAuthService.getCurrentAdmin();
-  const { items: papers } = useCollection<Paper>('papers', papersSeed);
-  const { items: courses } = useCollection<Course>('courses', coursesSeed);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const { courses } = useCourses();
   const { items: events } = useCollection<EventItem>('events', eventsSeed);
   const { items: projects } = useCollection<ProjectPost>('projectPosts', projectSeed);
-  const { items: submissions } = useCollection<Submission>('submissions', submissionsSeed);
   const { items: dateSheets } = useCollection<DateSheet>('dateSheets', dateSheetsSeed);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const { items: gallery } = useCollection<GalleryAlbum>('gallery', gallerySeed);
@@ -70,27 +68,48 @@ export default function DashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => papersService
+      .list()
+      .then((items) => {
+        if (!ignore) setPapers(items);
+      })
+      .catch((error) => {
+        console.error('Failed to load paper metrics', error);
+      });
+    const unsubscribe = subscribeMaterialsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
+
   const papersToVerify = papers.filter((p) => p.verification !== 'verified').length;
-  const submissionsPending = submissions.filter((s) => s.status === 'pending').length;
   const upcoming = events.filter((e) => e.timing === 'upcoming').length;
+  const recentSubmissions = papers.filter((p) => p.verification !== 'verified').slice(0, 5);
 
   const attention = [
     {
-      label: 'Papers awaiting verification',
+      label: 'Materials awaiting verification',
       count: papersToVerify,
-      to: '/portal/papers',
-      cta: 'Review papers',
-    },
-    {
-      label: 'Submissions to review',
-      count: submissionsPending,
       to: '/portal/submissions',
       cta: 'Review submissions',
+    },
+    {
+      label: 'Course material library',
+      count: papers.length,
+      to: '/portal/papers',
+      cta: 'Manage materials',
     },
   ];
 
   const library = [
-    { label: 'Past Papers', value: papers.length, icon: FileText, to: '/portal/papers' },
+    { label: 'Course Materials', value: papers.length, icon: FileText, to: '/portal/papers' },
     { label: 'Courses', value: courses.length, icon: BookOpen, to: '/portal/courses' },
     { label: 'Date Sheets', value: dateSheets.length, icon: CalendarClock, to: '/portal/date-sheets' },
     { label: 'Projects', value: projects.length, icon: Layers, to: '/portal/projects' },
@@ -174,7 +193,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {/* Recent activity */}
+          {/* Recent course material submissions */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -182,24 +201,26 @@ export default function DashboardPage() {
             className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:p-6"
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-base font-bold text-slate-900">Recent Submissions</h3>
+              <h3 className="font-display text-base font-bold text-slate-900">Recent Course Material Submissions</h3>
               <Link to="/portal/submissions" className="text-xs font-semibold text-ieee-orange hover:underline">
                 View all
               </Link>
             </div>
             <ul className="mt-4 flex flex-col gap-1">
-              {submissions.slice(0, 5).map((s) => (
-                <li key={s.id} className="flex items-center justify-between gap-2 rounded-xl px-2 py-2 transition hover:bg-cream/60">
+              {recentSubmissions.map((paper) => (
+                <li key={paper.id} className="flex items-center justify-between gap-2 rounded-xl px-2 py-2 transition hover:bg-cream/60">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium capitalize text-slate-800">{s.type.replace(/-/g, ' ')}</p>
+                    <p className="truncate text-sm font-medium text-slate-800">{paper.title}</p>
                     <p className="truncate text-xs text-slate-400">
-                      {s.submittedBy} · {s.submittedAt}
+                      {paper.uploadedBy} · {paper.courseName} · {paper.uploadedDate}
                     </p>
                   </div>
-                  <StatusBadge status={s.status} />
+                  <VerificationBadge status={paper.verification} size="sm" />
                 </li>
               ))}
-              {submissions.length === 0 && <li className="px-2 py-6 text-center text-sm text-slate-400">No submissions yet.</li>}
+              {recentSubmissions.length === 0 && (
+                <li className="px-2 py-6 text-center text-sm text-slate-400">No course material submissions are waiting for review.</li>
+              )}
             </ul>
           </motion.div>
 

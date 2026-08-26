@@ -1,20 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import FormShell from '@/components/ui/FormShell';
-import { FormField, TextInput, TextArea, Select } from '@/components/ui/FormField';
+import { FormField, TextInput, TextArea } from '@/components/ui/FormField';
 import SuccessState from '@/components/ui/SuccessState';
-import { courses } from '@/data/courses';
+import CourseSearchSelect from '@/components/ui/CourseSearchSelect';
+import { useCourses } from '@/hooks/useCourses';
 import { appendToStorage, makeId } from '@/utils/storage';
 import type { Submission } from '@/types';
 
 export default function RequestPaperPage() {
+  const { courses, loading: coursesLoading, error: coursesError } = useCourses();
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ course: courses[0].id, details: '', name: '' });
+  const [form, setForm] = useState({ course: '', details: '', name: '' });
+
+  useEffect(() => {
+    if (!form.course && courses.length > 0) {
+      setForm((current) => ({ ...current, course: courses[0].id }));
+    }
+  }, [courses, form.course]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!form.course) return;
     const submission: Submission = {
       id: makeId('sub'),
       type: 'paper-request',
@@ -57,6 +66,11 @@ export default function RequestPaperPage() {
           />
         ) : (
           <FormShell onSubmit={handleSubmit} submitLabel="Send Request">
+            {coursesError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {coursesError}
+              </div>
+            )}
             <FormField label="Your Name (optional)">
               <TextInput
                 placeholder="Anonymous"
@@ -65,13 +79,13 @@ export default function RequestPaperPage() {
               />
             </FormField>
             <FormField label="Course" required>
-              <Select value={form.course} onChange={(e) => setForm({ ...form, course: e.target.value })}>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} — {c.name}
-                  </option>
-                ))}
-              </Select>
+              <CourseSearchSelect
+                courses={courses}
+                selectedId={form.course}
+                onChange={(courseId) => setForm({ ...form, course: courseId })}
+                disabled={coursesLoading || courses.length === 0}
+                placeholder={coursesLoading ? 'Loading courses...' : 'Search by course code or name'}
+              />
             </FormField>
             <FormField
               label="Additional Details"

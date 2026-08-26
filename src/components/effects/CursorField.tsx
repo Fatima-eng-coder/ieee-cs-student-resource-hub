@@ -91,19 +91,19 @@ export default function CursorField() {
       <div
         ref={glowRef}
         aria-hidden="true"
-        className="pointer-events-none fixed left-0 top-0 z-40 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.06]"
+        className="pointer-events-none fixed left-0 top-0 z-[80] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.06]"
         style={{ background: 'radial-gradient(circle, #ff6c0c 0%, transparent 68%)' }}
       />
       <div
         ref={ringRef}
         aria-hidden="true"
-        className="pointer-events-none fixed left-0 top-0 z-50 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border"
+        className="pointer-events-none fixed left-0 top-0 z-[90] h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border"
         style={{ borderColor: 'rgba(255,108,12,0.55)' }}
       />
       <div
         ref={dotRef}
         aria-hidden="true"
-        className="pointer-events-none fixed left-0 top-0 z-50 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ieee-orange"
+        className="pointer-events-none fixed left-0 top-0 z-[90] h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ieee-orange"
       />
     </>
   );

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -8,11 +8,12 @@ import {
   ChevronRight,
   PencilLine,
   GraduationCap,
+  ClipboardList,
+  ListChecks,
 } from 'lucide-react';
-import type { Paper, Course } from '@/types';
-import { papers as seedPapers } from '@/data/papers';
-import { courses as coursesSeed } from '@/data/courses';
-import { useCollection } from '@/hooks/useCollection';
+import type { Paper } from '@/types';
+import { useCourses } from '@/hooks/useCourses';
+import { papersService, subscribeMaterialsChanged } from '@/services/papersService';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import Magnetic from '@/components/effects/Magnetic';
@@ -20,14 +21,10 @@ import SearchBar from '@/components/ui/SearchBar';
 import PaperCard from '@/components/cards/PaperCard';
 import EmptyState from '@/components/ui/EmptyState';
 
-/**
- * The archive only holds real exam papers. Quizzes and assignments are course
- * material, not past papers — they live on each course's detail page instead.
- */
-type ExamCategory = 'Midterm' | 'Final';
+type MaterialCategory = Paper['examType'];
 
 const CATEGORIES: {
-  value: ExamCategory;
+  value: MaterialCategory;
   label: string;
   blurb: string;
   icon: typeof PencilLine;
@@ -44,31 +41,63 @@ const CATEGORIES: {
     blurb: 'Final / terminal exam papers for this course.',
     icon: GraduationCap,
   },
+  {
+    value: 'Quiz',
+    label: 'Quizzes',
+    blurb: 'Verified quizzes shared by students for this course.',
+    icon: ListChecks,
+  },
+  {
+    value: 'Assignment',
+    label: 'Assignments',
+    blurb: 'Verified assignments and practice tasks for this course.',
+    icon: ClipboardList,
+  },
 ];
 
 export default function PastPapersPage() {
-  const { items: papers } = useCollection<Paper>('papers', seedPapers);
-  const { items: courses } = useCollection<Course>('courses', coursesSeed);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { courses, loading: coursesLoading, error: coursesError } = useCourses();
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [category, setCategory] = useState<ExamCategory | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(() => searchParams.get('course'));
+  const [category, setCategory] = useState<MaterialCategory | null>(null);
 
-  // Only moderator-verified exam papers are shown publicly. Quizzes/assignments
-  // are deliberately excluded here — they belong to the course, not the archive.
-  const examPapers = useMemo(
-    () =>
-      papers.filter(
-        (p) =>
-          p.verification === 'verified' &&
-          (p.examType === 'Midterm' || p.examType === 'Final')
-      ),
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => papersService
+      .list()
+      .then((items) => {
+        if (!ignore) setPapers(items);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load course materials.');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    const unsubscribe = subscribeMaterialsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
+
+  const verifiedMaterials = useMemo(
+    () => papers.filter((p) => p.verification === 'verified'),
     [papers]
   );
 
-  // Courses that actually have exam papers, so a student never hits a dead end.
+  // Courses that actually have verified material, so a student never hits a dead end.
   const coursesWithPapers = useMemo(
-    () => courses.filter((c) => examPapers.some((p) => p.courseId === c.id)),
-    [courses, examPapers]
+    () => courses.filter((c) => verifiedMaterials.some((p) => p.courseId === c.id)),
+    [courses, verifiedMaterials]
   );
 
   const visibleCourses = useMemo(() => {
@@ -81,24 +110,33 @@ export default function PastPapersPage() {
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId) ?? null;
 
-  const countFor = (courseId: string, cat: ExamCategory) =>
-    examPapers.filter((p) => p.courseId === courseId && p.examType === cat).length;
+  const countFor = (courseId: string, cat: MaterialCategory) =>
+    verifiedMaterials.filter((p) => p.courseId === courseId && p.examType === cat).length;
 
   const coursePapers = useMemo(() => {
     if (!selectedCourseId || !category) return [];
-    return examPapers.filter(
+    return verifiedMaterials.filter(
       (p) => p.courseId === selectedCourseId && p.examType === category
     );
-  }, [examPapers, selectedCourseId, category]);
+  }, [verifiedMaterials, selectedCourseId, category]);
 
-  const totalDownloads = examPapers.reduce((sum, p) => sum + p.downloads, 0);
+  const totalDownloads = verifiedMaterials.reduce((sum, p) => sum + p.downloads, 0);
 
   const resetToCourses = () => {
     setSelectedCourseId(null);
     setCategory(null);
+    setSearchParams({});
+  };
+
+  const selectCourse = (courseId: string) => {
+    setSelectedCourseId(courseId);
+    setCategory(null);
+    setSearchParams({ course: courseId });
   };
 
   const step = !selectedCourseId ? 1 : !category ? 2 : 3;
+  const pageLoading = loading || coursesLoading;
+  const pageError = error ?? coursesError;
 
   return (
     <div className="relative">
@@ -107,9 +145,9 @@ export default function PastPapersPage() {
         eyebrow="Resources"
         breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Past Papers' }]}
         title="Past Papers Archive"
-        subtitle="Pick a course, choose Mid Terms or Terminals, and get straight to verified exam papers — no digging through group chats."
+        subtitle="Pick a course, choose the material type, and get straight to verified papers, quizzes, and assignments — no digging through group chats."
         meta={[
-          { value: `${examPapers.length}`, label: 'Papers' },
+          { value: `${verifiedMaterials.length}`, label: 'Materials' },
           { value: `${coursesWithPapers.length}`, label: 'Courses' },
           { value: totalDownloads.toLocaleString(), label: 'Downloads' },
         ]}
@@ -186,21 +224,24 @@ export default function PastPapersPage() {
               <p className="mb-4 mt-8 font-mono text-xs uppercase tracking-wider text-slate-500">
                 Step 1 · Choose a course
               </p>
-              {visibleCourses.length === 0 ? (
+              {pageLoading ? (
+                <EmptyState title="Loading past papers" description="Fetching verified papers from the society database." />
+              ) : pageError ? (
+                <EmptyState title="Course materials unavailable" description={pageError} />
+              ) : visibleCourses.length === 0 ? (
                 <EmptyState
                   title="No courses found"
-                  description="No verified exam papers match your search yet."
+                  description="No verified materials match your search yet."
                 />
               ) : (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                   {visibleCourses.map((course, idx) => {
-                    const total =
-                      countFor(course.id, 'Midterm') + countFor(course.id, 'Final');
+                    const total = CATEGORIES.reduce((sum, cat) => sum + countFor(course.id, cat.value), 0);
                     return (
                       <motion.button
                         key={course.id}
                         type="button"
-                        onClick={() => setSelectedCourseId(course.id)}
+                        onClick={() => selectCourse(course.id)}
                         data-cursor="link"
                         initial={{ opacity: 0, y: 12 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -216,12 +257,12 @@ export default function PastPapersPage() {
                             <h3 className="mt-0.5 font-semibold text-slate-900">{course.name}</h3>
                           </div>
                           <span className="shrink-0 rounded-full bg-ieee-orange/10 px-2.5 py-1 text-[11px] font-semibold text-ieee-orange">
-                            {total} {total === 1 ? 'paper' : 'papers'}
+                            {total} {total === 1 ? 'item' : 'items'}
                           </span>
                         </div>
                         <p className="line-clamp-2 text-sm text-slate-500">{course.description}</p>
                         <div className="mt-auto flex items-center justify-between text-xs font-semibold text-slate-400 transition group-hover:text-ieee-orange">
-                          <span>Choose exam type</span>
+                          <span>Choose material type</span>
                           <ChevronRight className="h-4 w-4" />
                         </div>
                       </motion.button>
@@ -232,7 +273,7 @@ export default function PastPapersPage() {
             </motion.div>
           )}
 
-          {/* STEP 2 — pick Mid Terms or Terminals */}
+          {/* STEP 2 — pick a material type */}
           {step === 2 && selectedCourse && (
             <motion.div
               key="step-category"
@@ -258,7 +299,7 @@ export default function PastPapersPage() {
                 </h2>
               </div>
               <p className="mb-8 font-mono text-xs uppercase tracking-wider text-slate-500">
-                Step 2 · Which papers do you need?
+                Step 2 · Which material do you need?
               </p>
               <div className="grid gap-6 sm:grid-cols-2">
                 {CATEGORIES.map((cat) => {
@@ -283,7 +324,7 @@ export default function PastPapersPage() {
                       </div>
                       <div className="mt-auto flex items-center justify-between pt-2 text-sm font-semibold text-slate-400 transition group-hover:text-ieee-orange">
                         <span>
-                          {count} {count === 1 ? 'paper' : 'papers'}
+                          {count} {count === 1 ? 'item' : 'items'}
                         </span>
                         {count > 0 && <ChevronRight className="h-4 w-4" />}
                       </div>
@@ -294,7 +335,7 @@ export default function PastPapersPage() {
             </motion.div>
           )}
 
-          {/* STEP 3 — the papers */}
+          {/* STEP 3 — the materials */}
           {step === 3 && selectedCourse && category && (
             <motion.div
               key="step-papers"
@@ -309,7 +350,7 @@ export default function PastPapersPage() {
                 data-cursor="link"
                 className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-ieee-orange"
               >
-                <ArrowLeft className="h-4 w-4" /> Exam types
+                <ArrowLeft className="h-4 w-4" /> Material types
               </button>
               <div className="mb-6">
                 <span className="font-mono text-xs uppercase tracking-wide text-ieee-blue">
@@ -319,13 +360,13 @@ export default function PastPapersPage() {
                   {selectedCourse.name}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {coursePapers.length} {coursePapers.length === 1 ? 'paper' : 'papers'}
+                  {coursePapers.length} {coursePapers.length === 1 ? 'item' : 'items'}
                 </p>
               </div>
               {coursePapers.length === 0 ? (
                 <EmptyState
-                  title="No papers here yet"
-                  description="Nobody has contributed papers for this exam type yet."
+                  title="No materials here yet"
+                  description="Nobody has contributed verified material for this type yet."
                   action={
                     <Link
                       to="/past-papers/contribute"

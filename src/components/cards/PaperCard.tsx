@@ -31,7 +31,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
           ))}
         </div>
         <div className="mt-auto flex items-center justify-between text-xs text-slate-500">
-          <span>{paper.term} {paper.year} · {paper.examType}</span>
+          <span>{paper.session} {paper.year} · {paper.examType}</span>
           <span>{paper.downloads} downloads</span>
         </div>
       </Link>
