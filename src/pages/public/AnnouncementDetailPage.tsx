@@ -1,7 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight } from 'lucide-react';
-import { announcements as announcementsSeed } from '@/data/announcements';
-import { useCollection } from '@/hooks/useCollection';
+import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
 import type { Announcement } from '@/types';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
@@ -13,28 +13,52 @@ function formatDate(iso: string) {
 
 export default function AnnouncementDetailPage() {
   const { id } = useParams();
-  const { items: announcements } = useCollection<Announcement>('announcements', announcementsSeed);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () => announcementsService
+      .list()
+      .then((items) => {
+        if (!ignore) setAnnouncements(items);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load announcement.');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    const unsubscribe = subscribeAnnouncementsChanged(load);
+
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
+
   const announcement = announcements.find((a) => a.id === id);
 
-  if (!announcement) {
+  if (loading || error || !announcement) {
     return (
       <div className="relative">
         <PageHero
           compact
           eyebrow="News"
           breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Announcements', to: '/announcements' }, { label: 'Not found' }]}
-          title="Announcement not found"
-          subtitle="This post may have been removed or the link is incorrect."
+          title={loading ? 'Loading announcement' : error ? 'Announcements unavailable' : 'Announcement not found'}
+          subtitle={loading ? 'Fetching the latest post from the society database.' : error ?? 'This post may have been removed or the link is incorrect.'}
         />
         <PageSection tone="cream" top>
-          <EmptyState
-            title="Nothing here"
-            action={
-              <Link to="/announcements" className="rounded-lg bg-ieee-orange px-5 py-2.5 text-sm font-semibold text-white hover:bg-ieee-orange-dark">
-                Back to Announcements
-              </Link>
-            }
-          />
+          <EmptyState title={loading ? 'Loading' : error ? 'Unable to load' : 'Nothing here'} description={loading ? undefined : error ?? undefined} action={
+            <Link to="/announcements" className="rounded-lg bg-ieee-orange px-5 py-2.5 text-sm font-semibold text-white hover:bg-ieee-orange-dark">
+              Back to Announcements
+            </Link>
+          } />
         </PageSection>
       </div>
     );
@@ -64,8 +88,10 @@ export default function AnnouncementDetailPage() {
           <ArrowLeft className="h-4 w-4" /> All announcements
         </Link>
 
-        <article className="mt-6 rounded-3xl border border-black/5 bg-white p-8 shadow-sm sm:p-10">
-          <p className="leading-relaxed text-slate-700">{announcement.body}</p>
+        <article className="mt-6 overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
+          <div className="p-8 sm:p-10">
+            <p className="leading-relaxed text-slate-700">{announcement.body}</p>
+          </div>
         </article>
 
         {others.length > 0 && (

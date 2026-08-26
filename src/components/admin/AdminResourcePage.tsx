@@ -5,6 +5,7 @@ import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useCollection } from '@/hooks/useCollection';
+import { adminAuthService } from '@/services/adminAuthService';
 
 export interface ResourceApi<T> {
   update: (patch: Partial<T>) => void;
@@ -63,6 +64,7 @@ export default function AdminResourcePage<T extends { id: string }>({
   reorderable = false,
 }: AdminResourcePageProps<T>) {
   const { items: rows, upsert, update, remove, setAll } = useCollection<T>(collectionKey, seed);
+  const canManage = adminAuthService.canManageContent();
 
   const move = (row: T, dir: -1 | 1) => {
     const i = rows.findIndex((r) => r.id === row.id);
@@ -101,7 +103,7 @@ export default function AdminResourcePage<T extends { id: string }>({
     align: 'right',
     render: (row) => (
       <div className="flex flex-wrap items-center justify-end gap-1.5">
-        {reorderable && (
+        {canManage && reorderable && (
           <span className="flex items-center">
             <button
               onClick={() => move(row, -1)}
@@ -119,18 +121,18 @@ export default function AdminResourcePage<T extends { id: string }>({
             </button>
           </span>
         )}
-        {extraActions?.(row, { update: (p) => updateRow(row, p), remove: () => setDeleting(row) })}
+        {canManage && extraActions?.(row, { update: (p) => updateRow(row, p), remove: () => setDeleting(row) })}
         {renderView && (
           <button className={actionBtn} onClick={() => setViewing(row)}>
             <Eye className="h-3.5 w-3.5" /> View
           </button>
         )}
-        {editable && (
+        {canManage && editable && (
           <button className={actionBtn} onClick={() => openEdit(row)}>
             <Pencil className="h-3.5 w-3.5" /> Edit
           </button>
         )}
-        {deletable && (
+        {canManage && deletable && (
           <button className={dangerBtn} onClick={() => setDeleting(row)}>
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </button>
@@ -145,7 +147,7 @@ export default function AdminResourcePage<T extends { id: string }>({
         title={title}
         subtitle={subtitle}
         action={
-          addable ? (
+          addable && canManage ? (
             <button
               onClick={openNew}
               className="flex items-center gap-1.5 rounded-xl bg-ieee-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark"

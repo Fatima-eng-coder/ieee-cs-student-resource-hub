@@ -99,7 +99,7 @@ export default function AdminLoginPage() {
           </button>
         </form>
         <p className="mt-4 text-center text-xs text-slate-400">
-          Prototype: any team email + password <span className="font-mono text-slate-500">ieeecs</span>
+          Use your IEEE CS society account. Student accounts cannot enter this portal.
         </p>
       </motion.div>
     </div>

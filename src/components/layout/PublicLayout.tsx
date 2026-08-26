@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Header from '@/components/navigation/Header';
@@ -8,16 +7,9 @@ import ScrollToTop from '@/components/effects/ScrollToTop';
 import CursorField from '@/components/effects/CursorField';
 import CurvedScrollBar from '@/components/effects/CurvedScrollBar';
 import AnimatedBackground from '@/components/effects/AnimatedBackground';
-import { adminAuthService } from '@/services/adminAuthService';
 
 export default function PublicLayout() {
   const location = useLocation();
-
-  // Leaving the portal for the public site ends the admin session — coming back
-  // to /portal then requires logging in again.
-  useEffect(() => {
-    adminAuthService.logoutAdmin();
-  }, []);
 
   return (
     <div className="cursor-none-fine flex min-h-screen flex-col">

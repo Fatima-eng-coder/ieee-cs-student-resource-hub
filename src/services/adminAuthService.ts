@@ -1,70 +1,92 @@
-import type { AdminUser } from '@/types';
-import { adminUsers as seedAdminUsers } from '@/data/adminUsers';
-import { readCollection } from '@/services/store';
+import { supabase } from '@/lib/supabase';
+import { CONTENT_MANAGER_ROLES, SOCIETY_ROLES, type Profile, type ProfileRole } from '@/types';
 
-/** Read the live admin-users collection so people invited from the panel can log in. */
-const getAdmins = (): AdminUser[] => readCollection<AdminUser>('adminUsers', seedAdminUsers);
-
-/**
- * Admin (team) authentication — completely separate from student accounts.
- *
- * The session lives in sessionStorage (NOT localStorage), so it is cleared the
- * moment the tab/browser is closed. Every fresh visit to /portal therefore
- * requires logging in again — typing /portal/dashboard directly bounces to the
- * login screen. Swap the body of loginAdmin for a real API call when the
- * backend lands; the guard and pages don't change.
- *
- * The portal itself lives at an unlisted URL (/portal) never linked publicly.
- */
-
-const SESSION_KEY = 'ieeecs_admin_session';
-// Prototype-only shared password. Replace with per-account hashed credentials.
-const DEMO_PASSWORD = 'ieeecs';
-
-const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms));
-
-function readSession(): string | null {
-  try {
-    return sessionStorage.getItem(SESSION_KEY);
-  } catch {
-    return null;
-  }
+interface ProfileRow {
+  id: string;
+  name: string;
+  email: string;
+  role: ProfileRole;
+  created_at: string;
 }
-function writeSession(id: string): void {
-  try {
-    sessionStorage.setItem(SESSION_KEY, id);
-  } catch {
-    /* ignore */
-  }
-}
-function clearSession(): void {
-  try {
-    sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    /* ignore */
-  }
+
+let currentAdmin: Profile | null = null;
+
+const toProfile = (row: ProfileRow): Profile => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  role: row.role,
+  createdAt: row.created_at,
+});
+
+const isSocietyRole = (role: ProfileRole) => (SOCIETY_ROLES as readonly ProfileRole[]).includes(role);
+const isContentManagerRole = (role: ProfileRole) => (CONTENT_MANAGER_ROLES as readonly ProfileRole[]).includes(role);
+
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id,name,email,role,created_at')
+    .eq('id', userId)
+    .single();
+
+  if (error) throw new AdminAuthError(error.message);
+  return data ? toProfile(data as ProfileRow) : null;
 }
 
 export class AdminAuthError extends Error {}
 
 export const adminAuthService = {
-  getCurrentAdmin(): AdminUser | null {
-    const id = readSession();
-    if (!id) return null;
-    return getAdmins().find((u) => u.id === id) ?? null;
+  getCurrentAdmin(): Profile | null {
+    return currentAdmin;
   },
 
-  async loginAdmin(email: string, password: string): Promise<AdminUser> {
-    await delay();
-    const admin = getAdmins().find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-    if (!admin || password !== DEMO_PASSWORD) {
-      throw new AdminAuthError('Invalid team credentials.');
+  canAccessPortal(profile: Profile | null): boolean {
+    return !!profile && isSocietyRole(profile.role);
+  },
+
+  canManageContent(profile: Profile | null = currentAdmin): boolean {
+    return !!profile && isContentManagerRole(profile.role);
+  },
+
+  async loadCurrentAdmin(): Promise<Profile | null> {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      currentAdmin = null;
+      return null;
     }
-    writeSession(admin.id);
-    return admin;
+
+    const profile = await fetchProfile(data.user.id);
+    if (!profile || !this.canAccessPortal(profile)) {
+      await this.logoutAdmin();
+      throw new AdminAuthError('Only IEEE CS society members can access the team portal.');
+    }
+
+    currentAdmin = profile;
+    return profile;
   },
 
-  logoutAdmin(): void {
-    clearSession();
+  async loginAdmin(email: string, password: string): Promise<Profile> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (error || !data.user) {
+      throw new AdminAuthError(error?.message ?? 'Invalid team credentials.');
+    }
+
+    const profile = await fetchProfile(data.user.id);
+    if (!profile || !this.canAccessPortal(profile)) {
+      await this.logoutAdmin();
+      throw new AdminAuthError('Only IEEE CS society members can access the team portal.');
+    }
+
+    currentAdmin = profile;
+    return profile;
+  },
+
+  async logoutAdmin(): Promise<void> {
+    currentAdmin = null;
+    await supabase.auth.signOut();
   },
 };

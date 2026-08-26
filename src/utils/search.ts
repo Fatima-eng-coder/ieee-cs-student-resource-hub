@@ -3,7 +3,6 @@ import type {
   Paper,
   Course,
   EventItem,
-  Announcement,
   FAQ,
   Destination,
   QuickLink,
@@ -14,7 +13,6 @@ import { readCollection } from '@/services/store';
 import { papers as papersSeed } from '@/data/papers';
 import { courses as coursesSeed } from '@/data/courses';
 import { events as eventsSeed } from '@/data/events';
-import { announcements as announcementsSeed } from '@/data/announcements';
 import { faqs as faqsSeed } from '@/data/faqs';
 import { destinations as destinationsSeed } from '@/data/destinations';
 import { quickLinks as quickLinksSeed } from '@/data/quickLinks';
@@ -72,17 +70,6 @@ function buildIndex(): SearchResult[] {
       description: p.tagline,
       tags: p.techStack,
       link: `/projects-expo/${p.id}`,
-    })
-  );
-
-  readCollection<Announcement>('announcements', announcementsSeed).forEach((a) =>
-    results.push({
-      id: a.id,
-      title: a.title,
-      type: 'Announcement',
-      description: a.summary,
-      tags: [a.category],
-      link: `/announcements/${a.id}`,
     })
   );
 
