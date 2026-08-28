@@ -42,6 +42,8 @@ import NotFoundPage from '@/pages/public/NotFoundPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import SignupPage from '@/pages/auth/SignupPage';
 
+
+import AdminTeachersPage from '@/pages/admin/AdminTeachersPage';
 import AdminLoginPage from '@/pages/admin/AdminLoginPage';
 import DashboardPage from '@/pages/admin/DashboardPage';
 import AdminEventsPage from '@/pages/admin/AdminEventsPage';
@@ -133,6 +135,7 @@ export const router = createBrowserRouter([
       { path: 'events', element: <AdminEventsPage /> },
       { path: 'banners', element: <AdminBannersPage /> },
       { path: 'papers', element: <AdminPapersPage /> },
+      { path: 'teachers', element: <AdminTeachersPage /> },   //newwwwwwwwwwwww
       { path: 'courses', element: <AdminCoursesPage /> },
       { path: 'projects', element: <AdminProjectsPage /> },
       { path: 'navigation', element: <AdminNavigationPage /> },

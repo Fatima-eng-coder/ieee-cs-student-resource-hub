@@ -46,9 +46,10 @@ async function refreshAuthSession(): Promise<void> {
 
 async function loadFacultyRows() {
   const result = await supabase
-    .from('faculty')
-    .select(facultyColumns)
-    .order('name', { ascending: true });
+      .from('faculty')
+      .select(facultyColumns)
+      .eq('verification', 'verified')
+      .order('name', { ascending: true });
 
   if (!result.error || !isMissingPhotoColumnError(result.error)) return result;
 
@@ -65,6 +66,7 @@ async function searchFacultyRows(query: string) {
   const result = await supabase
     .from('faculty')
     .select(facultyColumns)
+    .eq('verification','verified')
     .or(filters)
     .order('name', { ascending: true })
     .limit(8);
