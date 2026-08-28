@@ -15,6 +15,7 @@ import CoursesPage from '@/pages/public/CoursesPage';
 import CourseDetailPage from '@/pages/public/CourseDetailPage';
 import TeachersPage from '@/pages/public/TeachersPage';
 import SuggestCorrectionPage from '@/pages/public/SuggestCorrectionPage';
+import SuggestTeacherPage from '@/pages/public/SuggestTeacherPage';
 import EventsPage from '@/pages/public/EventsPage';
 import EventDetailPage from '@/pages/public/EventDetailPage';
 import EventRegisterPage from '@/pages/public/EventRegisterPage';
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
       { path: 'past-papers/:id', element: <PaperDetailPage /> },
       { path: 'courses', element: <CoursesPage /> },
       { path: 'courses/teachers', element: <TeachersPage /> },
+      { path: 'courses/suggest-teacher', element: <SuggestTeacherPage /> },
       { path: 'courses/suggest-correction', element: <SuggestCorrectionPage /> },
       { path: 'courses/:id', element: <CourseDetailPage /> },
       { path: 'events', element: <EventsPage /> },

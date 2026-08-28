@@ -75,6 +75,8 @@ export interface Course {
   code: string;
   name: string;
   creditHours: number;
+  /** Theory/lecture hours from the credit structure. */
+  theoryHours?: number;
   /** Lab/contact hours from the credit structure. 0 means this is not lab-based. */
   labHours?: number;
   department: string;
@@ -389,7 +391,9 @@ export type SubmissionType =
   | 'event-photos'
   | 'feedback'
   | 'sponsorship'
+  | 'teacher-suggestion'
   | 'paper-request'
+  | 'course-resource'
   | 'event-registration'
   | 'contact';
 

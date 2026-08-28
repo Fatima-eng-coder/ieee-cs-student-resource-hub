@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Search, X } from 'lucide-react';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import FormShell from '@/components/ui/FormShell';
@@ -9,13 +9,161 @@ import FileUploadBox from '@/components/ui/FileUploadBox';
 import SuccessState from '@/components/ui/SuccessState';
 import CourseSearchSelect from '@/components/ui/CourseSearchSelect';
 import { useCourses } from '@/hooks/useCourses';
+import { facultyService } from '@/services/facultyService';
 import { papersService } from '@/services/papersService';
 import { useAuth } from '@/context/AuthContext';
-import type { Paper } from '@/types';
+import type { Paper, Teacher } from '@/types';
 
 const sessionOptions = ['Spring', 'Fall'] as const;
 const minYear = 2000;
 const maxYear = Math.min(new Date().getFullYear(), 2099);
+
+function InstructorPicker({
+  selectedTeacher,
+  onChange,
+  onQueryChange,
+}: {
+  selectedTeacher: Teacher | null;
+  onChange: (teacher: Teacher | null) => void;
+  onQueryChange: (query: string) => void;
+}) {
+  const [query, setQuery] = useState(selectedTeacher?.name ?? '');
+  const [results, setResults] = useState<Teacher[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setQuery(selectedTeacher?.name ?? '');
+  }, [selectedTeacher]);
+
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery || selectedTeacher?.name === normalizedQuery) {
+      setResults([]);
+      setSearching(false);
+      setSearchError(null);
+      return;
+    }
+
+    let ignore = false;
+    setSearching(true);
+    setSearchError(null);
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const matches = await facultyService.search(normalizedQuery);
+        if (!ignore) setResults(matches);
+      } catch {
+        if (!ignore) {
+          setResults([]);
+          setSearchError('Instructor search is unavailable right now. Please try again.');
+        }
+      } finally {
+        if (!ignore) setSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [query, selectedTeacher?.name]);
+
+  const selectTeacher = (teacher: Teacher) => {
+    onChange(teacher);
+    setQuery(teacher.name);
+    onQueryChange(teacher.name);
+    setResults([]);
+  };
+
+  const clearTeacher = () => {
+    onChange(null);
+    setQuery('');
+    onQueryChange('');
+    setResults([]);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <TextInput
+          value={query}
+          onChange={(e) => {
+            const nextQuery = e.target.value;
+            setQuery(nextQuery);
+            onQueryChange(nextQuery);
+            if (selectedTeacher && nextQuery !== selectedTeacher.name) onChange(null);
+          }}
+          placeholder="Search faculty by name, email, or department"
+          className="pl-9"
+        />
+        {query.trim() && !selectedTeacher && (
+          <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-black/10 bg-white p-1.5 shadow-xl">
+            {searching ? (
+              <p className="flex items-center gap-2 px-3 py-2 text-sm text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Searching faculty...
+              </p>
+            ) : searchError ? (
+              <p className="px-3 py-2 text-sm text-rose-500">{searchError}</p>
+            ) : results.length > 0 ? (
+              results.map((teacher) => (
+                <button
+                  key={teacher.id}
+                  type="button"
+                  data-cursor="link"
+                  onClick={() => selectTeacher(teacher)}
+                  className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-cream"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-slate-800">{teacher.name}</span>
+                    <span className="block truncate text-xs text-slate-500">
+                      {[teacher.designation, teacher.department].filter(Boolean).join(' · ')}
+                    </span>
+                    <span className="block truncate text-xs text-slate-400">
+                      {teacher.email || 'Email not listed'}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs font-medium text-slate-400">
+                    {teacher.department || 'Faculty'}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <p className="px-3 py-2 text-sm text-slate-400">No matching faculty found.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {selectedTeacher ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-cream px-3 py-2">
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-slate-800">{selectedTeacher.name}</span>
+            <span className="block truncate text-xs text-slate-500">
+              {[selectedTeacher.designation, selectedTeacher.department].filter(Boolean).join(' · ')}
+            </span>
+            <span className="block truncate text-xs text-slate-400">
+              {selectedTeacher.email || 'Email not listed'}
+            </span>
+          </span>
+          <button
+            type="button"
+            data-cursor="link"
+            onClick={clearTeacher}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-black/10 bg-white text-slate-400 transition hover:border-rose-300 hover:text-rose-600"
+            aria-label={`Remove ${selectedTeacher.name}`}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400">Leave blank if the instructor is not listed.</p>
+      )}
+    </div>
+  );
+}
 
 export default function ContributePaperPage() {
   const { user, ensureAuth } = useAuth();
@@ -23,6 +171,8 @@ export default function ContributePaperPage() {
   const [created, setCreated] = useState<Paper | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [duplicateReview, setDuplicateReview] = useState<{ duplicate: Paper | null; courseName: string } | null>(null);
+  const [selectedInstructor, setSelectedInstructor] = useState<Teacher | null>(null);
+  const [instructorQuery, setInstructorQuery] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +182,6 @@ export default function ContributePaperPage() {
     session: 'Fall',
     year: maxYear,
     examType: 'Final' as Paper['examType'],
-    instructor: '',
     name: '',
   });
 
@@ -52,6 +201,10 @@ export default function ContributePaperPage() {
     }
     if (!Number.isInteger(form.year) || form.year < minYear || form.year > maxYear) {
       setError(`Please enter a valid year from ${minYear} to ${maxYear}.`);
+      return;
+    }
+    if (!selectedInstructor && instructorQuery.trim()) {
+      setError('Please select an instructor from the list, or clear the instructor field if you are not sure.');
       return;
     }
 
@@ -87,7 +240,7 @@ export default function ContributePaperPage() {
         session: form.session,
         year: form.year,
         examType: form.examType,
-        instructor: form.instructor,
+        instructor: selectedInstructor?.name ?? 'Not specified',
         contributorName: form.name || user?.name || '',
         tags: [],
         file,
@@ -216,10 +369,10 @@ export default function ContributePaperPage() {
               </Select>
             </FormField>
             <FormField label="Instructor" hint="Optional">
-              <TextInput
-                placeholder="e.g. Dr. Imran Sheikh"
-                value={form.instructor}
-                onChange={(e) => setForm({ ...form, instructor: e.target.value })}
+              <InstructorPicker
+                selectedTeacher={selectedInstructor}
+                onChange={setSelectedInstructor}
+                onQueryChange={setInstructorQuery}
               />
             </FormField>
             <FormField label="Upload Material" required>

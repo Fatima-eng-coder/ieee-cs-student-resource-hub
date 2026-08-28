@@ -74,7 +74,7 @@ export default function PastPapersPage() {
         if (!ignore) setPapers(items);
       })
       .catch((err) => {
-        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load course materials.');
+        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load course material.');
       })
       .finally(() => {
         if (!ignore) setLoading(false);
@@ -227,7 +227,7 @@ export default function PastPapersPage() {
               {pageLoading ? (
                 <EmptyState title="Loading past papers" description="Fetching verified papers from the society database." />
               ) : pageError ? (
-                <EmptyState title="Course materials unavailable" description={pageError} />
+                <EmptyState title="Course material unavailable" description={pageError} />
               ) : visibleCourses.length === 0 ? (
                 <EmptyState
                   title="No courses found"

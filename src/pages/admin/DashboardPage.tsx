@@ -109,7 +109,7 @@ export default function DashboardPage() {
   ];
 
   const library = [
-    { label: 'Course Materials', value: papers.length, icon: FileText, to: '/portal/papers' },
+    { label: 'Course Material', value: papers.length, icon: FileText, to: '/portal/papers' },
     { label: 'Courses', value: courses.length, icon: BookOpen, to: '/portal/courses' },
     { label: 'Date Sheets', value: dateSheets.length, icon: CalendarClock, to: '/portal/date-sheets' },
     { label: 'Projects', value: projects.length, icon: Layers, to: '/portal/projects' },

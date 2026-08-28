@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, createSearchParams, useParams } from 'react-router-dom';
 import {
   BookOpen,
   FlaskConical,
@@ -20,6 +20,15 @@ import SectionHeading from '@/components/layout/SectionHeading';
 import DownloadButton from '@/components/ui/DownloadButton';
 import EmptyState from '@/components/ui/EmptyState';
 import Magnetic from '@/components/effects/Magnetic';
+import { hasFile } from '@/utils/files';
+
+const initialsFor = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'FA';
 
 export default function CourseDetailPage() {
   const { id } = useParams();
@@ -89,11 +98,11 @@ export default function CourseDetailPage() {
       />
 
       <PageSection tone="cream" top>
-        {/* 1 — Course Materials */}
+        {/* 1 — Course Material */}
         <div className="rounded-3xl border border-black/5 bg-white p-7 shadow-sm">
           <div className="flex items-center gap-2 text-ieee-orange">
             <BookOpen className="h-5 w-5" />
-            <h2 className="font-display text-lg font-bold text-slate-900">Course Materials</h2>
+            <h2 className="font-display text-lg font-bold text-slate-900">Course Material</h2>
           </div>
           <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
             <DownloadButton
@@ -103,7 +112,7 @@ export default function CourseDetailPage() {
               icon={<BookOpen className="h-4 w-4 text-ieee-orange" />}
               className="flex items-center gap-2 rounded-xl border border-black/5 bg-cream px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-ieee-orange/40 hover:text-ieee-orange"
             />
-            {hasLab ? (
+            {hasLab && hasFile(course.labManualUrl) ? (
               <DownloadButton
                 url={course.labManualUrl}
                 filename={`${course.code}-Lab-Manual`}
@@ -111,6 +120,11 @@ export default function CourseDetailPage() {
                 icon={<FlaskConical className="h-4 w-4 text-ieee-orange" />}
                 className="flex items-center gap-2 rounded-xl border border-black/5 bg-cream px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-ieee-orange/40 hover:text-ieee-orange"
               />
+            ) : hasLab ? (
+              <div className="flex items-center gap-2 rounded-xl border border-black/5 bg-cream px-4 py-3 text-sm font-medium text-slate-500">
+                <FlaskConical className="h-4 w-4 text-slate-400" />
+                Lab manual not uploaded yet.
+              </div>
             ) : (
               <div className="flex items-center gap-2 rounded-xl border border-black/5 bg-cream px-4 py-3 text-sm font-medium text-slate-500">
                 <FlaskConical className="h-4 w-4 text-slate-400" />
@@ -257,14 +271,22 @@ export default function CourseDetailPage() {
               {courseTeachers.map((t) => (
                 <Link
                   key={t.id}
-                  to="/courses/teachers"
+                  to={`/courses/teachers?${createSearchParams({ teacherId: t.id }).toString()}`}
                   data-cursor="link"
-                  className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="flex min-w-72 items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-ieee-orange/30 hover:shadow-md"
                 >
-                  <img src={t.photo} alt={t.name} loading="lazy" className="h-12 w-12 rounded-full object-cover ring-2 ring-white" />
-                  <div>
+                  {t.photo?.trim() ? (
+                    <img src={t.photo} alt={t.name} loading="lazy" className="h-12 w-12 rounded-full object-cover ring-2 ring-white" />
+                  ) : (
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ieee-orange/10 font-display text-sm font-bold text-ieee-orange ring-2 ring-white">
+                      {initialsFor(t.name)}
+                    </span>
+                  )}
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900">{t.name}</p>
-                    <p className="text-xs text-slate-500">{t.email}</p>
+                    <p className={`mt-0.5 truncate text-xs ${t.email.trim() ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {t.email.trim() || 'Email not listed'}
+                    </p>
                   </div>
                 </Link>
               ))}

@@ -1,16 +1,18 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, FileCheck2, Loader2, Pencil, Plus, Search, Trash2, UploadCloud, X } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
-import { AdminField, AdminInput, AdminSelect, AdminTextarea } from '@/components/admin/AdminField';
+import { AdminField, AdminInput, AdminTextarea } from '@/components/admin/AdminField';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import EmptyState from '@/components/ui/EmptyState';
 import { useCourses } from '@/hooks/useCourses';
 import { useFaculty } from '@/hooks/useFaculty';
 import { adminAuthService } from '@/services/adminAuthService';
 import { coursesService } from '@/services/coursesService';
+import { facultyService } from '@/services/facultyService';
 import type { Course, Teacher } from '@/types';
+import { formatCourseCredits, parseCourseCreditInput } from '@/utils/courseCredits';
 
 const actionBtn =
   'flex items-center gap-1 rounded-lg border border-black/5 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-ieee-orange/40 hover:text-ieee-orange';
@@ -22,6 +24,7 @@ const emptyCourse = (): Course => ({
   code: '',
   name: '',
   creditHours: 3,
+  theoryHours: 3,
   labHours: 0,
   prerequisites: [],
   department: 'Computer Science',
@@ -53,6 +56,11 @@ const parseLinks = (value: string): Course['usefulLinks'] =>
 
 const formatLinks = (links: Course['usefulLinks']) => links.map((link) => `${link.label} | ${link.url}`).join('\n');
 
+const getCourseTheoryHours = (course: Course) =>
+  course.theoryHours ?? Math.max(course.creditHours - (course.labHours ?? 0), 0);
+
+const getCourseCreditTuple = (course: Course) => formatCourseCredits(getCourseTheoryHours(course), course.labHours ?? 0);
+
 function CourseFacultyPicker({
   teachers,
   selectedIds,
@@ -63,24 +71,49 @@ function CourseFacultyPicker({
   onChange: (teacherIds: string[]) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [results, setResults] = useState<Teacher[]>([]);
   const selectedTeachers = teachers.filter((teacher) => selectedIds.includes(teacher.id));
-  const availableTeachers = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return [];
 
-    return teachers
-      .filter((teacher) => !selectedIds.includes(teacher.id))
-      .filter((teacher) =>
-        `${teacher.name} ${teacher.email} ${teacher.designation}`
-          .toLowerCase()
-          .includes(normalizedQuery)
-      )
-      .slice(0, 6);
-  }, [query, selectedIds, teachers]);
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) {
+      setResults([]);
+      setSearching(false);
+      setSearchError(null);
+      return;
+    }
 
-  const addTeacher = (teacherId: string) => {
-    onChange([...selectedIds, teacherId]);
+    let ignore = false;
+    setSearching(true);
+    setSearchError(null);
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const matches = await facultyService.search(normalizedQuery);
+        if (!ignore) setResults(matches.filter((teacher) => !selectedIds.includes(teacher.id)));
+      } catch {
+        if (!ignore) {
+          setResults([]);
+          setSearchError('Faculty search is unavailable right now. Please try again.');
+        }
+      } finally {
+        if (!ignore) setSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [query, selectedIds]);
+
+  const addTeacher = (teacher: Teacher) => {
+    if (selectedIds.includes(teacher.id)) return;
+    onChange([...selectedIds, teacher.id]);
     setQuery('');
+    setResults([]);
   };
 
   const removeTeacher = (teacherId: string) => {
@@ -94,24 +127,31 @@ function CourseFacultyPicker({
         <AdminInput
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search faculty by name or email"
+          placeholder="Search faculty by name, email, or department"
           className="pl-9"
         />
         {query.trim() && (
           <div className="absolute z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-black/10 bg-white p-1.5 shadow-xl">
-            {availableTeachers.length > 0 ? (
-              availableTeachers.map((teacher) => (
+            {searching ? (
+              <p className="px-3 py-2 text-sm text-slate-400">Searching faculty...</p>
+            ) : searchError ? (
+              <p className="px-3 py-2 text-sm text-rose-500">{searchError}</p>
+            ) : results.length > 0 ? (
+              results.map((teacher) => (
                 <button
                   key={teacher.id}
                   type="button"
-                  onClick={() => addTeacher(teacher.id)}
+                  onClick={() => addTeacher(teacher)}
                   className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-cream"
                 >
-                  <span>
+                  <span className="min-w-0">
                     <span className="block text-sm font-semibold text-slate-800">{teacher.name}</span>
-                    <span className="block text-xs text-slate-500">{teacher.email}</span>
+                    <span className="block truncate text-xs text-slate-500">
+                      {[teacher.designation, teacher.department].filter(Boolean).join(' · ')}
+                    </span>
+                    <span className="block truncate text-xs text-slate-400">{teacher.email || 'Email not listed'}</span>
                   </span>
-                  <span className="shrink-0 text-xs font-medium text-slate-400">{teacher.designation}</span>
+                  <span className="shrink-0 text-xs font-medium text-slate-400">{teacher.department}</span>
                 </button>
               ))
             ) : (
@@ -130,7 +170,10 @@ function CourseFacultyPicker({
             >
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-slate-800">{teacher.name}</span>
-                <span className="block truncate text-xs text-slate-500">{teacher.email}</span>
+                <span className="block truncate text-xs text-slate-500">
+                  {[teacher.designation, teacher.department].filter(Boolean).join(' · ')}
+                </span>
+                <span className="block truncate text-xs text-slate-400">{teacher.email || 'Email not listed'}</span>
               </span>
               <button
                 type="button"
@@ -353,6 +396,7 @@ export default function AdminCoursesPage() {
   const { teachers } = useFaculty();
   const [formError, setFormError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Course | null>(null);
+  const [creditInput, setCreditInput] = useState(formatCourseCredits(3, 0));
   const [isNew, setIsNew] = useState(false);
   const [deleting, setDeleting] = useState<Course | null>(null);
   const [saving, setSaving] = useState(false);
@@ -381,7 +425,11 @@ export default function AdminCoursesPage() {
       key: 'creditHours',
       header: 'Credits',
       sortValue: (course) => course.creditHours,
-      render: (course) => course.creditHours,
+      render: (course) => (
+        <span>
+          {course.creditHours} <span className="text-slate-400">{getCourseCreditTuple(course)}</span>
+        </span>
+      ),
     },
     {
       key: 'actions',
@@ -395,6 +443,7 @@ export default function AdminCoursesPage() {
               className={actionBtn}
               onClick={() => {
                 setDraft(course);
+                setCreditInput(getCourseCreditTuple(course));
                 setIsNew(false);
                 setFormError(null);
               }}
@@ -417,23 +466,26 @@ export default function AdminCoursesPage() {
       setFormError('Course code and course name are required.');
       return;
     }
-    if (!Number.isInteger(Number(draft.creditHours)) || draft.creditHours < 0 || draft.creditHours > 6) {
-      setFormError('Credit hours must be a number from 0 to 6.');
-      return;
-    }
-    if (!Number.isInteger(Number(draft.labHours ?? 0)) || (draft.labHours ?? 0) < 0 || (draft.labHours ?? 0) > draft.creditHours) {
-      setFormError('Lab hours must be a number from 0 up to the total credit hours.');
+    const parsedCredits = parseCourseCreditInput(creditInput);
+    if (!parsedCredits.credits) {
+      setFormError(parsedCredits.error ?? 'Please enter credit hours in tuple format, for example (3,1).');
       return;
     }
 
     setSaving(true);
     setFormError(null);
     try {
+      const draftWithCredits = {
+        ...draft,
+        theoryHours: parsedCredits.credits.theoryHours,
+        labHours: parsedCredits.credits.labHours,
+        creditHours: parsedCredits.credits.totalCreditHours,
+      };
       const courseToSave =
-        (draft.labHours ?? 0) > 0
-          ? draft
+        parsedCredits.credits.labHours > 0
+          ? draftWithCredits
           : {
-              ...draft,
+              ...draftWithCredits,
               labManualUrl: '',
               labManualPath: null,
             };
@@ -445,7 +497,7 @@ export default function AdminCoursesPage() {
         const updated = await coursesService.update(draft.id, courseToSave);
         setCourses((items) => items.map((item) => (item.id === updated.id ? updated : item)));
       }
-      if ((draft.labHours ?? 0) === 0 && draft.labManualPath) void coursesService.removeCourseDocument(draft.labManualPath);
+      if (parsedCredits.credits.labHours === 0 && draft.labManualPath) void coursesService.removeCourseDocument(draft.labManualPath);
       setDraft(null);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save course.');
@@ -479,6 +531,7 @@ export default function AdminCoursesPage() {
             <button
               onClick={() => {
                 setDraft(emptyCourse());
+                setCreditInput(formatCourseCredits(3, 0));
                 setIsNew(true);
                 setFormError(null);
               }}
@@ -540,36 +593,28 @@ export default function AdminCoursesPage() {
                   placeholder="CS-301"
                 />
               </AdminField>
-              <AdminField label="Credits" hint="0-6">
+              <AdminField label="Credit hours" required hint="Format: (theory,lab). Example: (3,1)">
                 <AdminInput
-                  type="number"
-                  min={0}
-                  max={6}
-                  value={draft.creditHours}
-                  onChange={(e) => setDraft({ ...draft, creditHours: Number(e.target.value) })}
+                  value={creditInput}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    setCreditInput(nextValue);
+
+                    const parsed = parseCourseCreditInput(nextValue);
+                    if (parsed.credits) {
+                      setDraft({
+                        ...draft,
+                        theoryHours: parsed.credits.theoryHours,
+                        labHours: parsed.credits.labHours,
+                        creditHours: parsed.credits.totalCreditHours,
+                      });
+                      setFormError(null);
+                    }
+                  }}
+                  placeholder="(3,1)"
                 />
               </AdminField>
             </div>
-            <AdminField label="Lab hours" hint="Choose 0 for courses without a lab component.">
-              <AdminSelect
-                value={draft.labHours ?? 0}
-                onChange={(e) => {
-                  const labHours = Number(e.target.value);
-                  setDraft({
-                    ...draft,
-                    labHours,
-                  });
-                }}
-              >
-                {Array.from({ length: Math.max(7, draft.creditHours + 1) }, (_, value) => value)
-                  .filter((value) => value <= draft.creditHours)
-                  .map((value) => (
-                    <option key={value} value={value}>
-                      {value === 0 ? 'No lab' : `${value} lab hour${value > 1 ? 's' : ''}`}
-                    </option>
-                  ))}
-              </AdminSelect>
-            </AdminField>
             <AdminField label="Course name" required>
               <AdminInput value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
             </AdminField>
@@ -623,7 +668,7 @@ export default function AdminCoursesPage() {
                 onError={(message) => setFormError(message || null)}
               />
             </AdminField>
-            {(draft.labHours ?? 0) > 0 ? (
+            {(parseCourseCreditInput(creditInput).credits?.labHours ?? draft.labHours ?? 0) > 0 ? (
               <AdminField label="Lab manual" hint="Optional PDF document.">
                 <CourseDocumentField
                   label="Lab manual"

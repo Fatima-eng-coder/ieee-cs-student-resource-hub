@@ -10,6 +10,8 @@ interface CourseRow {
   course_name: string;
   department: string | null;
   credit_hours: number | null;
+  theory_hours?: number | null;
+  theory_credit_hours?: number | null;
   lab_hours?: number | null;
   description: string | null;
   cdf_url: string | null;
@@ -41,7 +43,8 @@ const baseCourseColumns = [
   'tips',
   'useful_links',
 ].join(',');
-const courseColumns = `${baseCourseColumns},lab_hours`;
+const courseColumns = `${baseCourseColumns},theory_hours,lab_hours`;
+const legacyCourseColumns = `${baseCourseColumns},theory_credit_hours,lab_hours`;
 
 const textArray = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
 
@@ -65,35 +68,47 @@ const isMissingTableError = (error: { code?: string; message?: string }) =>
   error.code === 'PGRST205' ||
   error.message?.toLowerCase().includes('does not exist');
 
-const isMissingLabHoursColumn = (error: { code?: string; message?: string }) =>
-  error.code === 'PGRST204' ||
-  (error.message?.toLowerCase().includes('lab_hours') &&
-    (error.message.toLowerCase().includes('does not exist') || error.message.toLowerCase().includes('could not find')));
+const isMissingCreditSplitColumn = (error: { code?: string; message?: string }) => {
+  const message = error.message?.toLowerCase() ?? '';
+  return (
+    error.code === 'PGRST204' ||
+    ((message.includes('lab_hours') || message.includes('theory_hours') || message.includes('theory_credit_hours')) &&
+      (message.includes('does not exist') || message.includes('could not find')))
+  );
+};
 
-const toCourse = (row: CourseRow, prerequisites: string[] = [], teacherIds: string[] = []): Course => ({
-  id: row.id,
-  code: row.course_code,
-  name: row.course_name,
-  department: row.department ?? 'Computer Science',
-  creditHours: row.credit_hours ?? 0,
-  labHours: row.lab_hours ?? (row.lab_manual_url || row.lab_manual_path ? 1 : 0),
-  description: row.description ?? '',
-  cdfUrl: row.cdf_url ?? '',
-  cdfPath: row.cdf_path,
-  labManualUrl: row.lab_manual_url ?? '',
-  labManualPath: row.lab_manual_path,
-  outcomes: textArray(row.outcomes),
-  tips: textArray(row.tips),
-  usefulLinks: usefulLinks(row.useful_links),
-  teacherIds,
-  prerequisites,
-});
+const toCourse = (row: CourseRow, prerequisites: string[] = [], teacherIds: string[] = []): Course => {
+  const labHours = row.lab_hours ?? 0;
+  const theoryHours = row.theory_hours ?? row.theory_credit_hours ?? Math.max((row.credit_hours ?? 0) - labHours, 0);
+  const creditHours = theoryHours + labHours;
+
+  return {
+    id: row.id,
+    code: row.course_code,
+    name: row.course_name,
+    department: row.department ?? 'Computer Science',
+    creditHours,
+    theoryHours,
+    labHours,
+    description: row.description ?? '',
+    cdfUrl: row.cdf_url ?? '',
+    cdfPath: row.cdf_path,
+    labManualUrl: row.lab_manual_url ?? '',
+    labManualPath: row.lab_manual_path,
+    outcomes: textArray(row.outcomes),
+    tips: textArray(row.tips),
+    usefulLinks: usefulLinks(row.useful_links),
+    teacherIds,
+    prerequisites,
+  };
+};
 
 const toPayload = (course: Course) => ({
   course_code: normalizeCode(course.code),
   course_name: course.name.trim(),
   department: course.department.trim() || 'Computer Science',
   credit_hours: Number(course.creditHours),
+  theory_hours: Number(course.theoryHours ?? Math.max(course.creditHours - (course.labHours ?? 0), 0)),
   lab_hours: Number(course.labHours ?? 0),
   description: course.description.trim(),
   cdf_url: course.cdfUrl?.trim() || null,
@@ -104,6 +119,21 @@ const toPayload = (course: Course) => ({
   tips: course.tips,
   useful_links: course.usefulLinks,
 });
+
+const toLegacyCreditPayload = (payload: Record<string, unknown>) => {
+  const fallbackPayload = { ...payload };
+  fallbackPayload.theory_credit_hours = fallbackPayload.theory_hours;
+  delete fallbackPayload.theory_hours;
+  return fallbackPayload;
+};
+
+const toBasePayload = (payload: Record<string, unknown>) => {
+  const fallbackPayload = { ...payload };
+  delete fallbackPayload.lab_hours;
+  delete fallbackPayload.theory_hours;
+  delete fallbackPayload.theory_credit_hours;
+  return fallbackPayload;
+};
 
 const normalizePrerequisites = (codes: string[] = []) =>
   [...new Set(codes.map(normalizeCode).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -193,7 +223,14 @@ async function loadCourseRows() {
     .select(courseColumns)
     .order('course_code', { ascending: true });
 
-  if (!result.error || !isMissingLabHoursColumn(result.error)) return result;
+  if (!result.error || !isMissingCreditSplitColumn(result.error)) return result;
+
+  const legacyResult = await supabase
+    .from('courses')
+    .select(legacyCourseColumns)
+    .order('course_code', { ascending: true });
+
+  if (!legacyResult.error || !isMissingCreditSplitColumn(legacyResult.error)) return legacyResult;
 
   return supabase
     .from('courses')
@@ -208,10 +245,18 @@ async function insertCourse(payload: Record<string, unknown>) {
     .select(courseColumns)
     .single();
 
-  if (!result.error || !isMissingLabHoursColumn(result.error)) return result;
+  if (!result.error || !isMissingCreditSplitColumn(result.error)) return result;
 
-  const fallbackPayload = { ...payload };
-  delete fallbackPayload.lab_hours;
+  const legacyPayload = toLegacyCreditPayload(payload);
+  const legacyResult = await supabase
+    .from('courses')
+    .insert(legacyPayload)
+    .select(legacyCourseColumns)
+    .single();
+
+  if (!legacyResult.error || !isMissingCreditSplitColumn(legacyResult.error)) return legacyResult;
+
+  const fallbackPayload = toBasePayload(payload);
   return supabase
     .from('courses')
     .insert(fallbackPayload)
@@ -227,10 +272,19 @@ async function updateCourse(id: string, payload: Record<string, unknown>) {
     .select(courseColumns)
     .single();
 
-  if (!result.error || !isMissingLabHoursColumn(result.error)) return result;
+  if (!result.error || !isMissingCreditSplitColumn(result.error)) return result;
 
-  const fallbackPayload = { ...payload };
-  delete fallbackPayload.lab_hours;
+  const legacyPayload = toLegacyCreditPayload(payload);
+  const legacyResult = await supabase
+    .from('courses')
+    .update(legacyPayload)
+    .eq('id', id)
+    .select(legacyCourseColumns)
+    .single();
+
+  if (!legacyResult.error || !isMissingCreditSplitColumn(legacyResult.error)) return legacyResult;
+
+  const fallbackPayload = toBasePayload(payload);
   return supabase
     .from('courses')
     .update(fallbackPayload)

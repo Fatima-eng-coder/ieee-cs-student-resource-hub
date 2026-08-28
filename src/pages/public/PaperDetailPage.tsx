@@ -8,17 +8,11 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SectionHeading from '@/components/layout/SectionHeading';
 import VerificationBadge from '@/components/ui/VerificationBadge';
-import DownloadButton, { hasFile } from '@/components/ui/DownloadButton';
+import DownloadButton from '@/components/ui/DownloadButton';
 import PaperCard from '@/components/cards/PaperCard';
 import EmptyState from '@/components/ui/EmptyState';
 import Magnetic from '@/components/effects/Magnetic';
-
-function isPdf(url: string) {
-  return url.startsWith('data:application/pdf') || /\.pdf$/i.test(url);
-}
-function isImg(url: string) {
-  return url.startsWith('data:image') || /\.(png|jpe?g|webp|gif)$/i.test(url);
-}
+import { hasFile, isImage, isPdf } from '@/utils/files';
 
 export default function PaperDetailPage() {
   const { id } = useParams();
@@ -115,7 +109,7 @@ export default function PaperDetailPage() {
           >
             {fileReady && isPdf(paper.fileUrl) ? (
               <iframe title={paper.title} src={paper.fileUrl} className="h-full w-full" />
-            ) : fileReady && isImg(paper.fileUrl) ? (
+            ) : fileReady && isImage(paper.fileUrl) ? (
               <img src={paper.fileUrl} alt={paper.title} className="h-full w-full object-contain" />
             ) : (
               <div className="flex h-full items-center justify-center text-center text-slate-400">

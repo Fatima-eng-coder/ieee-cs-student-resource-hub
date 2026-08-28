@@ -1,39 +1,83 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import FormShell from '@/components/ui/FormShell';
-import { FormField, TextInput, TextArea } from '@/components/ui/FormField';
+import { FormField, TextInput, TextArea, Select } from '@/components/ui/FormField';
 import SuccessState from '@/components/ui/SuccessState';
 import CourseSearchSelect from '@/components/ui/CourseSearchSelect';
+import { useAuth } from '@/context/AuthContext';
 import { useCourses } from '@/hooks/useCourses';
-import { appendToStorage, makeId } from '@/utils/storage';
-import type { Submission } from '@/types';
+import {
+  paperRequestsService,
+  type PaperRequestMaterialType,
+  type PaperRequestSession,
+} from '@/services/paperRequestsService';
+
+const materialTypeOptions: { label: string; value: PaperRequestMaterialType }[] = [
+  { label: 'Midterm', value: 'midterm' },
+  { label: 'Final', value: 'final' },
+  { label: 'Quiz', value: 'quiz' },
+  { label: 'Assignment', value: 'assignment' },
+];
+
+const sessionOptions: PaperRequestSession[] = ['Spring', 'Fall'];
+const minYear = 2000;
+const maxYear = Math.min(new Date().getFullYear(), 2099);
+
+const initialForm = {
+  course: '',
+  materialType: 'midterm' as PaperRequestMaterialType,
+  session: 'Fall' as PaperRequestSession,
+  year: maxYear,
+  notes: '',
+};
 
 export default function RequestPaperPage() {
+  const { user } = useAuth();
   const { courses, loading: coursesLoading, error: coursesError } = useCourses();
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ course: '', details: '', name: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState(initialForm);
 
-  useEffect(() => {
-    if (!form.course && courses.length > 0) {
-      setForm((current) => ({ ...current, course: courses[0].id }));
-    }
-  }, [courses, form.course]);
+  const selectedCourse = courses.find((course) => course.id === form.course) ?? null;
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!form.course) return;
-    const submission: Submission = {
-      id: makeId('sub'),
-      type: 'paper-request',
-      submittedBy: form.name || 'Anonymous',
-      submittedAt: new Date().toISOString().slice(0, 10),
-      status: 'pending',
-      data: { course: form.course, details: form.details },
-    };
-    appendToStorage<Submission>('ieeecs_submissions', [], submission);
-    setSubmitted(true);
+    if (saving) return;
+
+    if (!selectedCourse) {
+      setError('Please select a valid course from the list before submitting.');
+      return;
+    }
+
+    if (!Number.isInteger(form.year) || form.year < minYear || form.year > maxYear) {
+      setError(`Please enter a valid year from ${minYear} to ${maxYear}.`);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      await paperRequestsService.create({
+        courseCode: selectedCourse.code,
+        courseName: selectedCourse.name,
+        materialType: form.materialType,
+        session: form.session,
+        year: form.year,
+        requesterName: user?.name.trim() ?? null,
+        requesterEmail: user?.email.trim() ?? null,
+        notes: form.notes.trim(),
+      });
+      setForm(initialForm);
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Your request could not be submitted right now. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -53,8 +97,8 @@ export default function RequestPaperPage() {
       <PageSection tone="cream" top>
         {submitted ? (
           <SuccessState
-            title="Request received!"
-            description="We'll try to source this paper from other students and publish it once verified."
+            title="Request submitted."
+            description="Our team will review it and try to add the material."
             action={
               <Link
                 to="/past-papers"
@@ -65,19 +109,12 @@ export default function RequestPaperPage() {
             }
           />
         ) : (
-          <FormShell onSubmit={handleSubmit} submitLabel="Send Request">
-            {coursesError && (
+          <FormShell onSubmit={(event) => void handleSubmit(event)} submitLabel={saving ? 'Submitting...' : 'Send Request'}>
+            {(error || coursesError) && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                {coursesError}
+                {error ?? coursesError}
               </div>
             )}
-            <FormField label="Your Name (optional)">
-              <TextInput
-                placeholder="Anonymous"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </FormField>
             <FormField label="Course" required>
               <CourseSearchSelect
                 courses={courses}
@@ -87,15 +124,51 @@ export default function RequestPaperPage() {
                 placeholder={coursesLoading ? 'Loading courses...' : 'Search by course code or name'}
               />
             </FormField>
-            <FormField
-              label="Additional Details"
-              hint="Term, exam type, instructor — anything that helps us find it"
-            >
-              <TextArea
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Material Type" required>
+                <Select
+                  required
+                  value={form.materialType}
+                  onChange={(e) => setForm({ ...form, materialType: e.target.value as PaperRequestMaterialType })}
+                >
+                  {materialTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField label="Session" required>
+                <Select
+                  required
+                  value={form.session}
+                  onChange={(e) => setForm({ ...form, session: e.target.value as PaperRequestSession })}
+                >
+                  {sessionOptions.map((session) => (
+                    <option key={session} value={session}>
+                      {session}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            </div>
+            <FormField label="Year" required hint={`Allowed range: ${minYear}-${maxYear}`}>
+              <TextInput
                 required
-                value={form.details}
-                onChange={(e) => setForm({ ...form, details: e.target.value })}
-                placeholder="e.g. Spring 2025 Final, Dr. Imran Sheikh"
+                type="number"
+                min={minYear}
+                max={maxYear}
+                step={1}
+                value={Number.isFinite(form.year) ? form.year : ''}
+                onChange={(e) => setForm({ ...form, year: e.target.value ? Number(e.target.value) : Number.NaN })}
+                placeholder={String(maxYear)}
+              />
+            </FormField>
+            <FormField label="Notes / Details (optional)" hint="Instructor, section, or anything else that helps us find it.">
+              <TextArea
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="e.g. Dr. Imran Sheikh, Section B, solved or unsolved version preferred..."
               />
             </FormField>
           </FormShell>

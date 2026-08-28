@@ -15,6 +15,7 @@ interface AdminTableProps<T> {
   columns: AdminTableColumn<T>[];
   rows: T[];
   rowKey: (row: T) => string;
+  emptyTitle?: string;
   emptyMessage?: string;
   /** Return a searchable string per row to enable the search box. */
   searchable?: (row: T) => string;
@@ -25,6 +26,7 @@ export default function AdminTable<T>({
   columns,
   rows,
   rowKey,
+  emptyTitle = 'No records to display',
   emptyMessage = 'No records found.',
   searchable,
   pageSize = 8,
@@ -91,7 +93,7 @@ export default function AdminTable<T>({
           <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
             <FolderOpen className="h-6 w-6" />
           </span>
-          <h3 className="font-display text-base font-bold text-slate-700">Nothing here yet</h3>
+          <h3 className="font-display text-base font-bold text-slate-700">{emptyTitle}</h3>
           <p className="mt-1 max-w-sm text-sm text-slate-500">{emptyMessage}</p>
         </div>
       ) : (

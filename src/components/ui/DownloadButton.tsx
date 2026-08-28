@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { getSafeDownloadAttribute, hasFile } from '@/utils/files';
 
 interface DownloadButtonProps {
   url?: string;
@@ -9,21 +10,19 @@ interface DownloadButtonProps {
   onClick?: () => void;
 }
 
-/** A file is "available" when it's a real uploaded URL/data-URL (not a '#' placeholder). */
-export function hasFile(url?: string): boolean {
-  return !!url && url.trim() !== '' && url.trim() !== '#';
-}
-
 /**
  * Downloads the file when one is actually uploaded; otherwise renders a clearly
  * disabled control so no button ever points to nothing.
  */
 export default function DownloadButton({ url, filename, label, icon, className = '', onClick }: DownloadButtonProps) {
   if (hasFile(url)) {
+    const href = url!.trim();
+    const download = getSafeDownloadAttribute(href, filename);
+
     return (
       <a
-        href={url}
-        download={filename ?? true}
+        href={href}
+        download={download}
         target="_blank"
         rel="noreferrer"
         data-cursor="link"

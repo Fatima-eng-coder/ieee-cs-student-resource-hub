@@ -16,6 +16,7 @@ import {
   type MaterialChange,
 } from '@/services/papersService';
 import { useCourses } from '@/hooks/useCourses';
+import { getSafeDownloadAttribute, hasFile, isImage, isPdf } from '@/utils/files';
 import type { Course } from '@/types';
 import type { Paper } from '@/types';
 
@@ -56,10 +57,6 @@ function normalizePaperDraft(draft: Paper): Paper {
     year: draft.year,
   };
 }
-
-const hasFile = (url?: string) => !!url && url !== '#';
-const isImage = (url: string) => /^data:image/.test(url) || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
-const isPdf = (url: string) => /^data:application\/pdf/.test(url) || /\.pdf(\?|$)/i.test(url);
 
 function MaterialFileField({
   value,
@@ -140,6 +137,7 @@ export default function AdminPapersPage() {
   const [deleting, setDeleting] = useState<Paper | null>(null);
   const [duplicateReview, setDuplicateReview] = useState<{ pending: Paper; duplicate: Paper | null } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showApproved, setShowApproved] = useState(false);
   const canManage = adminAuthService.canManageContent();
 
   const load = async (showLoading = true) => {
@@ -148,7 +146,7 @@ export default function AdminPapersPage() {
     try {
       setPapers(await papersService.list());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load course materials.');
+      setError(err instanceof Error ? err.message : 'Failed to load course material.');
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -183,7 +181,7 @@ export default function AdminPapersPage() {
 
   const openNew = () => {
     if (courses.length === 0) {
-      setError('Add courses before adding course materials.');
+      setError('Add courses before adding course material.');
       return;
     }
     setDraft(emptyPaper(courses[0]));
@@ -377,20 +375,33 @@ export default function AdminPapersPage() {
       ),
     },
   ];
+  const visiblePapers = papers.filter((paper) => paper.verification === (showApproved ? 'verified' : 'pending'));
+  const pendingCount = papers.filter((paper) => paper.verification === 'pending').length;
+  const approvedCount = papers.filter((paper) => paper.verification === 'verified').length;
 
   return (
     <div>
       <AdminTopbar
-        title="Course Materials"
-        subtitle="Review contributed papers, quizzes and assignments"
+        title="Course Material"
+        subtitle={showApproved ? `${approvedCount} approved material` : `${pendingCount} pending review`}
         action={
           canManage ? (
-            <button
-              onClick={openNew}
-              className="flex items-center gap-1.5 rounded-xl bg-ieee-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark"
-            >
-              <FileText className="h-4 w-4" /> Add Material
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowApproved((current) => !current)}
+                className="flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-ieee-orange/40 hover:text-ieee-orange"
+              >
+                {showApproved ? <RotateCcw className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                {showApproved ? 'View Pending' : 'View Approved'}
+              </button>
+              <button
+                onClick={openNew}
+                className="flex items-center gap-1.5 rounded-xl bg-ieee-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark"
+              >
+                <FileText className="h-4 w-4" /> Add Material
+              </button>
+            </div>
           ) : undefined
         }
       />
@@ -402,14 +413,15 @@ export default function AdminPapersPage() {
           </div>
         )}
         {loading ? (
-          <EmptyState title="Loading course materials" description="Fetching the latest submissions." />
+          <EmptyState title="Loading course material" description="Fetching the latest submissions." />
         ) : (
           <AdminTable
             columns={columns}
-            rows={papers}
+            rows={visiblePapers}
             rowKey={(p) => p.id}
             searchable={(p) => `${p.title} ${p.courseName} ${p.examType} ${p.uploadedBy} ${p.tags.join(' ')}`}
-            emptyMessage="No course materials have been submitted yet."
+            emptyTitle={showApproved ? 'No approved material' : 'No pending material'}
+            emptyMessage={showApproved ? 'No approved course material yet.' : 'No pending course material right now.'}
           />
         )}
       </div>
@@ -505,8 +517,11 @@ export default function AdminPapersPage() {
             </div>
             {hasFile(viewing.fileUrl) && (
               <a
-                href={viewing.fileUrl}
-                download={`${viewing.courseName}-${viewing.examType}-${viewing.year}`}
+                href={viewing.fileUrl.trim()}
+                download={getSafeDownloadAttribute(
+                  viewing.fileUrl,
+                  `${viewing.courseName}-${viewing.examType}-${viewing.year}`,
+                )}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-ieee-orange/40 hover:text-ieee-orange"
