@@ -25,7 +25,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       { label: 'Events', to: '/portal/events', icon: 'calendar' },
       { label: 'Banners', to: '/portal/banners', icon: 'image' },
       { label: 'Past Papers', to: '/portal/papers', icon: 'file' },
-      { label: 'Teachers', to: '/portal/teachers', icon: 'faculty' }, 
+      { label: 'Faculty', to: '/portal/teachers', icon: 'faculty' }, 
       { label: 'Courses', to: '/portal/courses', icon: 'book' },
       { label: 'Date Sheets', to: '/portal/date-sheets', icon: 'calendar' },
       { label: 'Projects', to: '/portal/projects', icon: 'layers' },
