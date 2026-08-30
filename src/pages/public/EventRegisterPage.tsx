@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
@@ -6,27 +6,46 @@ import FormShell from '@/components/ui/FormShell';
 import { FormField, TextInput, Select } from '@/components/ui/FormField';
 import SuccessState from '@/components/ui/SuccessState';
 import EmptyState from '@/components/ui/EmptyState';
-import { events as seedEvents } from '@/data/events';
-import { useCollection } from '@/hooks/useCollection';
+import { eventsService } from '@/services/eventsService';
 import { appendToStorage, makeId } from '@/utils/storage';
 import type { EventItem, Submission } from '@/types';
 
 export default function EventRegisterPage() {
   const { id } = useParams();
-  const { items: events } = useCollection<EventItem>('events', seedEvents);
-  const event = events.find((e) => e.id === id);
+  const [event, setEvent] = useState<EventItem | null>(null);
+  const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', rollNumber: '', batch: '' });
 
-  if (!event) {
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    eventsService
+      .getPublic(id)
+      .then((item) => {
+        if (active) setEvent(item);
+      })
+      .catch(() => {
+        if (active) setEvent(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (loading || !event) {
     return (
       <div className="relative">
         <PageHero
           compact
           eyebrow="Events"
-          breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Events', to: '/events' }, { label: 'Not found' }]}
-          title="Event not found"
-          subtitle="This event may have ended or the link is incorrect."
+          breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Events', to: '/events' }, { label: loading ? 'Loading...' : 'Not found' }]}
+          title={loading ? 'Loading event' : 'Event not found'}
+          subtitle={loading ? 'Fetching registration details.' : 'This event may have ended or the link is incorrect.'}
         />
         <PageSection tone="cream" top>
           <EmptyState

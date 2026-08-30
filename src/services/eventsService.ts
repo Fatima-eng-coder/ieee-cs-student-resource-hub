@@ -1,10 +1,10 @@
 import { supabase } from '@/lib/supabase';
-import type { EventCategory, EventItem } from '@/types';
+import type { EventCategory, EventImageLayout, EventItem } from '@/types';
 
 const EVENT_IMAGES_BUCKET = 'event-images';
 const baseEventColumns =
   'id,title,description,long_description,event_type,date,time,venue,cover_image_url,cover_image_path,registration_open,registration_url,capacity,organizers,is_published,created_at,updated_at';
-const eventColumns = `${baseEventColumns},featured`;
+const eventColumns = `${baseEventColumns},featured,image_layout`;
 
 export interface EventSaveInput {
   title: string;
@@ -16,6 +16,8 @@ export interface EventSaveInput {
   venue: string;
   coverImageUrl?: string;
   coverImagePath?: string | null;
+  featured: boolean;
+  imageLayout: EventImageLayout;
   registrationOpen: boolean;
   registrationUrl?: string;
   capacity: number;
@@ -40,6 +42,7 @@ interface EventRow {
   organizers: unknown;
   is_published: boolean;
   featured?: boolean | null;
+  image_layout?: EventImageLayout | string | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,11 +65,22 @@ const validCategories: EventCategory[] = ['workshop', 'competition', 'seminar', 
 const normalizeCategory = (value: string): EventCategory =>
   validCategories.includes(value as EventCategory) ? (value as EventCategory) : 'workshop';
 
+const normalizeImageLayout = (value: string | null | undefined): EventImageLayout =>
+  value === 'banner' ? 'banner' : 'poster';
+
 const normalizeOrganizers = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 
+const getLocalDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const getTiming = (date: string): EventItem['timing'] => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateKey();
   return date >= today ? 'upcoming' : 'previous';
 };
 
@@ -81,6 +95,7 @@ const toAdminEvent = (row: EventRow): AdminEvent => ({
   category: normalizeCategory(row.event_type),
   timing: getTiming(row.date),
   featured: Boolean(row.featured),
+  imageLayout: normalizeImageLayout(row.image_layout),
   registrationOpen: row.registration_open,
   registrationUrl: row.registration_url ?? '',
   capacity: row.capacity ?? 0,
@@ -93,15 +108,18 @@ const toAdminEvent = (row: EventRow): AdminEvent => ({
   updatedAt: row.updated_at,
 });
 
-const isMissingFeaturedColumn = (message: string) =>
-  message.toLowerCase().includes('featured') && message.toLowerCase().includes('events');
+const isMissingOptionalEventsColumn = (message: string) => {
+  const lower = message.toLowerCase();
+  return lower.includes('events') && (lower.includes('featured') || lower.includes('image_layout'));
+};
 
 async function selectEvents(useFeaturedColumn: boolean) {
   return supabase
     .from('events')
     .select(useFeaturedColumn ? eventColumns : baseEventColumns)
     .order('date', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .returns<EventRow[]>();
 }
 
 async function selectEventById(id: string, useFeaturedColumn: boolean) {
@@ -109,7 +127,8 @@ async function selectEventById(id: string, useFeaturedColumn: boolean) {
     .from('events')
     .select(useFeaturedColumn ? eventColumns : baseEventColumns)
     .eq('id', id)
-    .maybeSingle();
+    .maybeSingle()
+    .returns<EventRow>();
 }
 
 const toPayload = (event: EventSaveInput) => ({
@@ -122,6 +141,8 @@ const toPayload = (event: EventSaveInput) => ({
   venue: event.venue.trim(),
   cover_image_url: event.coverImageUrl?.trim() || null,
   cover_image_path: event.coverImagePath ?? null,
+  featured: Boolean(event.featured),
+  image_layout: event.imageLayout,
   registration_open: Boolean(event.registrationOpen),
   registration_url: event.registrationUrl?.trim() || null,
   capacity: Number(event.capacity) || 0,
@@ -190,7 +211,7 @@ export function subscribeEventsChanged(callback: (change?: EventChange) => void)
 export const eventsService = {
   async listAdmin(): Promise<AdminEvent[]> {
     let { data, error } = await selectEvents(true);
-    if (error && isMissingFeaturedColumn(error.message)) {
+    if (error && isMissingOptionalEventsColumn(error.message)) {
       const fallback = await selectEvents(false);
       data = fallback.data;
       error = fallback.error;
@@ -202,7 +223,7 @@ export const eventsService = {
 
   async listPublic(): Promise<EventItem[]> {
     let { data, error } = await selectEvents(true);
-    if (error && isMissingFeaturedColumn(error.message)) {
+    if (error && isMissingOptionalEventsColumn(error.message)) {
       const fallback = await selectEvents(false);
       data = fallback.data;
       error = fallback.error;
@@ -218,7 +239,7 @@ export const eventsService = {
     if (!id) return null;
 
     let { data, error } = await selectEventById(id, true);
-    if (error && isMissingFeaturedColumn(error.message)) {
+    if (error && isMissingOptionalEventsColumn(error.message)) {
       const fallback = await selectEventById(id, false);
       data = fallback.data;
       error = fallback.error;
@@ -247,19 +268,8 @@ export const eventsService = {
         created_by: userData.user?.id ?? null,
       })
       .select(eventColumns)
-      .single();
-    if (error && isMissingFeaturedColumn(error.message)) {
-      const fallback = await supabase
-        .from('events')
-        .insert({
-          ...toPayload(input),
-          created_by: userData.user?.id ?? null,
-        })
-        .select(baseEventColumns)
-        .single();
-      data = fallback.data;
-      error = fallback.error;
-    }
+      .single()
+      .returns<EventRow>();
 
     if (error) throw new Error(error.message);
     return toAdminEvent(data as EventRow);
@@ -278,17 +288,8 @@ export const eventsService = {
       .update(toPayload(input))
       .eq('id', id)
       .select(eventColumns)
-      .single();
-    if (error && isMissingFeaturedColumn(error.message)) {
-      const fallback = await supabase
-        .from('events')
-        .update(toPayload(input))
-        .eq('id', id)
-        .select(baseEventColumns)
-        .single();
-      data = fallback.data;
-      error = fallback.error;
-    }
+      .single()
+      .returns<EventRow>();
 
     if (error) throw new Error(error.message);
     return toAdminEvent(data as EventRow);

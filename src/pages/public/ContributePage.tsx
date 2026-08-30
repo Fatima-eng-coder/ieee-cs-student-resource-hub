@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpRight, X, Check } from 'lucide-react';
@@ -6,8 +6,7 @@ import Icon, { type IconName } from '@/components/ui/Icon';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import MultiImageUpload from '@/components/projects/MultiImageUpload';
-import { events as seedEvents } from '@/data/events';
-import { useCollection } from '@/hooks/useCollection';
+import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
 import { appendToStorage, makeId } from '@/utils/storage';
 import type { EventItem, Submission } from '@/types';
 
@@ -31,14 +30,38 @@ const options: Option[] = [
 ];
 
 export default function ContributePage() {
-  const { items: events } = useCollection<EventItem>('events', seedEvents);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [photoModal, setPhotoModal] = useState(false);
   const [eventId, setEventId] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [done, setDone] = useState(false);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadEvents = () =>
+      eventsService
+        .listPublic()
+        .then((items) => {
+          if (!ignore) setEvents(items);
+        })
+        .catch(() => {
+          if (!ignore) setEvents([]);
+        });
+
+    const unsubscribe = subscribeEventsChanged(loadEvents);
+    void loadEvents();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
+
+  const previousEvents = useMemo(() => events.filter((event) => event.timing === 'previous'), [events]);
+
   const submitPhotos = () => {
-    const ev = events.find((e) => e.id === eventId);
+    const ev = previousEvents.find((e) => e.id === eventId);
     const submission: Submission = {
       id: makeId('sub'),
       type: 'event-photos',
@@ -163,7 +186,12 @@ export default function ContributePage() {
                     className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-ieee-orange focus:ring-2 focus:ring-ieee-orange/20"
                   >
                     <option value="">Select an event…</option>
-                    {events.map((e) => (
+                    {previousEvents.length === 0 && (
+                      <option value="" disabled>
+                        No previous events available
+                      </option>
+                    )}
+                    {previousEvents.map((e) => (
                       <option key={e.id} value={e.id}>
                         {e.title}
                       </option>

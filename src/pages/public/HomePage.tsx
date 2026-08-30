@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
@@ -9,16 +9,39 @@ import ProjectShowcase from '@/components/home/ProjectShowcase';
 import HierarchyOrbit from '@/components/home/HierarchyOrbit';
 import ScrollProgress from '@/components/effects/ScrollProgress';
 import Magnetic from '@/components/effects/Magnetic';
-import { events as seedEvents } from '@/data/events';
 import { projects } from '@/data/projects';
-import { useCollection } from '@/hooks/useCollection';
+import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
 import type { EventItem } from '@/types';
 
 export default function HomePage() {
-  const { items: events } = useCollection<EventItem>('events', seedEvents);
+  const [events, setEvents] = useState<EventItem[]>([]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadEvents = () =>
+      eventsService
+        .listPublic()
+        .then((items) => {
+          if (!ignore) setEvents(items);
+        })
+        .catch(() => {
+          if (!ignore) setEvents([]);
+        });
+
+    const unsubscribe = subscribeEventsChanged(loadEvents);
+    void loadEvents();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
+
   const flagship = useMemo(() => {
     const featured = events.filter((e) => e.featured);
-    return (featured.length ? featured : events.filter((e) => e.timing === 'upcoming')).slice(0, 6);
+    const upcoming = events.filter((e) => e.timing === 'upcoming');
+    return (featured.length ? featured : upcoming.length ? upcoming : events).slice(0, 6);
   }, [events]);
 
   return (

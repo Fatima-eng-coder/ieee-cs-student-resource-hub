@@ -1,8 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CalendarDays, MapPin, Users, Sparkles, Trophy, ArrowRight, Ticket } from 'lucide-react';
-import { events as seedEvents } from '@/data/events';
-import { useCollection } from '@/hooks/useCollection';
+import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
 import type { EventItem } from '@/types';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
@@ -18,12 +18,67 @@ function formatDate(iso: string) {
   });
 }
 
+const getCleanEventError = (err: unknown) => {
+  const message = err instanceof Error ? err.message.toLowerCase() : '';
+  if (message.includes('permission') || message.includes('row-level security')) {
+    return 'This event could not be loaded because public event access is currently restricted.';
+  }
+  return 'This event could not be loaded right now. Please try again later.';
+};
+
 export default function EventDetailPage() {
   const { id } = useParams();
-  const { items: events } = useCollection<EventItem>('events', seedEvents);
-  const event = events.find((e) => e.id === id);
+  const [event, setEvent] = useState<EventItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!event) {
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+
+    const load = () =>
+      eventsService
+        .getPublic(id)
+        .then((item) => {
+          if (!ignore) {
+            setEvent(item);
+            setError(null);
+          }
+        })
+        .catch((err) => {
+          if (!ignore) setError(getCleanEventError(err));
+        })
+        .finally(() => {
+          if (!ignore) setLoading(false);
+        });
+
+    const unsubscribe = subscribeEventsChanged(load);
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="relative">
+        <PageHero
+          compact
+          eyebrow="Events"
+          breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Events', to: '/events' }, { label: 'Loading…' }]}
+          title="Loading event…"
+          subtitle="Fetching the latest details from the society database."
+        />
+        <PageSection tone="cream" top>
+          <EmptyState title="Loading event" description="This will only take a moment." />
+        </PageSection>
+      </div>
+    );
+  }
+
+  if (error || !event) {
     return (
       <div className="relative">
         <PageHero
@@ -31,7 +86,7 @@ export default function EventDetailPage() {
           eyebrow="Events"
           breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Events', to: '/events' }, { label: 'Not found' }]}
           title="Event not found"
-          subtitle="This event may have ended or the link is incorrect."
+          subtitle={error ?? 'This event may have ended or the link is incorrect.'}
         />
         <PageSection tone="cream" top>
           <EmptyState
@@ -50,8 +105,9 @@ export default function EventDetailPage() {
   const info = [
     { icon: CalendarDays, label: 'Date & Time', value: formatDate(event.date), sub: event.time },
     { icon: MapPin, label: 'Venue', value: event.venue },
-    { icon: Users, label: 'Organizers', value: event.organizers.join(', ') },
+    { icon: Users, label: 'Organizers', value: event.organizers.length ? event.organizers.join(', ') : 'IEEE CS Team' },
   ];
+  const imageLayout = event.imageLayout ?? 'poster';
 
   return (
     <div className="relative">
@@ -64,14 +120,28 @@ export default function EventDetailPage() {
       />
 
       <PageSection tone="cream" top>
-        {/* banner */}
+        {/* poster */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="relative overflow-hidden rounded-3xl border border-black/5 shadow-[0_8px_30px_rgba(10,10,12,0.12)]"
+          className="relative overflow-hidden rounded-3xl border border-black/5 bg-[radial-gradient(circle_at_30%_20%,rgba(255,108,12,0.24),transparent_35%),linear-gradient(135deg,#1f1710,#0f1014)] shadow-[0_8px_30px_rgba(10,10,12,0.12)]"
         >
-          <img src={event.image} alt={event.title} className="h-64 w-full object-cover sm:h-80" />
+          {event.image ? (
+            <img
+              src={event.image}
+              alt={event.title}
+              className={
+                imageLayout === 'banner'
+                  ? 'h-64 w-full object-cover sm:h-80 lg:h-[28rem]'
+                  : 'mx-auto max-h-[720px] w-full object-contain'
+              }
+            />
+          ) : (
+            <div className="flex min-h-80 items-center justify-center px-6 py-20 text-center text-white/70">
+              Event poster not uploaded yet.
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-ieee-ink/60 to-transparent" />
           <div className="absolute bottom-4 left-4 flex gap-2">
             <span className="rounded-full bg-ieee-orange px-3 py-1 text-xs font-semibold capitalize text-white">
@@ -89,7 +159,7 @@ export default function EventDetailPage() {
         <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr]">
           <div>
             <h2 className="font-display text-xl font-bold text-slate-900">About this event</h2>
-            <p className="mt-3 leading-relaxed text-slate-600">{event.longDescription}</p>
+            <p className="mt-3 leading-relaxed text-slate-600">{event.longDescription || event.description}</p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {info.map((c) => {
@@ -141,29 +211,54 @@ export default function EventDetailPage() {
                 </div>
 
                 <Magnetic className="mt-6 block">
-                  <Link
-                    to={
-                      event.registrationOpen
-                        ? event.registrationFormId
-                          ? `/forms/${event.registrationFormId}`
-                          : `/events/${event.id}/register`
-                        : '#'
-                    }
-                    data-cursor="link"
-                    className={`flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold text-white transition ${
+                  {(() => {
+                    const btnClass = `flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-semibold text-white transition ${
                       event.registrationOpen
                         ? 'bg-ieee-orange shadow-[0_10px_30px_rgba(255,108,12,0.3)] hover:bg-ieee-orange-dark'
                         : 'pointer-events-none bg-slate-300'
-                    }`}
-                  >
-                    {event.registrationOpen ? (
+                    }`;
+                    const label = event.registrationOpen ? (
                       <>
                         Register Now <ArrowRight className="h-4 w-4" />
                       </>
                     ) : (
                       'Registration Closed'
-                    )}
-                  </Link>
+                    );
+
+                    if (!event.registrationOpen) {
+                      return (
+                        <span data-cursor="link" className={btnClass}>
+                          {label}
+                        </span>
+                      );
+                    }
+
+                    // Admin-provided external registration link (e.g. a Google Form) takes
+                    // priority — that's what's actually set in the Events admin panel.
+                    if (event.registrationUrl) {
+                      return (
+                        <a
+                          href={event.registrationUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          data-cursor="link"
+                          className={btnClass}
+                        >
+                          {label}
+                        </a>
+                      );
+                    }
+
+                    return (
+                      <Link
+                        to={event.registrationFormId ? `/forms/${event.registrationFormId}` : `/events/${event.id}/register`}
+                        data-cursor="link"
+                        className={btnClass}
+                      >
+                        {label}
+                      </Link>
+                    );
+                  })()}
                 </Magnetic>
               </div>
             </div>

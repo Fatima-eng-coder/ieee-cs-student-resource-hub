@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { events as seedEvents } from '@/data/events';
-import { useCollection } from '@/hooks/useCollection';
+import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import EventCard from '@/components/cards/EventCard';
@@ -17,13 +16,55 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'workshop', label: 'Workshops' },
   { key: 'competition', label: 'Competitions' },
   { key: 'seminar', label: 'Seminars' },
+  { key: 'session', label: 'Sessions' },
   { key: 'hackathon', label: 'Hackathons' },
   { key: 'other', label: 'Other' },
 ];
 
+const getCleanEventsError = (err: unknown) => {
+  const message = err instanceof Error ? err.message.toLowerCase() : '';
+  if (message.includes('permission') || message.includes('row-level security')) {
+    return 'Events could not be loaded because public event access is currently restricted.';
+  }
+  if (message.includes('does not exist') || message.includes('schema cache')) {
+    return 'Events are not ready yet. Please check the events table and Data API settings.';
+  }
+  return 'Events could not be loaded right now. Please try again later.';
+};
+
 export default function EventsPage() {
-  const { items: events } = useCollection<EventItem>('events', seedEvents);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>('upcoming');
+
+  useEffect(() => {
+    let ignore = false;
+
+    const load = () =>
+      eventsService
+        .listPublic()
+        .then((items) => {
+          if (!ignore) {
+            setEvents(items);
+            setError(null);
+          }
+        })
+        .catch((err) => {
+          if (!ignore) setError(getCleanEventsError(err));
+        })
+        .finally(() => {
+          if (!ignore) setLoading(false);
+        });
+
+    const unsubscribe = subscribeEventsChanged(load);
+    void load();
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     if (tab === 'upcoming' || tab === 'previous') return events.filter((e) => e.timing === tab);
@@ -74,7 +115,11 @@ export default function EventsPage() {
         </div>
 
         <div className="mt-8">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <EmptyState title="Loading events" description="Fetching the latest events from the society database." />
+          ) : error ? (
+            <EmptyState title="Events unavailable" description={error} />
+          ) : filtered.length === 0 ? (
             <EmptyState title="No events in this category" description="Check back soon for updates." />
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

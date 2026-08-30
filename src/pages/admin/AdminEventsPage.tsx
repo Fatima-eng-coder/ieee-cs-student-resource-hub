@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ExternalLink, FileCheck2, ImagePlus, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarDays, ExternalLink, ImagePlus, Loader2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
@@ -8,10 +8,18 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import EmptyState from '@/components/ui/EmptyState';
 import { adminAuthService } from '@/services/adminAuthService';
 import { eventsService, subscribeEventsChanged, type AdminEvent, type EventSaveInput } from '@/services/eventsService';
-import type { EventCategory } from '@/types';
+import type { EventCategory, EventImageLayout } from '@/types';
 import { hasFile } from '@/utils/files';
 
-const categories: EventCategory[] = ['workshop', 'competition', 'seminar', 'hackathon', 'other'];
+const categories: EventCategory[] = ['workshop', 'competition', 'seminar', 'session', 'hackathon', 'other'];
+const categoryLabels: Record<EventCategory, string> = {
+  workshop: 'Workshop',
+  competition: 'Competition',
+  seminar: 'Seminar',
+  session: 'Session',
+  hackathon: 'Hackathon',
+  other: 'Other',
+};
 
 const actionBtn =
   'flex items-center gap-1 rounded-lg border border-black/5 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-ieee-orange/40 hover:text-ieee-orange';
@@ -36,6 +44,8 @@ const emptyEvent = (): AdminEvent => ({
   coverImagePath: null,
   organizers: [],
   isPublished: true,
+  featured: false,
+  imageLayout: 'poster',
   createdAt: '',
   updatedAt: '',
 });
@@ -55,23 +65,32 @@ const getCleanError = (err: unknown, fallback: string) => {
   if (message.toLowerCase().includes('storage')) {
     return 'The event image could not be uploaded because storage access rules blocked this action.';
   }
+  if (message.toLowerCase().includes('featured') || message.toLowerCase().includes('image_layout')) {
+    return 'The events table needs the featured and image display fields before this event can be saved.';
+  }
   return message;
 };
 
 function EventImageField({
   imageUrl,
   selectedFile,
+  imageLayout,
   onFileChange,
-  onRemove,
+  onImageLayoutChange,
 }: {
   imageUrl: string;
   selectedFile: File | null;
+  imageLayout: EventImageLayout;
   onFileChange: (file: File | null) => void;
-  onRemove: () => void;
+  onImageLayoutChange: (layout: EventImageLayout) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useMemo(() => (selectedFile ? URL.createObjectURL(selectedFile) : ''), [selectedFile]);
   const displayUrl = previewUrl || imageUrl;
+  const isBanner = imageLayout === 'banner';
+  const modeDescription = isBanner
+    ? 'Banner: Best for wide website covers.'
+    : 'Poster: Best for Instagram-style event posters.';
 
   useEffect(() => {
     return () => {
@@ -80,34 +99,59 @@ function EventImageField({
   }, [previewUrl]);
 
   return (
-    <div className="flex items-center gap-3">
-      {hasFile(displayUrl) ? (
-        <img src={displayUrl} alt="Event cover preview" className="h-24 w-32 rounded-xl border border-black/10 object-cover" />
-      ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="flex h-24 w-32 flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 text-slate-400 transition hover:border-ieee-orange/60 hover:text-ieee-orange"
-        >
-          <ImagePlus className="h-5 w-5" />
-          <span className="text-[11px] font-medium">Upload</span>
-        </button>
-      )}
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className={`group flex w-full overflow-hidden rounded-xl border border-black/10 bg-ieee-ink transition hover:border-ieee-orange/60 ${
+          isBanner ? 'aspect-[16/9]' : 'mx-auto aspect-[4/5] max-w-48'
+        }`}
+      >
+        {hasFile(displayUrl) ? (
+          <img
+            src={displayUrl}
+            alt="Event artwork preview"
+            className={`h-full w-full ${isBanner ? 'object-cover' : 'object-contain'}`}
+          />
+        ) : (
+          <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 border-2 border-dashed border-slate-300 bg-white text-slate-400 group-hover:border-ieee-orange/60 group-hover:text-ieee-orange">
+            <ImagePlus className="h-5 w-5" />
+            <span className="text-[11px] font-medium">Upload artwork</span>
+          </span>
+        )}
+      </button>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           className={actionBtn}
         >
-          {hasFile(displayUrl) ? <FileCheck2 className="h-3.5 w-3.5" /> : <ImagePlus className="h-3.5 w-3.5" />}
-          {hasFile(displayUrl) ? 'Change image' : 'Upload image'}
+          <ImagePlus className="h-3.5 w-3.5" />
+          Upload image
         </button>
-        {hasFile(displayUrl) && (
-          <button type="button" onClick={onRemove} className={dangerBtn}>
-            <X className="h-3.5 w-3.5" /> Remove image
-          </button>
-        )}
+
+        <div className="flex rounded-xl border border-black/10 bg-white p-1">
+          {(['poster', 'banner'] as EventImageLayout[]).map((layout) => (
+            <button
+              key={layout}
+              type="button"
+              onClick={() => onImageLayoutChange(layout)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                imageLayout === layout
+                  ? 'bg-ieee-orange text-white shadow-sm'
+                  : 'text-slate-500 hover:text-ieee-orange'
+              }`}
+            >
+              {layout === 'poster' ? 'Poster' : 'Banner'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-black/5 bg-white px-3 py-2 text-xs font-medium text-slate-500">
+        {selectedFile ? 'Selected image will be saved with this event. ' : ''}
+        {modeDescription}
       </div>
 
       <input
@@ -124,35 +168,59 @@ function EventImageField({
   );
 }
 
-function EventDetails({ event }: { event: AdminEvent }) {
+function EventPublicPreview({ event }: { event: AdminEvent }) {
+  const isBanner = event.imageLayout === 'banner';
+
   return (
     <div className="space-y-4 text-sm text-slate-600">
-      {hasFile(event.image) && <img src={event.image} alt={event.title} className="max-h-64 w-full rounded-2xl object-cover" />}
-      <div>
-        <p className="font-display text-xl font-bold text-slate-900">{event.title}</p>
-        <p className="mt-1 text-slate-500">{event.description}</p>
-      </div>
-      {event.longDescription && <p className="leading-6">{event.longDescription}</p>}
-      <div className="rounded-2xl border border-black/5 bg-cream p-4">
-        <p><span className="font-semibold text-slate-800">Type:</span> <span className="capitalize">{event.category}</span></p>
-        <p><span className="font-semibold text-slate-800">Date:</span> {event.date}</p>
-        <p><span className="font-semibold text-slate-800">Time:</span> {event.time}</p>
-        <p><span className="font-semibold text-slate-800">Venue:</span> {event.venue}</p>
-        <p><span className="font-semibold text-slate-800">Capacity:</span> {event.capacity}</p>
-        <p><span className="font-semibold text-slate-800">Publication:</span> {event.isPublished ? 'Published' : 'Draft'}</p>
-        <p><span className="font-semibold text-slate-800">Registration:</span> {event.registrationOpen ? 'Open' : 'Closed'}</p>
-      </div>
-      {event.organizers.length > 0 && (
-        <div>
-          <p className="font-semibold text-slate-800">Organizers</p>
-          <p>{event.organizers.join(', ')}</p>
+      <div className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
+        <div className={`relative overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(255,108,12,0.24),transparent_35%),linear-gradient(135deg,#1f1710,#0f1014)] ${isBanner ? 'h-56' : 'min-h-80'}`}>
+          {hasFile(event.image) ? (
+            <img
+              src={event.image}
+              alt={event.title}
+              className={isBanner ? 'h-full w-full object-cover' : 'mx-auto max-h-[520px] w-full object-contain'}
+            />
+          ) : (
+            <div className="flex h-56 items-center justify-center px-6 text-center text-white/70">
+              Event image not uploaded yet.
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-ieee-ink/60 to-transparent" />
+          <div className="absolute bottom-4 left-4 flex gap-2">
+            <span className="rounded-full bg-ieee-orange px-3 py-1 text-xs font-semibold text-white">
+              {categoryLabels[event.category]}
+            </span>
+            {event.featured && (
+              <span className="rounded-full bg-ieee-yellow px-3 py-1 text-xs font-semibold text-ieee-black">
+                Featured
+              </span>
+            )}
+          </div>
         </div>
-      )}
-      {event.registrationUrl && (
-        <a href={event.registrationUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-ieee-orange">
-          Open registration link <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      )}
+        <div className="p-5">
+          <h3 className="font-display text-xl font-bold text-slate-900">{event.title || 'Untitled event'}</h3>
+          <p className="mt-2 leading-6 text-slate-600">{event.description || 'Short event description will appear here.'}</p>
+          <div className="mt-4 grid gap-3 rounded-2xl border border-black/5 bg-cream p-4">
+            <span className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-ieee-orange" />
+              {event.date} · {event.time || 'Time not set'}
+            </span>
+            <span className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-ieee-orange" />
+              {event.venue || 'Venue not set'}
+            </span>
+          </div>
+          <div className="mt-4">
+            <span className={`inline-flex rounded-xl px-4 py-2 text-sm font-semibold text-white ${event.registrationOpen ? 'bg-ieee-orange' : 'bg-slate-300'}`}>
+              {event.registrationOpen ? 'Register Now' : 'Registration Closed'}
+            </span>
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-slate-400">
+        Preview uses the same event image mode and public event styling.
+      </p>
     </div>
   );
 }
@@ -166,8 +234,8 @@ export default function AdminEventsPage() {
   const [draft, setDraft] = useState<AdminEvent | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [selectedCover, setSelectedCover] = useState<File | null>(null);
-  const [removedCoverPath, setRemovedCoverPath] = useState<string | null>(null);
-  const [viewing, setViewing] = useState<AdminEvent | null>(null);
+  const [organizersText, setOrganizersText] = useState('');
+  const [previewing, setPreviewing] = useState<AdminEvent | null>(null);
   const [deleting, setDeleting] = useState<AdminEvent | null>(null);
   const canManage = adminAuthService.canManageContent();
 
@@ -190,7 +258,7 @@ export default function AdminEventsPage() {
     }
     if (change.type === 'delete' && change.id) {
       setEvents((items) => items.filter((item) => item.id !== change.id));
-      setViewing((current) => (current?.id === change.id ? null : current));
+      setPreviewing((current) => (current?.id === change.id ? null : current));
       return;
     }
     if (!change.event) return;
@@ -199,7 +267,7 @@ export default function AdminEventsPage() {
       if (!exists) return [change.event!, ...items];
       return items.map((item) => (item.id === change.event!.id ? change.event! : item));
     });
-    setViewing((current) => (current?.id === change.event!.id ? change.event! : current));
+    setPreviewing((current) => (current?.id === change.event!.id ? change.event! : current));
   };
 
   useEffect(() => {
@@ -219,7 +287,7 @@ export default function AdminEventsPage() {
       key: 'category',
       header: 'Type',
       sortValue: (event) => event.category,
-      render: (event) => <span className="capitalize">{event.category}</span>,
+      render: (event) => <span>{categoryLabels[event.category]}</span>,
     },
     {
       key: 'date',
@@ -252,6 +320,16 @@ export default function AdminEventsPage() {
       ),
     },
     {
+      key: 'featured',
+      header: 'Feature',
+      sortValue: (event) => (event.featured ? 'featured' : 'standard'),
+      render: (event) => (
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${event.featured ? 'bg-ieee-yellow/40 text-ieee-black' : 'bg-slate-100 text-slate-500'}`}>
+          {event.featured ? 'Featured' : 'Standard'}
+        </span>
+      ),
+    },
+    {
       key: 'registration',
       header: 'Registration',
       sortValue: (event) => (event.registrationOpen ? 'open' : 'closed'),
@@ -267,8 +345,8 @@ export default function AdminEventsPage() {
       align: 'right',
       render: (event) => (
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <button type="button" className={actionBtn} onClick={() => setViewing(event)}>
-            <ExternalLink className="h-3.5 w-3.5" /> View
+          <button type="button" className={actionBtn} onClick={() => setPreviewing(event)}>
+            <ExternalLink className="h-3.5 w-3.5" /> Preview
           </button>
           {canManage && (
             <>
@@ -279,7 +357,7 @@ export default function AdminEventsPage() {
                   setDraft(event);
                   setIsNew(false);
                   setSelectedCover(null);
-                  setRemovedCoverPath(null);
+                  setOrganizersText(event.organizers.join(', '));
                   setError(null);
                   setSuccess(null);
                 }}
@@ -300,7 +378,7 @@ export default function AdminEventsPage() {
     setDraft(emptyEvent());
     setIsNew(true);
     setSelectedCover(null);
-    setRemovedCoverPath(null);
+    setOrganizersText('');
     setError(null);
     setSuccess(null);
   };
@@ -317,7 +395,7 @@ export default function AdminEventsPage() {
     setSuccess(null);
 
     let uploadedCover: { url: string; path: string } | null = null;
-    const coverPathToRemove = removedCoverPath ?? draft.coverImagePath;
+    const previousCoverPath = draft.coverImagePath;
 
     try {
       if (selectedCover) {
@@ -334,17 +412,19 @@ export default function AdminEventsPage() {
         venue: draft.venue,
         coverImageUrl: uploadedCover?.url ?? draft.image,
         coverImagePath: uploadedCover?.path ?? draft.coverImagePath,
+        featured: Boolean(draft.featured),
+        imageLayout: draft.imageLayout ?? 'poster',
         registrationOpen: draft.registrationOpen,
         registrationUrl: draft.registrationUrl,
         capacity: draft.capacity,
-        organizers: draft.organizers,
+        organizers: parseOrganizers(organizersText),
         isPublished: draft.isPublished,
       };
 
       const saved = isNew ? await eventsService.create(input) : await eventsService.update(draft.id, input);
-      const shouldRemovePreviousCover = coverPathToRemove && coverPathToRemove !== saved.coverImagePath;
+      const shouldRemovePreviousCover = previousCoverPath && previousCoverPath !== saved.coverImagePath;
       if (shouldRemovePreviousCover) {
-        void eventsService.removeCoverImage(coverPathToRemove).catch((err) => {
+        void eventsService.removeCoverImage(previousCoverPath).catch((err) => {
           console.warn('Previous event cover could not be removed', err);
         });
       }
@@ -356,7 +436,7 @@ export default function AdminEventsPage() {
       });
       setDraft(null);
       setSelectedCover(null);
-      setRemovedCoverPath(null);
+      setOrganizersText('');
       setSuccess(isNew ? 'Event added successfully.' : 'Event updated successfully.');
     } catch (err) {
       if (uploadedCover) {
@@ -382,12 +462,10 @@ export default function AdminEventsPage() {
     setError(null);
     setSuccess(null);
     try {
-      await eventsService.remove(deleting.id);
       if (deleting.coverImagePath) {
-        void eventsService.removeCoverImage(deleting.coverImagePath).catch((err) => {
-          console.warn('Deleted event cover cleanup failed', err);
-        });
+        await eventsService.removeCoverImage(deleting.coverImagePath);
       }
+      await eventsService.remove(deleting.id);
       setEvents((items) => items.filter((item) => item.id !== deleting.id));
       setDeleting(null);
       setSuccess('Event deleted successfully.');
@@ -448,7 +526,7 @@ export default function AdminEventsPage() {
         onClose={() => {
           setDraft(null);
           setSelectedCover(null);
-          setRemovedCoverPath(null);
+          setOrganizersText('');
         }}
         footer={
           <button
@@ -469,16 +547,13 @@ export default function AdminEventsPage() {
                 {error}
               </div>
             )}
-            <AdminField label="Cover image" hint="PNG, JPG, or WebP. Optional.">
+            <AdminField label="Event artwork" hint="PNG, JPG, or WebP. Optional.">
               <EventImageField
                 imageUrl={draft.image}
                 selectedFile={selectedCover}
+                imageLayout={draft.imageLayout ?? 'poster'}
                 onFileChange={setSelectedCover}
-                onRemove={() => {
-                  setSelectedCover(null);
-                  if (draft.coverImagePath) setRemovedCoverPath(draft.coverImagePath);
-                  setDraft({ ...draft, image: '', coverImagePath: null });
-                }}
+                onImageLayoutChange={(imageLayout) => setDraft({ ...draft, imageLayout })}
               />
             </AdminField>
             <AdminField label="Title" required>
@@ -494,8 +569,8 @@ export default function AdminEventsPage() {
               <AdminField label="Event type">
                 <AdminSelect value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value as EventCategory })}>
                   {categories.map((category) => (
-                    <option key={category} value={category} className="capitalize">
-                      {category}
+                    <option key={category} value={category}>
+                      {categoryLabels[category]}
                     </option>
                   ))}
                 </AdminSelect>
@@ -522,8 +597,9 @@ export default function AdminEventsPage() {
             </AdminField>
             <AdminField label="Organizers" hint="Comma-separated names">
               <AdminInput
-                value={draft.organizers.join(', ')}
-                onChange={(e) => setDraft({ ...draft, organizers: parseOrganizers(e.target.value) })}
+                value={organizersText}
+                onChange={(e) => setOrganizersText(e.target.value)}
+                placeholder="IEEE CS Team, Graphics Team"
               />
             </AdminField>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -535,6 +611,18 @@ export default function AdminEventsPage() {
               />
               Published
             </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={Boolean(draft.featured)}
+                onChange={(e) => setDraft({ ...draft, featured: e.target.checked })}
+                className="accent-ieee-orange"
+              />
+              Featured
+            </label>
+            <p className="-mt-2 text-xs text-slate-400">
+              Upcoming and previous status is calculated automatically from the event date.
+            </p>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
                 type="checkbox"
@@ -556,8 +644,8 @@ export default function AdminEventsPage() {
         )}
       </AdminEditDrawer>
 
-      <AdminEditDrawer open={!!viewing} title="Event Details" onClose={() => setViewing(null)}>
-        {viewing && <EventDetails event={viewing} />}
+      <AdminEditDrawer open={!!previewing} title="Public Preview" onClose={() => setPreviewing(null)}>
+        {previewing && <EventPublicPreview event={previewing} />}
       </AdminEditDrawer>
 
       <ConfirmModal

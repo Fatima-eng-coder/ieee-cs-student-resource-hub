@@ -38,6 +38,7 @@ export default function EventsShowcase({ events }: EventsShowcaseProps) {
 
   if (count === 0) return null;
   const event = events[index % count];
+  const imageClass = event.imageLayout === 'banner' ? 'object-cover' : 'object-contain';
 
   return (
     <section id="events" className="relative overflow-hidden bg-ieee-ink py-20 text-white sm:py-28">
@@ -79,7 +80,7 @@ export default function EventsShowcase({ events }: EventsShowcaseProps) {
                 className="grid gap-0 md:grid-cols-2"
               >
                 <div className="relative h-56 overflow-hidden md:h-full md:min-h-[340px]">
-                  <img src={event.image} alt={event.title} className="h-full w-full object-cover" />
+                  <img src={event.image} alt={event.title} className={`h-full w-full ${imageClass}`} />
                   <div className="absolute inset-0 bg-gradient-to-t from-ieee-ink/70 via-transparent to-transparent md:bg-gradient-to-r" />
                   <span className="absolute left-4 top-4 rounded-full bg-white/90 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-ieee-ink">
                     {categoryLabel[event.category]}
@@ -107,14 +108,16 @@ export default function EventsShowcase({ events }: EventsShowcaseProps) {
                     >
                       View details <ArrowRight className="h-4 w-4" />
                     </Link>
-                    {event.registrationOpen && (
-                      <Link
-                        to={`/events/${event.id}/register`}
+                    {event.registrationOpen && event.registrationUrl && (
+                      <a
+                        href={event.registrationUrl}
+                        target="_blank"
+                        rel="noreferrer"
                         data-cursor="link"
                         className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-white/90 backdrop-blur transition hover:border-ieee-orange/50 hover:text-ieee-orange"
                       >
                         Register
-                      </Link>
+                      </a>
                     )}
                   </div>
                 </div>

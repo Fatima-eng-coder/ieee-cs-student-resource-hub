@@ -25,6 +25,7 @@ export interface Banner {
 
 export type EventCategory = 'workshop' | 'competition' | 'seminar' | 'session' | 'hackathon' | 'other';
 export type EventTiming = 'upcoming' | 'previous' | 'featured';
+export type EventImageLayout = 'poster' | 'banner';
 
 export interface EventOutcome {
   attendees: number;
@@ -43,6 +44,7 @@ export interface EventItem {
   category: EventCategory;
   timing: EventTiming;
   featured?: boolean;
+  imageLayout?: EventImageLayout;
   registrationOpen: boolean;
   registrationUrl?: string;
   capacity: number;

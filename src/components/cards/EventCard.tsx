@@ -17,14 +17,18 @@ const categoryColors: Record<EventItem['category'], string> = {
 };
 
 export default function EventCard({ event }: EventCardProps) {
+  const imageLayout = event.imageLayout ?? 'poster';
+  const imageFrameClass = imageLayout === 'banner' ? 'aspect-[16/9]' : 'aspect-[4/5]';
+  const imageClass = imageLayout === 'banner' ? 'object-cover' : 'object-contain';
+
   return (
     <motion.div whileHover={{ y: -4 }} transition={{ duration: 0.2 }} className="h-full">
       <Link
         to={`/events/${event.id}`}
         className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
       >
-        <div className="relative h-40 w-full overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(255,108,12,0.25),transparent_35%),linear-gradient(135deg,#1f1710,#0f1014)]">
-          {event.image ? <img src={event.image} alt={event.title} className="h-full w-full object-cover" /> : null}
+        <div className={`relative ${imageFrameClass} w-full overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(255,108,12,0.25),transparent_35%),linear-gradient(135deg,#1f1710,#0f1014)]`}>
+          {event.image ? <img src={event.image} alt={event.title} className={`h-full w-full ${imageClass}`} /> : null}
           <span className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${categoryColors[event.category]}`}>
             {event.category}
           </span>
