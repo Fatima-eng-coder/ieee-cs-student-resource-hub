@@ -11,7 +11,9 @@ const categoryColors: Record<EventItem['category'], string> = {
   workshop: 'bg-blue-100 text-blue-700',
   competition: 'bg-purple-100 text-purple-700',
   seminar: 'bg-teal-100 text-teal-700',
+  session: 'bg-amber-100 text-amber-700',
   hackathon: 'bg-orange-100 text-orange-700',
+  other: 'bg-slate-100 text-slate-700',
 };
 
 export default function EventCard({ event }: EventCardProps) {
@@ -21,8 +23,8 @@ export default function EventCard({ event }: EventCardProps) {
         to={`/events/${event.id}`}
         className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
       >
-        <div className="relative h-40 w-full overflow-hidden">
-          <img src={event.image} alt={event.title} className="h-full w-full object-cover" />
+        <div className="relative h-40 w-full overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(255,108,12,0.25),transparent_35%),linear-gradient(135deg,#1f1710,#0f1014)]">
+          {event.image ? <img src={event.image} alt={event.title} className="h-full w-full object-cover" /> : null}
           <span className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${categoryColors[event.category]}`}>
             {event.category}
           </span>

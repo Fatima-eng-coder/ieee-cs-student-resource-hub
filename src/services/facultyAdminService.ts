@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Teacher } from '@/types';
 
 type VerificationStatus = 'pending' | 'verified';
+export type DuplicateTeacherMatch = 'email' | 'name_department';
 
 /** Extends the shared public `Teacher` type with the fields only the admin panel needs. */
 export interface AdminTeacher extends Teacher {
@@ -28,21 +29,25 @@ export interface SaveTeacherInput extends Omit<AdminTeacher, 'id' | 'courses'> {
 export interface DuplicateTeacherResult {
   duplicate: AdminTeacher | null;
   exists: boolean;
+  match: DuplicateTeacherMatch | null;
 }
 
 export interface DuplicateTeacherCandidate {
   id?: string;
   name: string;
   department: string;
+  email?: string;
 }
 
 export class DuplicateTeacherError extends Error {
   duplicate: AdminTeacher | null;
+  match: DuplicateTeacherMatch | null;
 
-  constructor(duplicate: AdminTeacher | null) {
+  constructor(duplicate: AdminTeacher | null, match: DuplicateTeacherMatch | null) {
     super('A matching teacher already exists.');
     this.name = 'DuplicateTeacherError';
     this.duplicate = duplicate;
+    this.match = match;
   }
 }
 
@@ -80,16 +85,9 @@ const toPayload = (teacher: Partial<SaveTeacherInput | AdminTeacher>) => {
   return payload;
 };
 
+const normalizeEmail = (value: string) => value.trim().toLowerCase();
 const normalizeName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
-const normalizeDept = (value: string) => value.trim().toLowerCase();
-
-function isSameDuplicateGroup(teacher: AdminTeacher, candidate: DuplicateTeacherCandidate): boolean {
-  return (
-    teacher.id !== candidate.id &&
-    normalizeName(teacher.name) === normalizeName(candidate.name) &&
-    normalizeDept(teacher.department) === normalizeDept(candidate.department)
-  );
-}
+const normalizeDept = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
 export function subscribeFacultyChanged(callback: (change?: FacultyChange) => void): () => void {
   if (typeof window === 'undefined') return () => undefined;
@@ -203,26 +201,47 @@ export const facultyAdminService = {
       .from('faculty')
       .select(facultyColumns)
       .in('verification', verificationStatuses)
-      .limit(50);
+      .limit(1000);
 
     if (candidate.id) query = query.neq('id', candidate.id);
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
 
-    const existing = ((data ?? []) as FacultyAdminRow[])
-      .map(toAdminTeacher)
-      .filter((teacher) => isSameDuplicateGroup(teacher, candidate));
+    const existing = ((data ?? []) as FacultyAdminRow[]).map(toAdminTeacher);
+    const candidateEmail = normalizeEmail(candidate.email ?? '');
+    const emailDuplicate = candidateEmail
+      ? existing.find((teacher) => normalizeEmail(teacher.email) === candidateEmail)
+      : null;
 
-    return { duplicate: existing[0] ?? null, exists: existing.length > 0 };
+    if (emailDuplicate) return { duplicate: emailDuplicate, exists: true, match: 'email' };
+
+    const candidateName = normalizeName(candidate.name);
+    const candidateDepartment = normalizeDept(candidate.department);
+    const nameDepartmentDuplicate =
+      candidateName && candidateDepartment
+        ? existing.find(
+            (teacher) =>
+              normalizeName(teacher.name) === candidateName &&
+              normalizeDept(teacher.department) === candidateDepartment
+          )
+        : null;
+
+    return {
+      duplicate: nameDepartmentDuplicate ?? null,
+      exists: Boolean(nameDepartmentDuplicate),
+      match: nameDepartmentDuplicate ? 'name_department' : null,
+    };
   },
 
-  async verify(id: string): Promise<AdminTeacher> {
+  async verify(id: string, options: { allowPossibleDuplicate?: boolean } = {}): Promise<AdminTeacher> {
     const teacher = await this.get(id);
     if (!teacher) throw new Error('Teacher not found.');
 
-    const { duplicate, exists } = await this.findDuplicate(teacher, { verificationStatuses: ['verified'] });
-    if (exists) throw new DuplicateTeacherError(duplicate);
+    const { duplicate, exists, match } = await this.findDuplicate(teacher, { verificationStatuses: ['verified'] });
+    if (exists && !options.allowPossibleDuplicate) {
+      throw new DuplicateTeacherError(duplicate, match);
+    }
 
     return this.update(id, { verification: 'verified' });
   },

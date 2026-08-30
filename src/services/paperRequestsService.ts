@@ -134,7 +134,7 @@ export const paperRequestsService = {
     const { data, error } = await supabase
       .from('paper_requests')
       .select(requestColumns)
-      .in('status', ['pending', 'noted', 'fulfilled'])
+      .in('status', ['pending', 'noted', 'fulfilled', 'rejected'])
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(friendlyAdminRequestError(error.message));
@@ -157,5 +157,49 @@ export const paperRequestsService = {
 
     if (error) throw new Error(friendlyAdminRequestError(error.message));
     return toPaperRequest(data as PaperRequestRow);
+  },
+
+  async deleteReviewed(id: string): Promise<void> {
+    await refreshAuthSession();
+    const { error } = await supabase
+      .from('paper_requests')
+      .delete()
+      .eq('id', id)
+      .neq('status', 'pending');
+
+    if (error) throw new Error(friendlyAdminRequestError(error.message));
+  },
+
+  async deleteReviewedMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    await refreshAuthSession();
+    const { error } = await supabase
+      .from('paper_requests')
+      .delete()
+      .in('id', ids)
+      .neq('status', 'pending');
+
+    if (error) throw new Error(friendlyAdminRequestError(error.message));
+  },
+
+  subscribe(callback: () => void): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+
+    let timeout: number | null = null;
+    const scheduleCallback = () => {
+      if (timeout) window.clearTimeout(timeout);
+      timeout = window.setTimeout(callback, 150);
+    };
+
+    const channel = supabase
+      .channel(`paper-requests-sync-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paper_requests' }, scheduleCallback)
+      .subscribe();
+
+    return () => {
+      if (timeout) window.clearTimeout(timeout);
+      void supabase.removeChannel(channel);
+    };
   },
 };

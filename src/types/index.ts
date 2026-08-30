@@ -23,7 +23,7 @@ export interface Banner {
   type: 'sponsor' | 'workshop' | 'announcement' | 'partner' | 'campaign';
 }
 
-export type EventCategory = 'workshop' | 'competition' | 'seminar' | 'hackathon';
+export type EventCategory = 'workshop' | 'competition' | 'seminar' | 'session' | 'hackathon' | 'other';
 export type EventTiming = 'upcoming' | 'previous' | 'featured';
 
 export interface EventOutcome {
@@ -44,6 +44,7 @@ export interface EventItem {
   timing: EventTiming;
   featured?: boolean;
   registrationOpen: boolean;
+  registrationUrl?: string;
   capacity: number;
   registered: number;
   image: string;

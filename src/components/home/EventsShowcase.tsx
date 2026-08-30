@@ -8,7 +8,9 @@ const categoryLabel: Record<EventItem['category'], string> = {
   workshop: 'Workshop',
   competition: 'Competition',
   seminar: 'Seminar',
+  session: 'Session',
   hackathon: 'Hackathon',
+  other: 'Other',
 };
 
 interface EventsShowcaseProps {

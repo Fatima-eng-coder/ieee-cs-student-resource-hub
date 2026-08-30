@@ -338,16 +338,6 @@ async function removeUploadedSuggestionFile(submission: CourseResourceSubmission
   await removeUploadedFile(submission.filePath);
 }
 
-async function deleteSubmissionRow(id: string): Promise<void> {
-  await refreshAuthSession();
-  const { error } = await supabase
-    .from('course_resource_submissions')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw new Error(friendlyAdminSubmissionError(error.message));
-}
-
 export const courseResourceSubmissionsService = {
   async create(input: CourseResourceSubmissionInput): Promise<CourseResourceSubmissionResult> {
     const { data: userData } = await supabase.auth.getUser();
@@ -401,7 +391,7 @@ export const courseResourceSubmissionsService = {
     const { data, error } = await supabase
       .from('course_resource_submissions')
       .select('*')
-      .in('status', ['pending', 'approved'])
+      .in('status', ['pending', 'approved', 'rejected'])
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(friendlyAdminSubmissionError(error.message));
@@ -422,7 +412,51 @@ export const courseResourceSubmissionsService = {
   async reject(submission: CourseResourceSubmission): Promise<CourseResourceReviewResult> {
     await refreshAuthSession();
     await removeUploadedSuggestionFile(submission);
-    await deleteSubmissionRow(submission.id);
-    return { deletedId: submission.id };
+    const updated = await updateSubmissionStatus(submission.id, 'rejected');
+    return { submission: updated };
+  },
+
+  async deleteReviewed(id: string): Promise<void> {
+    await refreshAuthSession();
+    const { error } = await supabase
+      .from('course_resource_submissions')
+      .delete()
+      .eq('id', id)
+      .neq('status', 'pending');
+
+    if (error) throw new Error(friendlyAdminSubmissionError(error.message));
+  },
+
+  async deleteReviewedMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    await refreshAuthSession();
+    const { error } = await supabase
+      .from('course_resource_submissions')
+      .delete()
+      .in('id', ids)
+      .neq('status', 'pending');
+
+    if (error) throw new Error(friendlyAdminSubmissionError(error.message));
+  },
+
+  subscribe(callback: () => void): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+
+    let timeout: number | null = null;
+    const scheduleCallback = () => {
+      if (timeout) window.clearTimeout(timeout);
+      timeout = window.setTimeout(callback, 150);
+    };
+
+    const channel = supabase
+      .channel(`course-resource-submissions-sync-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'course_resource_submissions' }, scheduleCallback)
+      .subscribe();
+
+    return () => {
+      if (timeout) window.clearTimeout(timeout);
+      void supabase.removeChannel(channel);
+    };
   },
 };

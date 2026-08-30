@@ -54,6 +54,7 @@ import AdminProjectsPage from '@/pages/admin/AdminProjectsPage';
 import AdminNavigationPage from '@/pages/admin/AdminNavigationPage';
 import AdminHierarchyPage from '@/pages/admin/AdminHierarchyPage';
 import AdminSubmissionsPage from '@/pages/admin/AdminSubmissionsPage';
+import AdminSubmissionHistoryPage from '@/pages/admin/AdminSubmissionHistoryPage';
 import AdminQuickLinksPage from '@/pages/admin/AdminQuickLinksPage';
 import AdminAnnouncementsPage from '@/pages/admin/AdminAnnouncementsPage';
 import AdminGalleryPage from '@/pages/admin/AdminGalleryPage';
@@ -141,6 +142,7 @@ export const router = createBrowserRouter([
       { path: 'navigation', element: <AdminNavigationPage /> },
       { path: 'hierarchy', element: <AdminHierarchyPage /> },
       { path: 'submissions', element: <AdminSubmissionsPage /> },
+      { path: 'submissions/history', element: <AdminSubmissionHistoryPage /> },
       { path: 'quick-links', element: <AdminQuickLinksPage /> },
       { path: 'announcements', element: <AdminAnnouncementsPage /> },
       { path: 'gallery', element: <AdminGalleryPage /> },

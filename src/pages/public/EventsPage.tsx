@@ -18,6 +18,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'competition', label: 'Competitions' },
   { key: 'seminar', label: 'Seminars' },
   { key: 'hackathon', label: 'Hackathons' },
+  { key: 'other', label: 'Other' },
 ];
 
 export default function EventsPage() {

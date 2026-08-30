@@ -1,4 +1,9 @@
 import { supabase } from '@/lib/supabase';
+import {
+  facultyAdminService,
+  type AdminTeacher,
+  type DuplicateTeacherMatch,
+} from '@/services/facultyAdminService';
 import { facultyService } from '@/services/facultyService';
 
 export type FacultySuggestionType =
@@ -54,6 +59,12 @@ export interface FacultySuggestion {
 
 export interface FacultySuggestionReviewResult {
   suggestion: FacultySuggestion;
+}
+
+export interface FacultySuggestionDuplicateResult {
+  duplicate: AdminTeacher | null;
+  exists: boolean;
+  match: DuplicateTeacherMatch | null;
 }
 
 interface FacultySuggestionRow {
@@ -279,6 +290,21 @@ async function updateFacultyFromSuggestion(suggestion: FacultySuggestion): Promi
   }
 }
 
+async function findApprovalDuplicate(suggestion: FacultySuggestion): Promise<FacultySuggestionDuplicateResult> {
+  if (suggestion.suggestionType === 'office_update' || suggestion.suggestionType === 'course_assignment') {
+    return { duplicate: null, exists: false, match: null };
+  }
+
+  const candidate = {
+    id: suggestion.facultyId ?? undefined,
+    name: suggestion.teacherName,
+    department: suggestion.department ?? '',
+    email: suggestion.email ?? '',
+  };
+
+  return facultyAdminService.findDuplicate(candidate, { verificationStatuses: ['verified'] });
+}
+
 export const facultySuggestionService = {
   async submit(input: FacultySuggestionInput): Promise<void> {
     validateSuggestion(input);
@@ -310,15 +336,36 @@ export const facultySuggestionService = {
     const { data, error } = await supabase
       .from('faculty_suggestions')
       .select(suggestionColumns)
-      .in('status', ['pending', 'approved'])
+      .in('status', ['pending', 'approved', 'rejected'])
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(friendlyAdminError(error.message));
     return ((data ?? []) as FacultySuggestionRow[]).map(toFacultySuggestion);
   },
 
-  async approve(suggestion: FacultySuggestion): Promise<FacultySuggestionReviewResult> {
+  async findApprovalDuplicate(suggestion: FacultySuggestion): Promise<FacultySuggestionDuplicateResult> {
+    try {
+      return await findApprovalDuplicate(suggestion);
+    } catch (error) {
+      throw new Error(friendlyAdminError(error instanceof Error ? error.message : 'Duplicate check failed.'));
+    }
+  },
+
+  async approve(
+    suggestion: FacultySuggestion,
+    options: { allowDuplicate?: boolean } = {}
+  ): Promise<FacultySuggestionReviewResult> {
     await refreshAuthSession();
+    if (!options.allowDuplicate) {
+      const { exists, duplicate, match } = await findApprovalDuplicate(suggestion);
+      if (exists) {
+        throw new Error(
+          match === 'email'
+            ? `A verified teacher with this email already exists: ${duplicate?.name ?? 'existing teacher'}.`
+            : `A verified teacher with the same name and department may already exist: ${duplicate?.name ?? 'existing teacher'}.`
+        );
+      }
+    }
     await updateFacultyFromSuggestion(suggestion);
     const updated = await updateSuggestionStatus(suggestion.id, 'approved');
     return { suggestion: updated };
@@ -328,5 +375,49 @@ export const facultySuggestionService = {
     await refreshAuthSession();
     const updated = await updateSuggestionStatus(suggestion.id, 'rejected');
     return { suggestion: updated };
+  },
+
+  async deleteReviewed(id: string): Promise<void> {
+    await refreshAuthSession();
+    const { error } = await supabase
+      .from('faculty_suggestions')
+      .delete()
+      .eq('id', id)
+      .neq('status', 'pending');
+
+    if (error) throw new Error(friendlyAdminError(error.message));
+  },
+
+  async deleteReviewedMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    await refreshAuthSession();
+    const { error } = await supabase
+      .from('faculty_suggestions')
+      .delete()
+      .in('id', ids)
+      .neq('status', 'pending');
+
+    if (error) throw new Error(friendlyAdminError(error.message));
+  },
+
+  subscribe(callback: () => void): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+
+    let timeout: number | null = null;
+    const scheduleCallback = () => {
+      if (timeout) window.clearTimeout(timeout);
+      timeout = window.setTimeout(callback, 150);
+    };
+
+    const channel = supabase
+      .channel(`faculty-suggestions-sync-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'faculty_suggestions' }, scheduleCallback)
+      .subscribe();
+
+    return () => {
+      if (timeout) window.clearTimeout(timeout);
+      void supabase.removeChannel(channel);
+    };
   },
 };

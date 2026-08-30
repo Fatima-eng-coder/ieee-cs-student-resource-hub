@@ -241,4 +241,30 @@ export const facultyService = {
       throw new Error(error.message);
     }
   },
+
+  subscribe(callback: () => void): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+
+    let timeout: number | null = null;
+    const scheduleCallback = () => {
+      if (timeout) window.clearTimeout(timeout);
+      timeout = window.setTimeout(callback, 150);
+    };
+
+    const facultyChannel = supabase
+      .channel(`public-faculty-sync-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'faculty' }, scheduleCallback)
+      .subscribe();
+
+    const courseTeachersChannel = supabase
+      .channel(`public-course-teachers-sync-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'course_teachers' }, scheduleCallback)
+      .subscribe();
+
+    return () => {
+      if (timeout) window.clearTimeout(timeout);
+      void supabase.removeChannel(facultyChannel);
+      void supabase.removeChannel(courseTeachersChannel);
+    };
+  },
 };
