@@ -395,6 +395,7 @@ export type SubmissionType =
   | 'feedback'
   | 'sponsorship'
   | 'teacher-suggestion'
+  | 'event-image'
   | 'paper-request'
   | 'course-resource'
   | 'event-registration'

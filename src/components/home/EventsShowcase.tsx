@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays, MapPin, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { EventItem } from '@/types';
+import { hasFile } from '@/utils/files';
 
 const categoryLabel: Record<EventItem['category'], string> = {
   workshop: 'Workshop',
@@ -80,7 +81,16 @@ export default function EventsShowcase({ events }: EventsShowcaseProps) {
                 className="grid gap-0 md:grid-cols-2"
               >
                 <div className="relative h-56 overflow-hidden md:h-full md:min-h-[340px]">
-                  <img src={event.image} alt={event.title} className={`h-full w-full ${imageClass}`} />
+                  {hasFile(event.image) ? (
+                    <img src={event.image} alt={event.title} className={`h-full w-full ${imageClass}`} />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-white/[0.03] px-8 text-center">
+                      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-ieee-orange">
+                        <CalendarDays className="h-6 w-6" />
+                      </span>
+                      <p className="font-display text-lg font-semibold text-white/80">Event artwork coming soon</p>
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-ieee-ink/70 via-transparent to-transparent md:bg-gradient-to-r" />
                   <span className="absolute left-4 top-4 rounded-full bg-white/90 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-ieee-ink">
                     {categoryLabel[event.category]}

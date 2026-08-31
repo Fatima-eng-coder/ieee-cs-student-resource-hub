@@ -7,8 +7,8 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import MultiImageUpload from '@/components/projects/MultiImageUpload';
 import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
-import { appendToStorage, makeId } from '@/utils/storage';
-import type { EventItem, Submission } from '@/types';
+import { eventImageSubmissionsService } from '@/services/eventImageSubmissionsService';
+import type { EventItem } from '@/types';
 
 interface Option {
   title: string;
@@ -35,6 +35,8 @@ export default function ContributePage() {
   const [eventId, setEventId] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -60,18 +62,22 @@ export default function ContributePage() {
 
   const previousEvents = useMemo(() => events.filter((event) => event.timing === 'previous'), [events]);
 
-  const submitPhotos = () => {
+  const submitPhotos = async () => {
     const ev = previousEvents.find((e) => e.id === eventId);
-    const submission: Submission = {
-      id: makeId('sub'),
-      type: 'event-photos',
-      submittedBy: 'Student',
-      submittedAt: new Date().toISOString().slice(0, 10),
-      status: 'pending',
-      data: { event: ev?.title ?? 'Unspecified', photos: String(photos.length) },
-    };
-    appendToStorage<Submission>('ieeecs_submissions', [], submission);
-    setDone(true);
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      await eventImageSubmissionsService.create({
+        eventName: ev?.title ?? '',
+        images: photos,
+      });
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Your event photos could not be submitted right now.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const closeModal = () => {
@@ -80,6 +86,8 @@ export default function ContributePage() {
       setDone(false);
       setPhotos([]);
       setEventId('');
+      setError(null);
+      setSubmitting(false);
     }, 200);
   };
 
@@ -203,12 +211,18 @@ export default function ContributePage() {
                     <MultiImageUpload value={photos} onChange={setPhotos} max={3} />
                   </div>
 
+                  {error && (
+                    <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+                      {error}
+                    </p>
+                  )}
+
                   <button
                     onClick={submitPhotos}
-                    disabled={!eventId || photos.length === 0}
+                    disabled={!eventId || photos.length === 0 || submitting}
                     className="mt-5 w-full rounded-xl bg-ieee-orange px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Submit Photos
+                    {submitting ? 'Submitting...' : 'Submit Photos'}
                   </button>
                 </>
               )}
