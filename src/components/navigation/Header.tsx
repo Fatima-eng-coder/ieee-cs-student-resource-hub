@@ -1,12 +1,112 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Menu, X, LogOut, ChevronDown } from 'lucide-react';
+import { Search, Menu, X, LogOut, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import Magnetic from '@/components/effects/Magnetic';
 import Avatar from '@/components/ui/Avatar';
 import BrandLogo from '@/components/ui/BrandLogo';
 import { useAuth } from '@/context/AuthContext';
 import { useNavLinks } from '@/hooks/useNavLinks';
+
+/** Sub-pixel slack, so a rail scrolled fully to one end does not keep its arrow. */
+const RAIL_EPSILON = 4;
+/** How far one arrow press moves the rail, as a fraction of what is visible. */
+const RAIL_STEP = 0.7;
+
+/**
+ * The navbar links, in a rail that scrolls when they do not fit.
+ *
+ * `min-w-0` is what lets it shrink at all: a flex child defaults to `min-width: auto` and
+ * refuses to go below its content width, which is why the links used to run straight over the
+ * buttons beside them — measured at 404px past, on a 1024px viewport.
+ *
+ * Shrinking alone only moved the problem: the overflow was simply clipped, so the last few links
+ * silently vanished with nothing to say they existed. Hence the arrows, the same answer the
+ * wayfinder's chip strip uses — each appears only on a side that has more to reach, fades the
+ * links out beneath itself rather than colliding with them, and goes away at the end.
+ *
+ * Hidden from assistive tech on purpose: they are a redundant control for something a keyboard
+ * or screen reader user already reaches by tabbing through the links themselves.
+ */
+function NavRail({ children }: { children: ReactNode }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [atStart, setAtStart] = useState(true);
+  const [atEnd, setAtEnd] = useState(true);
+
+  const measure = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    setAtStart(track.scrollLeft <= RAIL_EPSILON);
+    setAtEnd(track.scrollLeft + track.clientWidth >= track.scrollWidth - RAIL_EPSILON);
+  }, []);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    measure();
+    track.addEventListener('scroll', measure, { passive: true });
+
+    // The rail starts and stops overflowing as the window resizes, as a font finishes loading,
+    // and as the admin switches links on and off — so the children are watched too, not just
+    // the track.
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+    for (const child of Array.from(track.children)) observer.observe(child);
+
+    return () => {
+      track.removeEventListener('scroll', measure);
+      observer.disconnect();
+    };
+  }, [measure, children]);
+
+  const nudge = (direction: -1 | 1) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.scrollBy({ left: direction * track.clientWidth * RAIL_STEP, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="relative hidden min-w-0 flex-1 lg:block">
+      <div
+        ref={trackRef}
+        className="no-scrollbar flex items-center gap-0.5 overflow-x-auto scroll-smooth"
+      >
+        {children}
+      </div>
+
+      <RailArrow side="left" show={!atStart} onClick={() => nudge(-1)} />
+      <RailArrow side="right" show={!atEnd} onClick={() => nudge(1)} />
+    </div>
+  );
+}
+
+function RailArrow({ side, show, onClick }: { side: 'left' | 'right'; show: boolean; onClick: () => void }) {
+  const left = side === 'left';
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`absolute inset-y-0 flex items-center transition-opacity duration-200 ${
+        left ? 'left-0 pr-5' : 'right-0 pl-5'
+      } ${show ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      style={{
+        // A translucent white rather than a solid colour: the header is frosted, so a hard fade
+        // to a page colour would print a pale block over whatever is showing through it.
+        background: `linear-gradient(to ${left ? 'right' : 'left'}, rgba(255,255,255,0.92) 40%, rgba(255,255,255,0))`,
+      }}
+    >
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={onClick}
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white/90 text-slate-500 shadow-sm transition hover:border-ieee-orange/40 hover:text-ieee-orange"
+      >
+        {left ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -26,7 +126,7 @@ export default function Header() {
   return (
     <div className="sticky top-0 z-40 px-3 pt-3 sm:px-5">
       <header
-        className={`glass-header mx-auto flex max-w-[96rem] items-center gap-2 rounded-2xl border border-white/60 px-4 py-2.5 transition-shadow duration-300 sm:px-5 ${scrolled ? 'shadow-[0_8px_30px_rgba(10,10,12,0.12)]' : 'shadow-[0_4px_16px_rgba(10,10,12,0.06)]'
+        className={`glass-panel mx-auto flex max-w-[96rem] items-center gap-2 rounded-2xl border border-black/5 px-4 py-2.5 transition-shadow duration-300 sm:px-5 ${scrolled ? 'shadow-[0_8px_30px_rgba(10,10,12,0.12)]' : 'shadow-[0_4px_16px_rgba(10,10,12,0.06)]'
           }`}
       >
         <Link to="/" data-cursor="link" className="flex shrink-0 items-center gap-2.5">
@@ -34,16 +134,7 @@ export default function Header() {
           <span className="font-display text-sm font-bold tracking-tight text-slate-900">IEEE CS Hub</span>
         </Link>
 
-        {/*
-          * min-w-0 is what makes this shrink at all — a flex child defaults to min-width:auto and
-          * refuses to go below its content, which is why the links used to run straight through
-          * the buttons beside them (measured: 404px past, at a 1024px viewport).
-          *
-          * Once it can shrink it has to do something with the overflow, and the rail scrolls.
-          * Dropping links or collapsing them into a "More" menu hides navigation the admin
-          * deliberately switched on; scrolling keeps every one of them reachable.
-          */}
-        <nav className="no-scrollbar hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto lg:flex">
+        <NavRail>
           {navItems.map((item) => (
             <NavLink
               key={item.id}
@@ -68,9 +159,12 @@ export default function Header() {
               )}
             </NavLink>
           ))}
-        </nav>
+        </NavRail>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        {/* ml-auto, not justify-between: the rail between these two is `hidden` below lg, and
+            without it the search icon and the menu button bunch against the logo instead of
+            sitting at the right edge where they belong. */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Magnetic>
             <Link
               to="/search"
