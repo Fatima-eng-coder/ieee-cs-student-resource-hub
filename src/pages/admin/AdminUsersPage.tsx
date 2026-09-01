@@ -204,24 +204,34 @@ export default function AdminUsersPage() {
       return;
     }
 
-    if (editing.id === currentAdmin?.id && draftRole !== 'chairperson') {
-      setError('You cannot remove your own chairperson access from this page.');
+    // assign_portal_role() refuses this too. Checked here as well so the answer is instant and
+    // says what to do instead, rather than a round trip to be told no.
+    if (editing.id === currentAdmin?.id) {
+      setError(
+        'You cannot change your own role. To step down, give Chairperson to whoever is taking over — that hands it across in one move.',
+      );
       return;
     }
 
     setSaving(true);
     try {
-      const updated = await updateRole(editing.id, draftRole);
-      setNotice(`${updated.name}'s access was updated to ${roleLabels[updated.role]}.`);
+      const assignment = await updateRole(editing.id, draftRole);
+
+      // A handover demoted the person who just pressed the button, so it says so rather than
+      // reporting a routine change and leaving them to discover it on the next page they open.
+      setNotice(
+        assignment.handover
+          ? `${assignment.name} is now the chairperson. You have handed the role over, so your own access is now Student.`
+          : `${assignment.name}'s access was updated to ${roleLabels[assignment.newRole]}.`,
+      );
       setEditing(null);
       setReloadToken((token) => token + 1);
     } catch (err) {
+      // The database's own refusals are written to be read — "Only the chairperson can assign
+      // portal roles", "You cannot change your own role" — so they are shown as they came
+      // rather than flattened into one sentence that fits none of them.
       const message = err instanceof Error ? err.message : 'Role update failed.';
-      setError(
-        /permission|policy|rls/i.test(message)
-          ? 'You are not allowed to manage roles. Only the chairperson can update team access.'
-          : message,
-      );
+      setError(message);
     } finally {
       setSaving(false);
     }

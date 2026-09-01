@@ -121,6 +121,37 @@ function toDeleteError(error: { code?: string; message?: string }): Error {
   return new Error(message);
 }
 
+interface RoleAssignmentRow {
+  user_id?: string;
+  name?: string;
+  previous_role?: string;
+  new_role?: string;
+  handover?: boolean;
+}
+
+export interface RoleAssignment {
+  userId: string;
+  name: string;
+  previousRole: ProfileRole;
+  newRole: ProfileRole;
+  /** True when this was a chairperson handover, which also demoted the caller. */
+  handover: boolean;
+}
+
+/** assign_portal_role() raises its refusals in words already, so they are passed through. */
+function toRoleError(error: { code?: string; message?: string }): Error {
+  const message = error.message ?? 'That role could not be assigned.';
+
+  if (error.code === 'P0002') return new Error('That account no longer exists. Refresh the list.');
+  if (error.code === '23505') {
+    return new Error('Somebody already holds that role. Only one person can be chairperson.');
+  }
+  if (error.code === '42501' || error.code === '22023' || error.code === '28000') {
+    return new Error(message);
+  }
+  return new Error(message);
+}
+
 async function fetchDirectory(role?: ProfileRole): Promise<DirectoryProfile[]> {
   const profiles: DirectoryProfile[] = [];
 
@@ -188,17 +219,36 @@ export const profilesService = {
     return ((data ?? []) as ProfileRow[]).map(toProfile);
   },
 
-  async updateRole(profileId: string, role: ProfileRole): Promise<Profile> {
+  /**
+   * Assigns a portal role.
+   *
+   * Through the RPC rather than a direct update, because a direct update is exactly what the
+   * database now refuses. Any of the four content managers used to be able to PATCH their own
+   * row to `chairperson`; the page hid the control from them, which is not the same as
+   * stopping them. Roles come through one door and only the chairperson holds the key.
+   *
+   * Handing chairperson to somebody else demotes the caller in the same statement — so the
+   * result says what happened to BOTH people, and the caller may find they are no longer an
+   * admin at all when it returns.
+   */
+  async assignRole(profileId: string, role: ProfileRole): Promise<RoleAssignment> {
     await refreshAuthSession();
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ role })
-      .eq('id', profileId)
-      .select(profileColumns)
-      .single();
 
-    if (error) throw toProfilesError(error);
-    return toProfile(data as ProfileRow);
+    const { data, error } = await supabase.rpc('assign_portal_role', {
+      p_user_id: profileId,
+      p_role: role,
+    });
+
+    if (error) throw toRoleError(error);
+
+    const row = (data ?? {}) as RoleAssignmentRow;
+    return {
+      userId: row.user_id ?? profileId,
+      name: row.name ?? 'That account',
+      previousRole: (row.previous_role ?? 'student') as ProfileRole,
+      newRole: (row.new_role ?? role) as ProfileRole,
+      handover: Boolean(row.handover),
+    };
   },
 
   /**

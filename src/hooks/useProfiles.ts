@@ -39,20 +39,21 @@ export function useProfiles() {
     }
   }, []);
 
-  const updateRole = useCallback(async (profileId: string, role: ProfileRole) => {
-    setError(null);
-    const updated = await profilesService.updateRole(profileId, role);
-    setCoreTeam((items) => {
-      const withoutUpdated = items.filter((item) => item.id !== updated.id);
-      if (updated.role === 'student') return withoutUpdated;
-      return [...withoutUpdated, updated].sort((a, b) => a.name.localeCompare(b.name));
-    });
-    setStudentResults((items) => {
-      if (updated.role !== 'student') return items.filter((item) => item.id !== updated.id);
-      return items.map((item) => (item.id === updated.id ? updated : item));
-    });
-    return updated;
-  }, []);
+  /**
+   * A handover changes two rows, not one — the caller's included — so the local lists are
+   * reloaded from the database rather than patched from the result. Patching would leave the
+   * outgoing chairperson sitting in the team list they have just left.
+   */
+  const updateRole = useCallback(
+    async (profileId: string, role: ProfileRole) => {
+      setError(null);
+      const assignment = await profilesService.assignRole(profileId, role);
+      await loadCoreTeam(false);
+      setStudentResults((items) => items.filter((item) => item.id !== assignment.userId));
+      return assignment;
+    },
+    [loadCoreTeam]
+  );
 
   useEffect(() => {
     void loadCoreTeam(true);

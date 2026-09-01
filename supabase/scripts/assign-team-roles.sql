@@ -23,6 +23,14 @@
 -- Then run this, in the SQL editor
 -- ---------------------------------------------------------------------------------------
 --
+-- Run it ONCE, to appoint the first chairperson and the founding committee. After that nobody
+-- should come back here: the chairperson assigns every role from Team Access in the portal,
+-- and 20260901002800 made that the only route an application can take.
+--
+-- This still works because the identity trigger returns early when auth.uid() is null, which it
+-- is in the SQL editor. That is the bootstrap: the first chairperson cannot be appointed by a
+-- chairperson, because there isn't one yet.
+--
 -- Replace every '...@example.com' with the address that person was invited on. Anything left
 -- as a placeholder simply matches nothing -- the report at the bottom tells you which.
 --
