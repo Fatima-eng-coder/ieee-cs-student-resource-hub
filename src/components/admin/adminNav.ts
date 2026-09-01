@@ -23,6 +23,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       { label: 'Navbar', to: '/portal/navbar', icon: 'menu' },
       { label: 'Footer', to: '/portal/footer', icon: 'link' },
       { label: 'Events', to: '/portal/events', icon: 'calendar' },
+      { label: 'Registrations', to: '/portal/registrations', icon: 'users' },
       { label: 'Banners', to: '/portal/banners', icon: 'image' },
       { label: 'Past Papers', to: '/portal/papers', icon: 'file' },
       { label: 'Faculty', to: '/portal/teachers', icon: 'faculty' }, 
@@ -42,6 +43,7 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     title: 'System',
     items: [
+      { label: 'Inbox', to: '/portal/inbox', icon: 'mail' },
       { label: 'Submissions', to: '/portal/submissions', icon: 'inbox' },
       { label: 'Users', to: '/portal/users', icon: 'user' },
       { label: 'Settings', to: '/portal/settings', icon: 'settings' },

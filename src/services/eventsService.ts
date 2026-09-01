@@ -4,7 +4,12 @@ import type { EventCategory, EventImageLayout, EventItem } from '@/types';
 const EVENT_IMAGES_BUCKET = 'event-images';
 const baseEventColumns =
   'id,title,description,long_description,event_type,date,time,venue,cover_image_url,cover_image_path,registration_open,registration_url,capacity,organizers,is_published,created_at,updated_at';
-const eventColumns = `${baseEventColumns},featured,image_layout`;
+const attachmentColumns =
+  'form_source,external_form_url,form_id,promoted,promo_headline,promo_cta_label,promo_starts_at,promo_ends_at,promo_sort';
+const eventColumns = `${baseEventColumns},featured,image_layout,${attachmentColumns}`;
+
+/** Mirrors the events_form_source_check enum; restated so the service imports no component. */
+export type FormSource = 'none' | 'external' | 'internal';
 
 export interface EventSaveInput {
   title: string;
@@ -19,10 +24,18 @@ export interface EventSaveInput {
   featured: boolean;
   imageLayout: EventImageLayout;
   registrationOpen: boolean;
-  registrationUrl?: string;
   capacity: number;
   organizers: string[];
   isPublished: boolean;
+  formSource: FormSource;
+  externalFormUrl: string | null;
+  formId: string | null;
+  promoted: boolean;
+  promoHeadline: string;
+  promoCtaLabel: string;
+  promoStartsAt: string | null;
+  promoEndsAt: string | null;
+  promoSort: number;
 }
 
 interface EventRow {
@@ -43,6 +56,15 @@ interface EventRow {
   is_published: boolean;
   featured?: boolean | null;
   image_layout?: EventImageLayout | string | null;
+  form_source?: FormSource | string | null;
+  external_form_url?: string | null;
+  form_id?: string | null;
+  promoted?: boolean | null;
+  promo_headline?: string | null;
+  promo_cta_label?: string | null;
+  promo_starts_at?: string | null;
+  promo_ends_at?: string | null;
+  promo_sort?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -53,12 +75,33 @@ export interface AdminEvent extends EventItem {
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;
+  formSource: FormSource;
+  externalFormUrl: string | null;
+  formId: string | null;
+  promoted: boolean;
+  promoHeadline: string;
+  promoCtaLabel: string;
+  promoStartsAt: string | null;
+  promoEndsAt: string | null;
+  promoSort: number;
 }
 
 export type EventChange =
   | { type: 'insert'; event: AdminEvent }
   | { type: 'update'; event: AdminEvent }
   | { type: 'delete'; id: string };
+
+/**
+ * An event that points at an internal form, in the shape a confirm dialog needs: enough to
+ * name it, and — because deleting an event is also what deletes its artwork — the storage
+ * path a cascading delete has to clean up.
+ */
+export interface EventFormLink {
+  id: string;
+  title: string;
+  date: string;
+  coverImagePath: string | null;
+}
 
 const validCategories: EventCategory[] = ['workshop', 'competition', 'seminar', 'session', 'hackathon', 'other'];
 
@@ -84,33 +127,89 @@ const getTiming = (date: string): EventItem['timing'] => {
   return date >= today ? 'upcoming' : 'previous';
 };
 
-const toAdminEvent = (row: EventRow): AdminEvent => ({
-  id: row.id,
-  title: row.title,
-  description: row.description,
-  longDescription: row.long_description ?? '',
-  date: row.date,
-  time: row.time,
-  venue: row.venue,
-  category: normalizeCategory(row.event_type),
-  timing: getTiming(row.date),
-  featured: Boolean(row.featured),
-  imageLayout: normalizeImageLayout(row.image_layout),
-  registrationOpen: row.registration_open,
-  registrationUrl: row.registration_url ?? '',
-  capacity: row.capacity ?? 0,
-  registered: 0,
-  image: row.cover_image_url ?? '',
-  organizers: normalizeOrganizers(row.organizers),
-  coverImagePath: row.cover_image_path,
-  isPublished: row.is_published,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
+/**
+ * `registration_url` is the pre-forms column. The migration copied it into
+ * external_form_url, but a row saved before that ran — or by an older build — can still
+ * carry only the legacy value, so it stands in when form_source has not been set. Anything
+ * written from here keeps the two in step, which is what stops a cleared attachment from
+ * being resurrected by a stale legacy value on the next read.
+ */
+const toAttachment = (row: EventRow): Pick<AdminEvent, 'formSource' | 'externalFormUrl' | 'formId'> => {
+  const source = row.form_source ?? 'none';
+  const legacyUrl = row.registration_url?.trim() ?? '';
+
+  if (source === 'internal' && row.form_id) {
+    return { formSource: 'internal', externalFormUrl: null, formId: row.form_id };
+  }
+
+  const url = row.external_form_url?.trim() || legacyUrl;
+  if ((source === 'external' || source === 'none') && url) {
+    return { formSource: 'external', externalFormUrl: url, formId: null };
+  }
+
+  return { formSource: 'none', externalFormUrl: null, formId: null };
+};
+
+const toAdminEvent = (row: EventRow): AdminEvent => {
+  const attachment = toAttachment(row);
+
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    longDescription: row.long_description ?? '',
+    date: row.date,
+    time: row.time,
+    venue: row.venue,
+    category: normalizeCategory(row.event_type),
+    timing: getTiming(row.date),
+    featured: Boolean(row.featured),
+    imageLayout: normalizeImageLayout(row.image_layout),
+    registrationOpen: row.registration_open,
+    // Kept populated for the public pages that still read it; an internal form has no URL
+    // to give them, so it reads as empty there until they learn about form_id.
+    registrationUrl: attachment.externalFormUrl ?? '',
+    capacity: row.capacity ?? 0,
+    registered: 0,
+    image: row.cover_image_url ?? '',
+    organizers: normalizeOrganizers(row.organizers),
+    coverImagePath: row.cover_image_path,
+    isPublished: row.is_published,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...attachment,
+    registrationFormId: attachment.formId ?? undefined,
+    promoted: Boolean(row.promoted),
+    promoHeadline: row.promo_headline ?? '',
+    promoCtaLabel: row.promo_cta_label ?? '',
+    promoStartsAt: row.promo_starts_at ?? null,
+    promoEndsAt: row.promo_ends_at ?? null,
+    promoSort: row.promo_sort ?? 0,
+  };
+};
+
+/**
+ * Columns added after the first release. A database that predates any of them fails the
+ * whole select, so the read drops back to the columns that have always been there rather
+ * than showing the admin an empty events table.
+ */
+const optionalEventColumns = [
+  'featured',
+  'image_layout',
+  'form_source',
+  'external_form_url',
+  'form_id',
+  'promoted',
+  'promo_headline',
+  'promo_cta_label',
+  'promo_starts_at',
+  'promo_ends_at',
+  'promo_sort',
+];
 
 const isMissingOptionalEventsColumn = (message: string) => {
   const lower = message.toLowerCase();
-  return lower.includes('events') && (lower.includes('featured') || lower.includes('image_layout'));
+  return lower.includes('events') && optionalEventColumns.some((column) => lower.includes(column));
 };
 
 async function selectEvents(useFeaturedColumn: boolean) {
@@ -131,6 +230,38 @@ async function selectEventById(id: string, useFeaturedColumn: boolean) {
     .returns<EventRow>();
 }
 
+/**
+ * events_form_config_check refuses any half-configured attachment, and a rejected insert
+ * costs the admin the whole drawer — so an external source with no URL, or an internal one
+ * with no form, is normalised down to "none" here rather than sent and bounced.
+ *
+ * registration_url is written as a mirror of the external URL until it is dropped: the
+ * public event pages still read it, and leaving a stale value behind after the admin
+ * detaches a form would put a dead Register button back on the site.
+ */
+const toAttachmentPayload = (event: EventSaveInput) => {
+  const url = event.externalFormUrl?.trim() ?? '';
+
+  if (event.formSource === 'external' && url) {
+    return { form_source: 'external', external_form_url: url, form_id: null, registration_url: url };
+  }
+
+  if (event.formSource === 'internal' && event.formId) {
+    return { form_source: 'internal', external_form_url: null, form_id: event.formId, registration_url: null };
+  }
+
+  return { form_source: 'none', external_form_url: null, form_id: null, registration_url: null };
+};
+
+const toPromoPayload = (event: EventSaveInput) => ({
+  promoted: Boolean(event.promoted),
+  promo_headline: event.promoHeadline.trim() || null,
+  promo_cta_label: event.promoCtaLabel.trim() || null,
+  promo_starts_at: event.promoStartsAt || null,
+  promo_ends_at: event.promoEndsAt || null,
+  promo_sort: Number.isFinite(event.promoSort) ? Math.trunc(event.promoSort) : 0,
+});
+
 const toPayload = (event: EventSaveInput) => ({
   title: event.title.trim(),
   description: event.description.trim(),
@@ -144,11 +275,29 @@ const toPayload = (event: EventSaveInput) => ({
   featured: Boolean(event.featured),
   image_layout: event.imageLayout,
   registration_open: Boolean(event.registrationOpen),
-  registration_url: event.registrationUrl?.trim() || null,
   capacity: Number(event.capacity) || 0,
   organizers: event.organizers.map((organizer) => organizer.trim()).filter(Boolean),
   is_published: Boolean(event.isPublished),
+  ...toAttachmentPayload(event),
+  ...toPromoPayload(event),
 });
+
+/** Everything the database would refuse, named in the admin's own words first. */
+function assertEventInput(input: EventSaveInput): void {
+  if (!input.title.trim()) throw new Error('Please enter the event title.');
+  if (!input.description.trim()) throw new Error('Please enter a short event description.');
+  if (!input.date) throw new Error('Please select the event date.');
+  if (!input.time.trim()) throw new Error('Please enter the event time.');
+  if (!input.venue.trim()) throw new Error('Please enter the event venue.');
+
+  if (
+    input.promoStartsAt &&
+    input.promoEndsAt &&
+    new Date(input.promoEndsAt).getTime() <= new Date(input.promoStartsAt).getTime()
+  ) {
+    throw new Error('The homepage promotion must end after it starts.');
+  }
+}
 
 async function refreshAuthSession(): Promise<void> {
   const { error } = await supabase.auth.refreshSession();
@@ -253,11 +402,7 @@ export const eventsService = {
   },
 
   async create(input: EventSaveInput): Promise<AdminEvent> {
-    if (!input.title.trim()) throw new Error('Please enter the event title.');
-    if (!input.description.trim()) throw new Error('Please enter a short event description.');
-    if (!input.date) throw new Error('Please select the event date.');
-    if (!input.time.trim()) throw new Error('Please enter the event time.');
-    if (!input.venue.trim()) throw new Error('Please enter the event venue.');
+    assertEventInput(input);
 
     await refreshAuthSession();
     const { data: userData } = await supabase.auth.getUser();
@@ -276,11 +421,7 @@ export const eventsService = {
   },
 
   async update(id: string, input: EventSaveInput): Promise<AdminEvent> {
-    if (!input.title.trim()) throw new Error('Please enter the event title.');
-    if (!input.description.trim()) throw new Error('Please enter a short event description.');
-    if (!input.date) throw new Error('Please select the event date.');
-    if (!input.time.trim()) throw new Error('Please enter the event time.');
-    if (!input.venue.trim()) throw new Error('Please enter the event venue.');
+    assertEventInput(input);
 
     await refreshAuthSession();
     let { data, error } = await supabase
@@ -295,9 +436,66 @@ export const eventsService = {
     return toAdminEvent(data as EventRow);
   },
 
+  /**
+   * `authenticated` holds the DELETE grant on events outright; what separates a content
+   * manager from anyone else is the row-level policy, and Postgres reports a delete the
+   * policy refused as zero rows affected rather than as an error. Without the count a
+   * refusal comes back here indistinguishable from a success, and the admin gets a green
+   * banner for a row that is still there. A null count is the header being absent and says
+   * nothing either way, so only an explicit zero is treated as a refusal.
+   */
   async remove(id: string): Promise<void> {
     await refreshAuthSession();
-    const { error } = await supabase.from('events').delete().eq('id', id);
+    const { error, count } = await supabase.from('events').delete({ count: 'exact' }).eq('id', id);
+    if (error) throw new Error(error.message);
+    if (count === 0) {
+      throw new Error(
+        'That event was not deleted. It may already have been removed, or your account may no longer be allowed to manage events.'
+      );
+    }
+  },
+
+  /**
+   * Events collecting sign-ups through one internal form. Read when a delete confirmation
+   * opens, never per list render: the admin table already shows whether a form is attached,
+   * and which events share it only matters at the moment one of them is about to disappear.
+   */
+  async listUsingForm(formId: string): Promise<EventFormLink[]> {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id,title,date,cover_image_path')
+      .eq('form_source', 'internal')
+      .eq('form_id', formId)
+      .order('date', { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    return (data ?? []).map((row) => {
+      const link = row as Pick<EventRow, 'id' | 'title' | 'date' | 'cover_image_path'>;
+      return { id: link.id, title: link.title, date: link.date, coverImagePath: link.cover_image_path };
+    });
+  },
+
+  /**
+   * Puts every event pointing at this form back to "no form" before the form itself goes.
+   *
+   * The database would survive without this — form_id is ON DELETE SET NULL and a trigger
+   * normalises form_source alongside it — but relying on that leaves three problems. The
+   * trigger has to be deployed for the delete to succeed at all (without it the referential
+   * update trips events_form_config_check and the delete fails with an error naming events,
+   * not forms). The admin's open events list keeps showing "Site form" for a form that no
+   * longer exists. And doing it here writes exactly what the editor writes when an admin
+   * picks "No form", so the surviving rows land in a state the rest of the app already
+   * understands, including the legacy registration_url mirror that toAttachment would
+   * otherwise read back as an external link.
+   */
+  async detachForm(formId: string): Promise<void> {
+    await refreshAuthSession();
+    const { error } = await supabase
+      .from('events')
+      .update({ form_source: 'none', external_form_url: null, form_id: null, registration_url: null })
+      .eq('form_id', formId);
+
     if (error) throw new Error(error.message);
   },
 

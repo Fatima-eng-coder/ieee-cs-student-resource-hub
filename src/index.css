@@ -118,6 +118,34 @@ body {
   border-radius: 8px;
 }
 
+/* --- Wayfinding map (components/navigation/FloorPlan.tsx) ----------------- */
+
+/* Marching dashes along the drawn route. The dash cycle is set inline because it
+   scales with the map zoom, so the dashes stay the same size on screen. */
+@keyframes nav-route-march {
+  to { stroke-dashoffset: calc(var(--nav-dash-cycle) * -1); }
+}
+.nav-route-dashes {
+  animation: nav-route-march 1.1s linear infinite;
+}
+
+@keyframes nav-marker-pulse {
+  0%, 100% { opacity: 0.16; transform: scale(1); }
+  50% { opacity: 0.05; transform: scale(1.45); }
+}
+.nav-marker-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nav-marker-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-route-dashes,
+  .nav-marker-pulse {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

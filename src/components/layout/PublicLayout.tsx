@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Header from '@/components/navigation/Header';
@@ -31,9 +32,22 @@ export default function PublicLayout() {
         transition={{ duration: 0.3, ease: 'easeOut' }}
         className="flex-1"
       >
-        <Outlet />
+        {/* Heavier routes (the wayfinding map and its building dataset) are code-split,
+            so give them a boundary to land in. */}
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </motion.main>
       <Footer />
+    </div>
+  );
+}
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center" role="status" aria-live="polite">
+      <span className="h-8 w-8 animate-spin rounded-full border-2 border-ieee-orange/30 border-t-ieee-orange" />
+      <span className="sr-only">Loading…</span>
     </div>
   );
 }

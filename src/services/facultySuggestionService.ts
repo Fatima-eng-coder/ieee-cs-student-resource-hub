@@ -11,7 +11,11 @@ export type FacultySuggestionType =
   | 'email_update'
   | 'office_update'
   | 'profile_update'
-  | 'course_assignment';
+  | 'course_assignment'
+  /** Someone missing from the directory entirely. No course is required to file one. */
+  | 'faculty_addition'
+  /** Anything the list above does not describe. Requires a one-line subject. */
+  | 'other';
 
 export type FacultySuggestionStatus = 'pending' | 'approved' | 'rejected';
 type ReviewStatus = Extract<FacultySuggestionStatus, 'approved' | 'rejected'>;
@@ -24,6 +28,7 @@ export interface FacultySuggestionCourse {
 
 export interface FacultySuggestionInput {
   facultyId?: string;
+  /** Optional only for 'other'; the database enforces the same rule. */
   teacherName: string;
   email: string;
   department: string;
@@ -31,6 +36,8 @@ export interface FacultySuggestionInput {
   office: string;
   assignedCourses?: FacultySuggestionCourse[];
   suggestionType: FacultySuggestionType;
+  /** Required for 'other', ignored otherwise. The database enforces the same rule. */
+  subject?: string | null;
   notes: string;
   requesterName?: string | null;
   requesterEmail?: string | null;
@@ -47,6 +54,7 @@ export interface FacultySuggestion {
   courseCode: string | null;
   courseName: string | null;
   suggestionType: FacultySuggestionType;
+  subject: string | null;
   notes: string | null;
   requesterName: string | null;
   requesterEmail: string | null;
@@ -70,7 +78,7 @@ export interface FacultySuggestionDuplicateResult {
 interface FacultySuggestionRow {
   id: string;
   faculty_id: string | null;
-  teacher_name: string;
+  teacher_name: string | null;
   email: string | null;
   department: string | null;
   designation: string | null;
@@ -78,6 +86,7 @@ interface FacultySuggestionRow {
   course_code: string | null;
   course_name: string | null;
   suggestion_type: FacultySuggestionType;
+  subject: string | null;
   notes: string | null;
   requester_name: string | null;
   requester_email: string | null;
@@ -89,12 +98,14 @@ interface FacultySuggestionRow {
 }
 
 const suggestionColumns =
-  'id,faculty_id,teacher_name,email,department,designation,office,course_code,course_name,suggestion_type,notes,requester_name,requester_email,submitted_by,status,reviewed_by,reviewed_at,created_at';
+  'id,faculty_id,teacher_name,email,department,designation,office,course_code,course_name,suggestion_type,subject,notes,requester_name,requester_email,submitted_by,status,reviewed_by,reviewed_at,created_at';
 
 const toFacultySuggestion = (row: FacultySuggestionRow): FacultySuggestion => ({
   id: row.id,
   facultyId: row.faculty_id,
-  teacherName: row.teacher_name,
+  // Null only for an 'other' request, where the subject is the headline. Flattened to ''
+  // here so the dozen call sites that render or trim this keep working unchanged.
+  teacherName: row.teacher_name ?? '',
   email: row.email,
   department: row.department,
   designation: row.designation,
@@ -102,6 +113,7 @@ const toFacultySuggestion = (row: FacultySuggestionRow): FacultySuggestion => ({
   courseCode: row.course_code,
   courseName: row.course_name,
   suggestionType: row.suggestion_type,
+  subject: row.subject,
   notes: row.notes,
   requesterName: row.requester_name,
   requesterEmail: row.requester_email,
@@ -167,10 +179,20 @@ function validateSuggestion(input: FacultySuggestionInput): void {
   const notes = input.notes.trim();
   const hasCourse = Boolean(input.assignedCourses?.length);
 
-  if (!teacherName) throw new Error('Please enter the teacher name.');
+  const subject = input.subject?.trim() ?? '';
+
+  if (!teacherName && input.suggestionType !== 'other') {
+    throw new Error('Please enter the teacher name.');
+  }
   if (email && !validEmail(email)) throw new Error('Please enter a valid email address.');
 
-  const hasUsefulSuggestion = Boolean(email || office || designation || department || notes || hasCourse);
+  // Matches faculty_suggestions_other_needs_subject. Checked here as well so the student is
+  // told what is missing in words, rather than being handed a constraint name.
+  if (input.suggestionType === 'other' && !subject) {
+    throw new Error('Please add a one-line subject describing what this is about.');
+  }
+
+  const hasUsefulSuggestion = Boolean(email || office || designation || department || notes || hasCourse || subject);
   if (!hasUsefulSuggestion) {
     throw new Error('Please provide at least one useful detail before submitting.');
   }
@@ -186,6 +208,9 @@ function validateSuggestion(input: FacultySuggestionInput): void {
   if (input.suggestionType === 'course_assignment' && !hasCourse) {
     throw new Error('Please select the course assignment you want to suggest.');
   }
+
+  // 'faculty_addition' deliberately has no course requirement: someone asking for a person to
+  // be added to the directory usually does not yet know what that person teaches.
 }
 
 async function refreshAuthSession(): Promise<void> {
@@ -225,7 +250,13 @@ async function updateFacultyFromSuggestion(suggestion: FacultySuggestion): Promi
   const trimmedDepartment = suggestion.department?.trim() ?? '';
   const trimmedDesignation = suggestion.designation?.trim() ?? '';
 
-  if (suggestion.suggestionType === 'new_teacher') {
+  // Nothing in the directory changes for a free-form request — approving it means "handled",
+  // and the branches below would only ask it for a faculty id it was never going to have.
+  if (suggestion.suggestionType === 'other') return;
+
+  // 'faculty_addition' is the same act as the older 'new_teacher': someone who is not in the
+  // directory should be. They differ only in what the admin queue calls them.
+  if (suggestion.suggestionType === 'new_teacher' || suggestion.suggestionType === 'faculty_addition') {
     const { data, error } = await supabase
       .from('faculty')
       .insert({
@@ -291,7 +322,13 @@ async function updateFacultyFromSuggestion(suggestion: FacultySuggestion): Promi
 }
 
 async function findApprovalDuplicate(suggestion: FacultySuggestion): Promise<FacultySuggestionDuplicateResult> {
-  if (suggestion.suggestionType === 'office_update' || suggestion.suggestionType === 'course_assignment') {
+  if (
+    suggestion.suggestionType === 'office_update' ||
+    suggestion.suggestionType === 'course_assignment' ||
+    // An 'other' request may name nobody at all; matching an empty name against the directory
+    // would either find nothing or, worse, find whatever sorts first.
+    suggestion.suggestionType === 'other'
+  ) {
     return { duplicate: null, exists: false, match: null };
   }
 
@@ -314,7 +351,7 @@ export const facultySuggestionService = {
 
     const { error } = await supabase.from('faculty_suggestions').insert({
       faculty_id: input.facultyId || null,
-      teacher_name: input.teacherName.trim(),
+      teacher_name: input.teacherName.trim() || null,
       email: input.email.trim() || null,
       department: input.department.trim() || null,
       designation: input.designation.trim() || null,
@@ -322,6 +359,7 @@ export const facultySuggestionService = {
       course_code: primaryCourse?.course_code ?? null,
       course_name: primaryCourse?.course_name ?? null,
       suggestion_type: input.suggestionType,
+      subject: input.suggestionType === 'other' ? (input.subject?.trim() || null) : null,
       notes,
       requester_name: input.requesterName?.trim() || null,
       requester_email: input.requesterEmail?.trim() || null,

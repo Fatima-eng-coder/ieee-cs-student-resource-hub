@@ -72,9 +72,16 @@ export type MaterialChange =
   | { type: 'update'; paper: Paper }
   | { type: 'delete'; id: string };
 
+/**
+ * Mirrors public.course_material_duplicate_exists so the form can warn before submitting.
+ * The database is what actually enforces it — keep the two in step.
+ *
+ * Midterms and finals were capped at 1, which rejected the second paper for any subject that
+ * is not centralised: those set one paper per section.
+ */
 const duplicateLimitByType: Record<Paper['examType'], number> = {
-  Midterm: 1,
-  Final: 1,
+  Midterm: 4,
+  Final: 4,
   Quiz: 4,
   Assignment: 4,
 };

@@ -343,7 +343,19 @@ export const coursesService = {
     const updated = toCourse(data as unknown as CourseRow, normalizePrerequisites(input.prerequisites), input.teacherIds ?? []);
     const previousCourseCode = (previous as { course_code: string } | null)?.course_code;
     await syncPrerequisites(updated.code, updated.prerequisites, previousCourseCode);
-    await facultyService.syncCourseTeachers(updated.code, updated.teacherIds, previousCourseCode);
+
+    /*
+     * `syncCourseTeachers` deletes before it inserts, so passing an empty list erases every
+     * assignment for this course. Treat "no teacherIds supplied" as "leave them alone"
+     * rather than "remove them all" — otherwise any caller that builds a partial Course
+     * silently destroys data. An explicit empty array still clears, which is what the admin
+     * unticking every teacher means.
+     */
+    if (input.teacherIds !== undefined) {
+      await facultyService.syncCourseTeachers(updated.code, input.teacherIds, previousCourseCode);
+    } else if (previousCourseCode && previousCourseCode !== updated.code) {
+      await facultyService.renameCourseTeachers(previousCourseCode, updated.code);
+    }
     return updated;
   },
 

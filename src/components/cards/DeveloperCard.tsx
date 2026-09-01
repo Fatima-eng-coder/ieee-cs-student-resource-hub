@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Phone } from 'lucide-react';
 import type { Developer } from '@/types';
 import Icon from '@/components/ui/Icon';
 
@@ -49,6 +50,11 @@ export default function DeveloperCard({ developer }: DeveloperCardProps) {
         {links.email && (
           <a href={`mailto:${links.email}`} aria-label={`Email ${developer.name}`} className="text-slate-400 hover:text-ieee-orange">
             <Icon name="mail" className="h-5 w-5" />
+          </a>
+        )}
+        {links.phone && (
+          <a href={`tel:${links.phone.replace(/\s+/g, '')}`} aria-label={`Call ${developer.name}`} className="text-slate-400 hover:text-ieee-orange">
+            <Phone className="h-5 w-5" />
           </a>
         )}
       </div>

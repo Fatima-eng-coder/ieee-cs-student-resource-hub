@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Menu, X, LogOut, Rocket, ChevronDown } from 'lucide-react';
+import { Search, Menu, X, LogOut, ChevronDown } from 'lucide-react';
 import Magnetic from '@/components/effects/Magnetic';
 import Avatar from '@/components/ui/Avatar';
 import BrandLogo from '@/components/ui/BrandLogo';
@@ -104,13 +104,6 @@ export default function Header() {
                         </div>
                       </div>
                       <div className="my-1 h-px bg-black/5" />
-                      <Link
-                        to="/projects-expo/submit"
-                        onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-cream hover:text-ieee-orange"
-                      >
-                        <Rocket className="h-4 w-4" /> Share a project
-                      </Link>
                       <button
                         type="button"
                         onClick={() => {
@@ -191,13 +184,6 @@ export default function Header() {
                       <p className="truncate text-xs text-slate-500">{user.email}</p>
                     </div>
                   </div>
-                  <Link
-                    to="/projects-expo/submit"
-                    onClick={() => setOpen(false)}
-                    className="rounded-lg px-3 py-3 text-sm font-semibold text-slate-600"
-                  >
-                    Share a project
-                  </Link>
                   <button
                     type="button"
                     onClick={() => {

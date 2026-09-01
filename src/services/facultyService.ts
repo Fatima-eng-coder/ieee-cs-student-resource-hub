@@ -128,12 +128,21 @@ const toTeacher = (row: FacultyRow, courses: string[] = []): Teacher => ({
   photo: row.photo_url ?? '',
 });
 
+/**
+ * Throws on a real read failure rather than returning an empty map.
+ *
+ * This matters more than it looks: an empty map makes every course load with no teachers,
+ * and the admin course form then writes that emptiness straight back on the next save —
+ * turning a transient read error into permanent deletion of every assignment. A missing
+ * table is the one benign case (the feature simply is not provisioned yet), so that alone
+ * still yields an empty map.
+ */
 async function loadTeacherCourseMap(): Promise<Map<string, string[]>> {
   const { data, error } = await loadCourseTeacherRows();
 
   if (error) {
-    if (!isMissingTableError(error)) console.warn('Could not load faculty course assignments', error);
-    return new Map();
+    if (isMissingTableError(error)) return new Map();
+    throw new Error(`Could not load faculty course assignments (${error.code ?? 'unknown'}): ${error.message}`);
   }
 
   return ((data ?? []) as CourseTeacherRow[]).reduce((map, row) => {
@@ -179,12 +188,16 @@ export const facultyService = {
     return (data ?? []).map((row) => toTeacher(row as unknown as FacultyRow));
   },
 
+  /**
+   * Feeds `teacherIds` on every course the admin form loads, so a silent empty map here is
+   * what makes an admin's next save wipe the assignments. See loadTeacherCourseMap above.
+   */
   async loadCourseTeacherMap(): Promise<Map<string, string[]>> {
     const { data, error } = await loadCourseTeacherRows();
 
     if (error) {
-      if (!isMissingTableError(error)) console.warn('Could not load course teacher assignments', error);
-      return new Map();
+      if (isMissingTableError(error)) return new Map();
+      throw new Error(`Could not load course teacher assignments (${error.code ?? 'unknown'}): ${error.message}`);
     }
 
     return ((data ?? []) as CourseTeacherRow[]).reduce((map, row) => {
@@ -196,6 +209,24 @@ export const facultyService = {
       map.set(courseCode, [...existing, facultyId]);
       return map;
     }, new Map<string, string[]>());
+  },
+
+  /**
+   * Carries existing assignments across a course-code change without touching who is
+   * assigned. Used when a course is renamed but its teacher list was not part of the edit,
+   * where deleting and re-inserting would need a list we do not have.
+   */
+  async renameCourseTeachers(fromCourseCode: string, toCourseCode: string): Promise<void> {
+    const from = normalizeCode(fromCourseCode);
+    const to = normalizeCode(toCourseCode);
+    if (!from || !to || from === to) return;
+
+    const { error } = await supabase
+      .from('course_teachers')
+      .update({ course_code: to })
+      .eq('course_code', from);
+
+    if (error && !isMissingTableError(error)) throw new Error(error.message);
   },
 
   async syncCourseTeachers(courseCode: string, teacherIds: string[], previousCourseCode?: string): Promise<void> {

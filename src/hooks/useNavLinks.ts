@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { navLinks as navLinksSeed } from '@/data/navLinks';
 import { navLinksService } from '@/services/navLinksService';
 import type { NavLinkItem } from '@/types';
 
@@ -10,9 +9,23 @@ const navLinksAreEqual = (a: NavLinkItem[], b: NavLinkItem[]) =>
     return other && item.id === other.id && item.label === other.label && item.to === other.to && item.enabled === other.enabled;
   });
 
+/**
+ * The navbar, read from the database.
+ *
+ * It used to start from the repo's navLinks seed, which made a failed read indistinguishable
+ * from a healthy one: the site painted the seed navbar and looked entirely fine while serving
+ * links nobody had approved. Worse on the admin side — the editor rendered that same seed, and
+ * the first toggle saved it, writing the repo's defaults over whatever was really stored.
+ *
+ * So it starts empty and only ever holds what was actually read. `loaded` is the guard: until a
+ * read has succeeded there is nothing to edit, and every write path refuses, because a save
+ * built on data this hook never read is a save that destroys data.
+ */
 export function useNavLinks() {
-  const [items, setItems] = useState<NavLinkItem[]>(navLinksSeed);
+  const [items, setItems] = useState<NavLinkItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadedRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingItems = useRef<NavLinkItem[] | null>(null);
 
@@ -23,6 +36,8 @@ export function useNavLinks() {
   const load = useCallback(async () => {
     try {
       applyItems(await navLinksService.list());
+      loadedRef.current = true;
+      setLoaded(true);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load navbar links.');
@@ -30,6 +45,12 @@ export function useNavLinks() {
   }, [applyItems]);
 
   const scheduleSave = useCallback((next: NavLinkItem[]) => {
+    // Read as a ref, not as state: a stale closure here would be the difference between
+    // refusing a destructive save and performing one.
+    if (!loadedRef.current) {
+      setError('The navbar could not be read, so it cannot be saved. Reload before editing.');
+      return;
+    }
     pendingItems.current = next;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -67,6 +88,10 @@ export function useNavLinks() {
   );
 
   const remove = useCallback((id: string) => {
+    if (!loadedRef.current) {
+      setError('The navbar could not be read, so it cannot be edited. Reload before editing.');
+      return;
+    }
     setItems((current) => {
       const next = current.filter((item) => item.id !== id);
       scheduleSave(next);
@@ -85,13 +110,14 @@ export function useNavLinks() {
         clearTimeout(saveTimer.current);
         saveTimer.current = null;
       }
-      if (pendingItems.current) {
+      // Flush an edit the debounce had not fired yet. Guarded for the same reason as above.
+      if (pendingItems.current && loadedRef.current) {
         void navLinksService.saveAll(pendingItems.current);
-        pendingItems.current = null;
       }
+      pendingItems.current = null;
       unsubscribeRealtime();
     };
   }, [load]);
 
-  return { items, error, add, update, remove, setAll: persist, reload: load };
+  return { items, loaded, error, add, update, remove, setAll: persist, reload: load };
 }

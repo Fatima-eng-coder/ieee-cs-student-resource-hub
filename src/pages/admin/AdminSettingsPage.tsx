@@ -1,8 +1,16 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Check, ExternalLink, FileSearch, Loader2, Save, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  ExternalLink,
+  FileSearch,
+  Loader2,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
-import { AdminField, AdminInput, AdminTextarea } from '@/components/admin/AdminField';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { adminAuthService } from '@/services/adminAuthService';
 import {
@@ -17,20 +25,43 @@ const formatBytes = (bytes: number | null) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+/**
+ * Site-wide content this screen used to hold its own copy of. Each one is edited on the
+ * page that actually stores it, so the pointer replaces a duplicate that saved nowhere.
+ */
+const managedElsewhere = [
+  {
+    label: 'Site-wide ticker',
+    description:
+      'The scrolling bar above the header on the public site. It plays up to six pinned announcements, or the six newest when none are pinned. Log in and sign up sit outside that layout and do not show it.',
+    to: '/portal/announcements',
+  },
+  {
+    label: 'Footer links',
+    description: 'Columns and links in the site footer.',
+    to: '/portal/footer',
+  },
+  {
+    label: 'Navbar links',
+    description: 'Top-level navigation and its dropdowns.',
+    to: '/portal/navbar',
+  },
+  {
+    label: 'Quick links',
+    description: 'The shortcuts listed on the Quick Links page.',
+    to: '/portal/quick-links',
+  },
+];
+
 export default function AdminSettingsPage() {
-  const [saved, setSaved] = useState(false);
   const [scan, setScan] = useState<CourseDocumentCleanupScan | null>(null);
   const [cleanupError, setCleanupError] = useState('');
   const [cleanupSuccess, setCleanupSuccess] = useState('');
   const [scanning, setScanning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmCleanup, setConfirmCleanup] = useState(false);
+  const admin = adminAuthService.getCurrentAdmin();
   const canManage = adminAuthService.canManageContent();
-
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
 
   const handleScanOrphans = async () => {
     if (!canManage) {
@@ -78,7 +109,7 @@ export default function AdminSettingsPage() {
 
   return (
     <div>
-      <AdminTopbar title="Settings" subtitle="Society info and site-wide content" />
+      <AdminTopbar title="Settings" subtitle="Your access and site maintenance" />
       <div className="mx-auto max-w-4xl p-4 sm:p-6">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -86,21 +117,53 @@ export default function AdminSettingsPage() {
           transition={{ duration: 0.3 }}
           className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
         >
-          <h3 className="font-display text-base font-bold text-slate-900">Society Information</h3>
-          <div className="mt-4 flex flex-col gap-4">
-            <AdminField label="Society Name">
-              <AdminInput defaultValue="IEEE Computer Society Islamabad Branch Chapter" />
-            </AdminField>
-            <AdminField label="Contact Email">
-              <AdminInput defaultValue="ieeecs.studentbranch@example.edu" />
-            </AdminField>
-            <AdminField label="Instagram URL">
-              <AdminInput defaultValue="https://instagram.com" />
-            </AdminField>
-            <AdminField label="LinkedIn URL">
-              <AdminInput defaultValue="https://linkedin.com" />
-            </AdminField>
-          </div>
+          <h3 className="font-display text-base font-bold text-slate-900">Your Access</h3>
+          {admin ? (
+            <>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-black/5 bg-cream/50 p-4">
+                  <dt className="font-mono text-[10px] uppercase tracking-widest text-slate-400">Name</dt>
+                  <dd className="mt-1 truncate text-sm font-bold text-slate-800">{admin.name}</dd>
+                </div>
+                <div className="rounded-xl border border-black/5 bg-cream/50 p-4">
+                  <dt className="font-mono text-[10px] uppercase tracking-widest text-slate-400">Email</dt>
+                  <dd className="mt-1 truncate text-sm font-bold text-slate-800">{admin.email}</dd>
+                </div>
+                <div className="rounded-xl border border-black/5 bg-cream/50 p-4">
+                  <dt className="font-mono text-[10px] uppercase tracking-widest text-slate-400">Role</dt>
+                  <dd className="mt-1 truncate text-sm font-bold capitalize text-slate-800">
+                    {admin.role.replace(/_/g, ' ')}
+                  </dd>
+                </div>
+              </dl>
+              <p
+                className={`mt-4 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm font-medium ${
+                  canManage
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-800'
+                }`}
+              >
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {canManage
+                    ? 'Your role can publish and edit site content, and can run storage cleanup.'
+                    : 'Your role can view the portal but not publish, edit or delete site content. Ask the chairperson, vice chairperson, general secretary or webmaster to make changes.'}
+                </span>
+              </p>
+              <p className="mt-3 text-sm text-slate-500">
+                Your name and email come from the account you signed up with. Only the chairperson can change a role,
+                on the{' '}
+                <Link to="/portal/users" className="font-semibold text-ieee-orange hover:underline">
+                  Users
+                </Link>{' '}
+                page.
+              </p>
+            </>
+          ) : (
+            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              Your profile could not be read. Log out and back in to refresh it.
+            </p>
+          )}
         </motion.div>
 
         <motion.div
@@ -109,36 +172,28 @@ export default function AdminSettingsPage() {
           transition={{ duration: 0.3, delay: 0.05 }}
           className="mt-6 rounded-2xl border border-black/5 bg-white p-6 shadow-sm"
         >
-          <h3 className="font-display text-base font-bold text-slate-900">Announcement Ticker</h3>
-          <p className="mt-1 text-sm text-slate-500">One line per item — shown in the scrolling ticker on the homepage.</p>
-          <AdminTextarea
-            defaultValue={
-              'IEEE CS Workshop registrations are now open.\nPast paper contribution drive is live.\nCS Block navigation beta is available.'
-            }
-            className="mt-3 min-h-28"
-          />
-        </motion.div>
-
-        <div className="mt-6 flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 rounded-xl bg-ieee-orange px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(255,108,12,0.3)] transition hover:bg-ieee-orange-dark"
-          >
-            <Save className="h-4 w-4" /> Save Settings
-          </button>
-          <AnimatePresence>
-            {saved && (
-              <motion.p
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center gap-1.5 text-sm font-medium text-emerald-600"
+          <h3 className="font-display text-base font-bold text-slate-900">Site-wide Content</h3>
+          <p className="mt-1 text-sm text-slate-500">These are edited on their own pages, where they are stored.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {managedElsewhere.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="group flex items-start gap-3 rounded-xl border border-black/5 bg-cream/50 p-4 transition hover:border-ieee-orange/30 hover:bg-cream"
               >
-                <Check className="h-4 w-4" /> Saved (prototype only)
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800">{item.label}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{item.description}</p>
+                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-ieee-orange" />
+              </Link>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-slate-400">
+            The society name, contact email and social profiles shown in the footer and on the FAQ page are fixed in the
+            site itself and cannot be edited from the portal yet.
+          </p>
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}

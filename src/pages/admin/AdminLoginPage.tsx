@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, ShieldCheck, AlertCircle, Mail, Lock, ArrowLeft } from 'lucide-react';
+import RevealToggle from '@/components/ui/RevealToggle';
 import { adminAuthService } from '@/services/adminAuthService';
 
 export default function AdminLoginPage() {
@@ -9,6 +10,7 @@ export default function AdminLoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -74,13 +76,14 @@ export default function AdminLoginPage() {
           <label className="group flex items-center gap-3 rounded-xl border border-black/10 bg-white px-4 py-3 transition focus-within:border-ieee-orange focus-within:ring-2 focus-within:ring-ieee-orange/20">
             <Lock className="h-4 w-4 text-slate-400 transition group-focus-within:text-ieee-orange" />
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               required
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="Password"
               className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
             />
+            <RevealToggle shown={showPassword} onToggle={() => setShowPassword((on) => !on)} />
           </label>
 
           {error && (

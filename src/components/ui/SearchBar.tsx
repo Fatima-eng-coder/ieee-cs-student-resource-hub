@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/Icon';
 
 interface SearchBarProps {
@@ -10,6 +10,15 @@ interface SearchBarProps {
 
 export default function SearchBar({ placeholder = 'Search...', onSearch, initialValue = '', size = 'md' }: SearchBarProps) {
   const [value, setValue] = useState(initialValue);
+
+  /**
+   * Follow `initialValue` when the *caller* changes it — a `?q=` in the URL, browser
+   * back/forward, a link into an already-open search page. Typing does not change this
+   * prop, so this never fights the user mid-keystroke.
+   */
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
 
   return (
     <form

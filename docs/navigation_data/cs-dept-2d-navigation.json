@@ -1,0 +1,8391 @@
+{
+  "format": "cs-navigator-2d",
+  "version": 1,
+  "generatedFrom": "src/data/*.json (compiled from the building draft)",
+  "units": {
+    "metresPerUnit": 0.5,
+    "note": "X: west->east, Z: south->north, origin at the building south-west corner. Distances on edges are in the same units; multiply by metresPerUnit for metres."
+  },
+  "usage": {
+    "route": "Build an adjacency list from graph.edges (skip enabled === false, add the reverse direction when bidirectional), then run A*/Dijkstra between two node ids. Use rooms[].nodeId for a room, landmarks[].nearestNodeId for an entrance, staircase or landmark. Edge distance is the edge weight.",
+    "draw": "Per floor: fill building.footprint, then corridors[], then rooms[] by bounds, punching out voids[]. rooms[].door is the point on the room boundary, doorNormal points out of the room into the corridor.",
+    "stepFree": "Drop every edge whose type is \"stairs\" to route by elevator only."
+  },
+  "building": {
+    "id": "my-building",
+    "name": "My Building",
+    "width": 81,
+    "depth": 38,
+    "footprint": [
+      [
+        2,
+        26
+      ],
+      [
+        4,
+        26
+      ],
+      [
+        4,
+        16
+      ],
+      [
+        5,
+        16
+      ],
+      [
+        5,
+        11
+      ],
+      [
+        9.5,
+        11
+      ],
+      [
+        9.5,
+        10
+      ],
+      [
+        6.5,
+        10
+      ],
+      [
+        6.5,
+        5
+      ],
+      [
+        12.5,
+        5
+      ],
+      [
+        12.5,
+        3
+      ],
+      [
+        19.5,
+        3
+      ],
+      [
+        19.5,
+        8
+      ],
+      [
+        40.5,
+        8
+      ],
+      [
+        40.5,
+        3
+      ],
+      [
+        49.5,
+        3
+      ],
+      [
+        49.5,
+        5
+      ],
+      [
+        60,
+        5
+      ],
+      [
+        60,
+        3.5
+      ],
+      [
+        75,
+        3.5
+      ],
+      [
+        75,
+        6
+      ],
+      [
+        78,
+        6
+      ],
+      [
+        78,
+        12
+      ],
+      [
+        75,
+        12
+      ],
+      [
+        75,
+        16
+      ],
+      [
+        71.5,
+        16
+      ],
+      [
+        71.5,
+        15
+      ],
+      [
+        68,
+        15
+      ],
+      [
+        68,
+        17.5
+      ],
+      [
+        72.5,
+        17.5
+      ],
+      [
+        72.5,
+        21.5
+      ],
+      [
+        65.5,
+        21.5
+      ],
+      [
+        65.5,
+        30
+      ],
+      [
+        49.5,
+        30
+      ],
+      [
+        49.5,
+        24.5
+      ],
+      [
+        40.5,
+        24.5
+      ],
+      [
+        40.5,
+        16
+      ],
+      [
+        28,
+        16
+      ],
+      [
+        28,
+        26
+      ],
+      [
+        30,
+        26
+      ],
+      [
+        30,
+        30
+      ],
+      [
+        28,
+        30
+      ],
+      [
+        28,
+        35
+      ],
+      [
+        4,
+        35
+      ],
+      [
+        4,
+        30
+      ],
+      [
+        2,
+        30
+      ]
+    ],
+    "floorHeight": 4
+  },
+  "floors": [
+    {
+      "id": "GF",
+      "name": "Ground Floor",
+      "shortName": "G",
+      "level": 0
+    },
+    {
+      "id": "F1",
+      "name": "First Floor",
+      "shortName": "1",
+      "level": 1
+    },
+    {
+      "id": "F2",
+      "name": "Floor 2",
+      "shortName": "2",
+      "level": 2
+    },
+    {
+      "id": "F3",
+      "name": "Floor 3",
+      "shortName": "3",
+      "level": 3
+    }
+  ],
+  "corridors": [
+    {
+      "floorId": "*",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 13,
+        "maxX": 40.5,
+        "maxZ": 16,
+        "width": 21,
+        "depth": 3
+      }
+    },
+    {
+      "floorId": "GF",
+      "bounds": {
+        "minX": 40.5,
+        "minZ": 3,
+        "maxX": 49.5,
+        "maxZ": 21.5,
+        "width": 9,
+        "depth": 18.5
+      }
+    },
+    {
+      "floorId": "*",
+      "bounds": {
+        "minX": 5,
+        "minZ": 15,
+        "maxX": 12.5,
+        "maxZ": 16,
+        "width": 7.5,
+        "depth": 1
+      }
+    },
+    {
+      "floorId": "*",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 8.5,
+        "maxX": 75,
+        "maxZ": 12,
+        "width": 25.5,
+        "depth": 3.5
+      }
+    },
+    {
+      "floorId": "*",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 17.5,
+        "maxX": 72.5,
+        "maxZ": 21.5,
+        "width": 23,
+        "depth": 4
+      }
+    },
+    {
+      "floorId": "*",
+      "bounds": {
+        "minX": 9.5,
+        "minZ": 10,
+        "maxX": 12.5,
+        "maxZ": 11,
+        "width": 3,
+        "depth": 1
+      }
+    },
+    {
+      "floorId": "F1",
+      "bounds": {
+        "minX": 40.5,
+        "minZ": 8,
+        "maxX": 49.5,
+        "maxZ": 21.5,
+        "width": 9,
+        "depth": 13.5
+      }
+    },
+    {
+      "floorId": "*",
+      "bounds": {
+        "minX": 12.5,
+        "minZ": 3,
+        "maxX": 19.5,
+        "maxZ": 26,
+        "width": 7,
+        "depth": 23
+      }
+    },
+    {
+      "floorId": "*",
+      "bounds": {
+        "minX": 2,
+        "minZ": 26,
+        "maxX": 30,
+        "maxZ": 30,
+        "width": 28,
+        "depth": 4
+      }
+    },
+    {
+      "floorId": "F2",
+      "bounds": {
+        "minX": 40.5,
+        "minZ": 8,
+        "maxX": 49.5,
+        "maxZ": 21.5,
+        "width": 9,
+        "depth": 13.5
+      }
+    },
+    {
+      "floorId": "F3",
+      "bounds": {
+        "minX": 40.5,
+        "minZ": 8,
+        "maxX": 49.5,
+        "maxZ": 21.5,
+        "width": 9,
+        "depth": 13.5
+      }
+    }
+  ],
+  "voids": [
+    {
+      "label": "atrium",
+      "bounds": {
+        "minX": 40.5,
+        "minZ": 3,
+        "maxX": 49.5,
+        "maxZ": 8,
+        "width": 9,
+        "depth": 5
+      }
+    }
+  ],
+  "rooms": [
+    {
+      "id": "GF-R02",
+      "name": "Female Washrooms",
+      "shortName": "Female Washrooms",
+      "category": "female-washroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 5,
+        "minZ": 11,
+        "maxX": 12.5,
+        "maxZ": 15,
+        "width": 7.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 8.75,
+        "z": 13
+      },
+      "door": {
+        "x": 11.5,
+        "z": 15
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R02-DOOR",
+      "aliases": [
+        "GF-R02"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R09",
+      "name": "Front office area",
+      "shortName": "Front office area",
+      "category": "administration",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 21.5,
+        "maxX": 65.5,
+        "maxZ": 30,
+        "width": 16,
+        "depth": 8.5
+      },
+      "centre": {
+        "x": 57.5,
+        "z": 25.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 21.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "GF-R09-DOOR",
+      "aliases": [
+        "GF-R09"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R10",
+      "name": "CL-5",
+      "shortName": "CL-5",
+      "category": "laboratory",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 52.5,
+        "minZ": 12,
+        "maxX": 60,
+        "maxZ": 17.5,
+        "width": 7.5,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 56.25,
+        "z": 14.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "GF-R10-DOOR",
+      "aliases": [
+        "GF-R10"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R11",
+      "name": "Canteen",
+      "shortName": "Canteen",
+      "category": "canteen",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 60,
+        "minZ": 12,
+        "maxX": 68,
+        "maxZ": 17.5,
+        "width": 8,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 64,
+        "z": 14.75
+      },
+      "door": {
+        "x": 61.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "GF-R11-DOOR",
+      "aliases": [
+        "GF-R11"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R12",
+      "name": "CL-4",
+      "shortName": "CL-4",
+      "category": "laboratory",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 5,
+        "maxX": 60,
+        "maxZ": 8.5,
+        "width": 10.5,
+        "depth": 3.5
+      },
+      "centre": {
+        "x": 54.75,
+        "z": 6.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R12-DOOR",
+      "aliases": [
+        "GF-R12"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R16",
+      "name": "Print shop",
+      "shortName": "Print shop",
+      "category": "print-shop",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 68,
+        "minZ": 12,
+        "maxX": 71.5,
+        "maxZ": 15,
+        "width": 3.5,
+        "depth": 3
+      },
+      "centre": {
+        "x": 69.75,
+        "z": 13.5
+      },
+      "door": {
+        "x": 70,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "GF-R16-DOOR",
+      "aliases": [
+        "GF-R16"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R01",
+      "name": "Male washrooms",
+      "shortName": "Male washrooms",
+      "category": "male-washroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 6.5,
+        "minZ": 5,
+        "maxX": 12.5,
+        "maxZ": 10,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 9.5,
+        "z": 7.5
+      },
+      "door": {
+        "x": 11.5,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R01-DOOR",
+      "aliases": [
+        "GF-R01"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R04",
+      "name": "G-08",
+      "shortName": "G-08",
+      "category": "classroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 16,
+        "maxX": 28,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 10
+      },
+      "centre": {
+        "x": 23.75,
+        "z": 21
+      },
+      "door": {
+        "x": 19.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "GF-R04-DOOR",
+      "aliases": [
+        "GF-R04"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R06",
+      "name": "G-07",
+      "shortName": "G-07",
+      "category": "classroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 16,
+        "minZ": 30,
+        "maxX": 28,
+        "maxZ": 35,
+        "width": 12,
+        "depth": 5
+      },
+      "centre": {
+        "x": 22,
+        "z": 32.5
+      },
+      "door": {
+        "x": 18,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "GF-R06-DOOR",
+      "aliases": [
+        "GF-R06"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R03",
+      "name": "112",
+      "shortName": "112",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 16,
+        "maxX": 28,
+        "maxZ": 20,
+        "width": 8.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 23.75,
+        "z": 18
+      },
+      "door": {
+        "x": 19.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "F1-R03-DOOR",
+      "aliases": [
+        "F1-R03"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R04",
+      "name": "111",
+      "shortName": "111",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 20,
+        "maxX": 28,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 6
+      },
+      "centre": {
+        "x": 23.75,
+        "z": 23
+      },
+      "door": {
+        "x": 27,
+        "z": 26
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R04-DOOR",
+      "aliases": [
+        "F1-R04"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R06",
+      "name": "110",
+      "shortName": "110",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 22,
+        "minZ": 30,
+        "maxX": 28,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 25,
+        "z": 32.5
+      },
+      "door": {
+        "x": 27,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R06-DOOR",
+      "aliases": [
+        "F1-R06"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R05",
+      "name": "109",
+      "shortName": "109",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 16,
+        "minZ": 30,
+        "maxX": 22,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 19,
+        "z": 32.5
+      },
+      "door": {
+        "x": 18,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R05-DOOR",
+      "aliases": [
+        "F1-R05"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R07",
+      "name": "108",
+      "shortName": "108",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 10,
+        "minZ": 30,
+        "maxX": 16,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 13,
+        "z": 32.5
+      },
+      "door": {
+        "x": 14,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R07-DOOR",
+      "aliases": [
+        "F1-R07"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R08",
+      "name": "107",
+      "shortName": "107",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 4,
+        "minZ": 30,
+        "maxX": 10,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 7,
+        "z": 32.5
+      },
+      "door": {
+        "x": 5,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R08-DOOR",
+      "aliases": [
+        "F1-R08"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R03",
+      "name": "G-05",
+      "shortName": "G-05",
+      "category": "classroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 4,
+        "minZ": 16,
+        "maxX": 12.5,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 10
+      },
+      "centre": {
+        "x": 8.25,
+        "z": 21
+      },
+      "door": {
+        "x": 12.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": 1,
+        "z": 0
+      },
+      "nodeId": "GF-R03-DOOR",
+      "aliases": [
+        "GF-R03"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R05",
+      "name": "G-06",
+      "shortName": "G-06",
+      "category": "classroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 4,
+        "minZ": 30,
+        "maxX": 16,
+        "maxZ": 35,
+        "width": 12,
+        "depth": 5
+      },
+      "centre": {
+        "x": 10,
+        "z": 32.5
+      },
+      "door": {
+        "x": 14,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "GF-R05-DOOR",
+      "aliases": [
+        "GF-R05"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R01",
+      "name": "106",
+      "shortName": "106",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 4,
+        "minZ": 20,
+        "maxX": 12.5,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 6
+      },
+      "centre": {
+        "x": 8.25,
+        "z": 23
+      },
+      "door": {
+        "x": 5,
+        "z": 26
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R01-DOOR",
+      "aliases": [
+        "F1-R01"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R02",
+      "name": "105",
+      "shortName": "105",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 4,
+        "minZ": 16,
+        "maxX": 12.5,
+        "maxZ": 20,
+        "width": 8.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 8.25,
+        "z": 18
+      },
+      "door": {
+        "x": 12.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": 1,
+        "z": 0
+      },
+      "nodeId": "F1-R02-DOOR",
+      "aliases": [
+        "F1-R02"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R09",
+      "name": "Female Washrooms",
+      "shortName": "Female Washrooms",
+      "category": "female-washroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 5,
+        "minZ": 11,
+        "maxX": 12.5,
+        "maxZ": 15,
+        "width": 7.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 8.75,
+        "z": 13
+      },
+      "door": {
+        "x": 11.5,
+        "z": 15
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R09-DOOR",
+      "aliases": [
+        "F1-R09"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R10",
+      "name": "Male washrooms",
+      "shortName": "Male washrooms",
+      "category": "male-washroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 6.5,
+        "minZ": 5,
+        "maxX": 12.5,
+        "maxZ": 10,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 9.5,
+        "z": 7.5
+      },
+      "door": {
+        "x": 11.5,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R10-DOOR",
+      "aliases": [
+        "F1-R10"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R13",
+      "name": "Admin/Conference room",
+      "shortName": "Admin/Conference…",
+      "category": "administration",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 21.5,
+        "maxX": 65.5,
+        "maxZ": 30,
+        "width": 16,
+        "depth": 8.5
+      },
+      "centre": {
+        "x": 57.5,
+        "z": 25.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 21.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R13-DOOR",
+      "aliases": [
+        "F1-R13"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R14",
+      "name": "126",
+      "shortName": "126",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 52.5,
+        "minZ": 12,
+        "maxX": 60,
+        "maxZ": 17.5,
+        "width": 7.5,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 56.25,
+        "z": 14.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R14-DOOR",
+      "aliases": [
+        "F1-R14"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R15",
+      "name": "Haier LAB",
+      "shortName": "Haier LAB",
+      "category": "laboratory",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 60,
+        "minZ": 12,
+        "maxX": 68,
+        "maxZ": 17.5,
+        "width": 8,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 64,
+        "z": 14.75
+      },
+      "door": {
+        "x": 61.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R15-DOOR",
+      "aliases": [
+        "F1-R15"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R16",
+      "name": "Print Shop",
+      "shortName": "Print Shop",
+      "category": "print-shop",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 68,
+        "minZ": 12,
+        "maxX": 71.5,
+        "maxZ": 15,
+        "width": 3.5,
+        "depth": 3
+      },
+      "centre": {
+        "x": 69.75,
+        "z": 13.5
+      },
+      "door": {
+        "x": 70,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F1-R16-DOOR",
+      "aliases": [
+        "F1-R16"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R17",
+      "name": "CL-8",
+      "shortName": "CL-8",
+      "category": "laboratory",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 5,
+        "maxX": 60,
+        "maxZ": 8.5,
+        "width": 10.5,
+        "depth": 3.5
+      },
+      "centre": {
+        "x": 54.75,
+        "z": 6.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R17-DOOR",
+      "aliases": [
+        "F1-R17"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R13",
+      "name": "CL-6",
+      "shortName": "CL-6",
+      "category": "laboratory",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 60,
+        "minZ": 3.5,
+        "maxX": 72,
+        "maxZ": 8.5,
+        "width": 12,
+        "depth": 5
+      },
+      "centre": {
+        "x": 66,
+        "z": 6
+      },
+      "door": {
+        "x": 61.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R13-DOOR",
+      "aliases": [
+        "GF-R13"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R14",
+      "name": "Female washrooms",
+      "shortName": "Female washrooms",
+      "category": "female-washroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 72,
+        "minZ": 3.5,
+        "maxX": 75,
+        "maxZ": 8.5,
+        "width": 3,
+        "depth": 5
+      },
+      "centre": {
+        "x": 73.5,
+        "z": 6
+      },
+      "door": {
+        "x": 73.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R14-DOOR",
+      "aliases": [
+        "GF-R14"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R15",
+      "name": "Male washrooms",
+      "shortName": "Male washrooms",
+      "category": "male-washroom",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 75,
+        "minZ": 6,
+        "maxX": 78,
+        "maxZ": 12,
+        "width": 3,
+        "depth": 6
+      },
+      "centre": {
+        "x": 76.5,
+        "z": 9
+      },
+      "door": {
+        "x": 75,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "GF-R15-DOOR",
+      "aliases": [
+        "GF-R15"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R18",
+      "name": "CL-7",
+      "shortName": "CL-7",
+      "category": "laboratory",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 60,
+        "minZ": 3.5,
+        "maxX": 72,
+        "maxZ": 8.5,
+        "width": 12,
+        "depth": 5
+      },
+      "centre": {
+        "x": 66,
+        "z": 6
+      },
+      "door": {
+        "x": 61.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R18-DOOR",
+      "aliases": [
+        "F1-R18"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R19",
+      "name": "Female washrooms",
+      "shortName": "Female washrooms",
+      "category": "female-washroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 72,
+        "minZ": 3.5,
+        "maxX": 75,
+        "maxZ": 8.5,
+        "width": 3,
+        "depth": 5
+      },
+      "centre": {
+        "x": 73.5,
+        "z": 6
+      },
+      "door": {
+        "x": 73.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R19-DOOR",
+      "aliases": [
+        "F1-R19"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R20",
+      "name": "Male washrooms",
+      "shortName": "Male washrooms",
+      "category": "male-washroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 75,
+        "minZ": 6,
+        "maxX": 78,
+        "maxZ": 12,
+        "width": 3,
+        "depth": 6
+      },
+      "centre": {
+        "x": 76.5,
+        "z": 9
+      },
+      "door": {
+        "x": 75,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "F1-R20-DOOR",
+      "aliases": [
+        "F1-R20"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R07",
+      "name": "FYP LAB",
+      "shortName": "FYP LAB",
+      "category": "laboratory",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 8,
+        "maxX": 26.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 23,
+        "z": 10.5
+      },
+      "door": {
+        "x": 25.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R07-DOOR",
+      "aliases": [
+        "GF-R07"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R08",
+      "name": "FYP-Unclassified",
+      "shortName": "FYP-Unclassified",
+      "category": "laboratory",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 26.5,
+        "minZ": 8,
+        "maxX": 33.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 30,
+        "z": 10.5
+      },
+      "door": {
+        "x": 32.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R08-DOOR",
+      "aliases": [
+        "GF-R08"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "GF-R17",
+      "name": "FYP LAB",
+      "shortName": "FYP LAB",
+      "category": "laboratory",
+      "floorId": "GF",
+      "bounds": {
+        "minX": 33.5,
+        "minZ": 8,
+        "maxX": 40.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 37,
+        "z": 10.5
+      },
+      "door": {
+        "x": 39.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "GF-R17-DOOR",
+      "aliases": [
+        "GF-R17"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R11",
+      "name": "High End Computing lab",
+      "shortName": "High End Computi…",
+      "category": "laboratory",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 8,
+        "maxX": 26.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 23,
+        "z": 10.5
+      },
+      "door": {
+        "x": 25.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R11-DOOR",
+      "aliases": [
+        "F1-R11"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R12",
+      "name": "FYP LAB",
+      "shortName": "FYP LAB",
+      "category": "laboratory",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 26.5,
+        "minZ": 8,
+        "maxX": 33.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 30,
+        "z": 10.5
+      },
+      "door": {
+        "x": 32.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R12-DOOR",
+      "aliases": [
+        "F1-R12"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F1-R21",
+      "name": "101",
+      "shortName": "101",
+      "category": "classroom",
+      "floorId": "F1",
+      "bounds": {
+        "minX": 33.5,
+        "minZ": 8,
+        "maxX": 40.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 37,
+        "z": 10.5
+      },
+      "door": {
+        "x": 39.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F1-R21-DOOR",
+      "aliases": [
+        "F1-R21"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R03",
+      "name": "213",
+      "shortName": "213",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 16,
+        "maxX": 28,
+        "maxZ": 20,
+        "width": 8.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 23.75,
+        "z": 18
+      },
+      "door": {
+        "x": 19.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "F2-R03-DOOR",
+      "aliases": [
+        "F2-R03"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R04",
+      "name": "212",
+      "shortName": "212",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 20,
+        "maxX": 28,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 6
+      },
+      "centre": {
+        "x": 23.75,
+        "z": 23
+      },
+      "door": {
+        "x": 27,
+        "z": 26
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R04-DOOR",
+      "aliases": [
+        "F2-R04"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R06",
+      "name": "211",
+      "shortName": "211",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 22,
+        "minZ": 30,
+        "maxX": 28,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 25,
+        "z": 32.5
+      },
+      "door": {
+        "x": 27,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R06-DOOR",
+      "aliases": [
+        "F2-R06"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R05",
+      "name": "210",
+      "shortName": "210",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 16,
+        "minZ": 30,
+        "maxX": 22,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 19,
+        "z": 32.5
+      },
+      "door": {
+        "x": 18,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R05-DOOR",
+      "aliases": [
+        "F2-R05"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R07",
+      "name": "209",
+      "shortName": "209",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 10,
+        "minZ": 30,
+        "maxX": 16,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 13,
+        "z": 32.5
+      },
+      "door": {
+        "x": 14,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R07-DOOR",
+      "aliases": [
+        "F2-R07"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R08",
+      "name": "208",
+      "shortName": "208",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 4,
+        "minZ": 30,
+        "maxX": 10,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 7,
+        "z": 32.5
+      },
+      "door": {
+        "x": 5,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R08-DOOR",
+      "aliases": [
+        "F2-R08"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R01",
+      "name": "207",
+      "shortName": "207",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 4,
+        "minZ": 20,
+        "maxX": 12.5,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 6
+      },
+      "centre": {
+        "x": 8.25,
+        "z": 23
+      },
+      "door": {
+        "x": 5,
+        "z": 26
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R01-DOOR",
+      "aliases": [
+        "F2-R01"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R02",
+      "name": "206",
+      "shortName": "206",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 4,
+        "minZ": 16,
+        "maxX": 12.5,
+        "maxZ": 20,
+        "width": 8.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 8.25,
+        "z": 18
+      },
+      "door": {
+        "x": 12.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": 1,
+        "z": 0
+      },
+      "nodeId": "F2-R02-DOOR",
+      "aliases": [
+        "F2-R02"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R09",
+      "name": "Female Washrooms",
+      "shortName": "Female Washrooms",
+      "category": "female-washroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 5,
+        "minZ": 11,
+        "maxX": 12.5,
+        "maxZ": 15,
+        "width": 7.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 8.75,
+        "z": 13
+      },
+      "door": {
+        "x": 11.5,
+        "z": 15
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R09-DOOR",
+      "aliases": [
+        "F2-R09"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R10",
+      "name": "Male washrooms",
+      "shortName": "Male washrooms",
+      "category": "male-washroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 6.5,
+        "minZ": 5,
+        "maxX": 12.5,
+        "maxZ": 10,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 9.5,
+        "z": 7.5
+      },
+      "door": {
+        "x": 11.5,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R10-DOOR",
+      "aliases": [
+        "F2-R10"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R13",
+      "name": "Administration",
+      "shortName": "Administration",
+      "category": "administration",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 21.5,
+        "maxX": 65.5,
+        "maxZ": 30,
+        "width": 16,
+        "depth": 8.5
+      },
+      "centre": {
+        "x": 57.5,
+        "z": 25.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 21.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R13-DOOR",
+      "aliases": [
+        "F2-R13"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R14",
+      "name": "CL-10",
+      "shortName": "CL-10",
+      "category": "laboratory",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 52.5,
+        "minZ": 12,
+        "maxX": 60,
+        "maxZ": 17.5,
+        "width": 7.5,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 56.25,
+        "z": 14.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R14-DOOR",
+      "aliases": [
+        "F2-R14"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R15",
+      "name": "Canteen",
+      "shortName": "Canteen",
+      "category": "canteen",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 60,
+        "minZ": 12,
+        "maxX": 68,
+        "maxZ": 17.5,
+        "width": 8,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 64,
+        "z": 14.75
+      },
+      "door": {
+        "x": 61.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R15-DOOR",
+      "aliases": [
+        "F2-R15"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R16",
+      "name": "Unclassified",
+      "shortName": "Unclassified",
+      "category": "unclassified",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 68,
+        "minZ": 12,
+        "maxX": 71.5,
+        "maxZ": 15,
+        "width": 3.5,
+        "depth": 3
+      },
+      "centre": {
+        "x": 69.75,
+        "z": 13.5
+      },
+      "door": {
+        "x": 70,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F2-R16-DOOR",
+      "aliases": [
+        "F2-R16"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R17",
+      "name": "CL-12",
+      "shortName": "CL-12",
+      "category": "laboratory",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 5,
+        "maxX": 60,
+        "maxZ": 8.5,
+        "width": 10.5,
+        "depth": 3.5
+      },
+      "centre": {
+        "x": 54.75,
+        "z": 6.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R17-DOOR",
+      "aliases": [
+        "F2-R17"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R18",
+      "name": "CL-11",
+      "shortName": "CL-11",
+      "category": "laboratory",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 60,
+        "minZ": 3.5,
+        "maxX": 72,
+        "maxZ": 8.5,
+        "width": 12,
+        "depth": 5
+      },
+      "centre": {
+        "x": 66,
+        "z": 6
+      },
+      "door": {
+        "x": 61.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R18-DOOR",
+      "aliases": [
+        "F2-R18"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R19",
+      "name": "Female Washrooms",
+      "shortName": "Female Washrooms",
+      "category": "female-washroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 72,
+        "minZ": 3.5,
+        "maxX": 75,
+        "maxZ": 8.5,
+        "width": 3,
+        "depth": 5
+      },
+      "centre": {
+        "x": 73.5,
+        "z": 6
+      },
+      "door": {
+        "x": 73.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R19-DOOR",
+      "aliases": [
+        "F2-R19"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R20",
+      "name": "Male Washrooms",
+      "shortName": "Male Washrooms",
+      "category": "male-washroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 75,
+        "minZ": 6,
+        "maxX": 78,
+        "maxZ": 12,
+        "width": 3,
+        "depth": 6
+      },
+      "centre": {
+        "x": 76.5,
+        "z": 9
+      },
+      "door": {
+        "x": 75,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "F2-R20-DOOR",
+      "aliases": [
+        "F2-R20"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R11",
+      "name": "FYP LAB",
+      "shortName": "FYP LAB",
+      "category": "laboratory",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 8,
+        "maxX": 26.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 23,
+        "z": 10.5
+      },
+      "door": {
+        "x": 25.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R11-DOOR",
+      "aliases": [
+        "F2-R11"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R12",
+      "name": "Female Prayer Room",
+      "shortName": "Female Prayer Room",
+      "category": "female-prayer-room",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 26.5,
+        "minZ": 8,
+        "maxX": 33.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 30,
+        "z": 10.5
+      },
+      "door": {
+        "x": 32.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R12-DOOR",
+      "aliases": [
+        "F2-R12"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F2-R21",
+      "name": "201",
+      "shortName": "201",
+      "category": "classroom",
+      "floorId": "F2",
+      "bounds": {
+        "minX": 33.5,
+        "minZ": 8,
+        "maxX": 40.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 37,
+        "z": 10.5
+      },
+      "door": {
+        "x": 39.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F2-R21-DOOR",
+      "aliases": [
+        "F2-R21"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R03",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 16,
+        "maxX": 28,
+        "maxZ": 20,
+        "width": 8.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 23.75,
+        "z": 18
+      },
+      "door": {
+        "x": 19.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "F3-R03-DOOR",
+      "aliases": [
+        "F3-R03"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R04",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 20,
+        "maxX": 28,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 6
+      },
+      "centre": {
+        "x": 23.75,
+        "z": 23
+      },
+      "door": {
+        "x": 27,
+        "z": 26
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R04-DOOR",
+      "aliases": [
+        "F3-R04"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R06",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 22,
+        "minZ": 30,
+        "maxX": 28,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 25,
+        "z": 32.5
+      },
+      "door": {
+        "x": 27,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R06-DOOR",
+      "aliases": [
+        "F3-R06"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R05",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 16,
+        "minZ": 30,
+        "maxX": 22,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 19,
+        "z": 32.5
+      },
+      "door": {
+        "x": 18,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R05-DOOR",
+      "aliases": [
+        "F3-R05"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R07",
+      "name": "CL-16",
+      "shortName": "CL-16",
+      "category": "laboratory",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 10,
+        "minZ": 30,
+        "maxX": 16,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 13,
+        "z": 32.5
+      },
+      "door": {
+        "x": 14,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R07-DOOR",
+      "aliases": [
+        "F3-R07"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R08",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 4,
+        "minZ": 30,
+        "maxX": 10,
+        "maxZ": 35,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 7,
+        "z": 32.5
+      },
+      "door": {
+        "x": 5,
+        "z": 30
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R08-DOOR",
+      "aliases": [
+        "F3-R08"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R01",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 4,
+        "minZ": 20,
+        "maxX": 12.5,
+        "maxZ": 26,
+        "width": 8.5,
+        "depth": 6
+      },
+      "centre": {
+        "x": 8.25,
+        "z": 23
+      },
+      "door": {
+        "x": 5,
+        "z": 26
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R01-DOOR",
+      "aliases": [
+        "F3-R01"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R02",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 4,
+        "minZ": 16,
+        "maxX": 12.5,
+        "maxZ": 20,
+        "width": 8.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 8.25,
+        "z": 18
+      },
+      "door": {
+        "x": 12.5,
+        "z": 17
+      },
+      "doorNormal": {
+        "x": 1,
+        "z": 0
+      },
+      "nodeId": "F3-R02-DOOR",
+      "aliases": [
+        "F3-R02"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R09",
+      "name": "Female washrooms",
+      "shortName": "Female washrooms",
+      "category": "female-washroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 5,
+        "minZ": 11,
+        "maxX": 12.5,
+        "maxZ": 15,
+        "width": 7.5,
+        "depth": 4
+      },
+      "centre": {
+        "x": 8.75,
+        "z": 13
+      },
+      "door": {
+        "x": 11.5,
+        "z": 15
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R09-DOOR",
+      "aliases": [
+        "F3-R09"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R10",
+      "name": "Male washrooms",
+      "shortName": "Male washrooms",
+      "category": "male-washroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 6.5,
+        "minZ": 5,
+        "maxX": 12.5,
+        "maxZ": 10,
+        "width": 6,
+        "depth": 5
+      },
+      "centre": {
+        "x": 9.5,
+        "z": 7.5
+      },
+      "door": {
+        "x": 11.5,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R10-DOOR",
+      "aliases": [
+        "F3-R10"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R13",
+      "name": "Administration",
+      "shortName": "Administration",
+      "category": "administration",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 21.5,
+        "maxX": 65.5,
+        "maxZ": 30,
+        "width": 16,
+        "depth": 8.5
+      },
+      "centre": {
+        "x": 57.5,
+        "z": 25.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 21.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R13-DOOR",
+      "aliases": [
+        "F3-R13"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R14",
+      "name": "Classroom",
+      "shortName": "Classroom",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 52.5,
+        "minZ": 12,
+        "maxX": 60,
+        "maxZ": 17.5,
+        "width": 7.5,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 56.25,
+        "z": 14.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R14-DOOR",
+      "aliases": [
+        "F3-R14"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R15",
+      "name": "Classroom",
+      "shortName": "Classroom",
+      "category": "classroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 60,
+        "minZ": 12,
+        "maxX": 68,
+        "maxZ": 17.5,
+        "width": 8,
+        "depth": 5.5
+      },
+      "centre": {
+        "x": 64,
+        "z": 14.75
+      },
+      "door": {
+        "x": 61.5,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R15-DOOR",
+      "aliases": [
+        "F3-R15"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R16",
+      "name": "Canteen",
+      "shortName": "Canteen",
+      "category": "canteen",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 68,
+        "minZ": 12,
+        "maxX": 71.5,
+        "maxZ": 15,
+        "width": 3.5,
+        "depth": 3
+      },
+      "centre": {
+        "x": 69.75,
+        "z": 13.5
+      },
+      "door": {
+        "x": 70,
+        "z": 12
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": -1
+      },
+      "nodeId": "F3-R16-DOOR",
+      "aliases": [
+        "F3-R16"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R17",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "laboratory",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 5,
+        "maxX": 60,
+        "maxZ": 8.5,
+        "width": 10.5,
+        "depth": 3.5
+      },
+      "centre": {
+        "x": 54.75,
+        "z": 6.75
+      },
+      "door": {
+        "x": 58.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R17-DOOR",
+      "aliases": [
+        "F3-R17"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R18",
+      "name": "Studio",
+      "shortName": "Studio",
+      "category": "laboratory",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 60,
+        "minZ": 3.5,
+        "maxX": 72,
+        "maxZ": 8.5,
+        "width": 12,
+        "depth": 5
+      },
+      "centre": {
+        "x": 66,
+        "z": 6
+      },
+      "door": {
+        "x": 61.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R18-DOOR",
+      "aliases": [
+        "F3-R18"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R19",
+      "name": "Female washrooms",
+      "shortName": "Female washrooms",
+      "category": "female-washroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 72,
+        "minZ": 3.5,
+        "maxX": 75,
+        "maxZ": 8.5,
+        "width": 3,
+        "depth": 5
+      },
+      "centre": {
+        "x": 73.5,
+        "z": 6
+      },
+      "door": {
+        "x": 73.5,
+        "z": 8.5
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R19-DOOR",
+      "aliases": [
+        "F3-R19"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R20",
+      "name": "Male washrooms",
+      "shortName": "Male washrooms",
+      "category": "male-washroom",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 75,
+        "minZ": 6,
+        "maxX": 78,
+        "maxZ": 12,
+        "width": 3,
+        "depth": 6
+      },
+      "centre": {
+        "x": 76.5,
+        "z": 9
+      },
+      "door": {
+        "x": 75,
+        "z": 10
+      },
+      "doorNormal": {
+        "x": -1,
+        "z": 0
+      },
+      "nodeId": "F3-R20-DOOR",
+      "aliases": [
+        "F3-R20"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R11",
+      "name": "CL-13",
+      "shortName": "CL-13",
+      "category": "laboratory",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 19.5,
+        "minZ": 8,
+        "maxX": 26.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 23,
+        "z": 10.5
+      },
+      "door": {
+        "x": 25.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R11-DOOR",
+      "aliases": [
+        "F3-R11"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R12",
+      "name": "CL-9",
+      "shortName": "CL-9",
+      "category": "laboratory",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 26.5,
+        "minZ": 8,
+        "maxX": 33.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 30,
+        "z": 10.5
+      },
+      "door": {
+        "x": 32.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R12-DOOR",
+      "aliases": [
+        "F3-R12"
+      ],
+      "isPublic": true
+    },
+    {
+      "id": "F3-R21",
+      "name": "Laboratory",
+      "shortName": "Laboratory",
+      "category": "laboratory",
+      "floorId": "F3",
+      "bounds": {
+        "minX": 33.5,
+        "minZ": 8,
+        "maxX": 40.5,
+        "maxZ": 13,
+        "width": 7,
+        "depth": 5
+      },
+      "centre": {
+        "x": 37,
+        "z": 10.5
+      },
+      "door": {
+        "x": 39.5,
+        "z": 13
+      },
+      "doorNormal": {
+        "x": 0,
+        "z": 1
+      },
+      "nodeId": "F3-R21-DOOR",
+      "aliases": [
+        "F3-R21"
+      ],
+      "isPublic": true
+    }
+  ],
+  "entrances": [
+    {
+      "id": "E1",
+      "name": "Entrance E1",
+      "floorId": "GF",
+      "wall": "south",
+      "doorCentre": {
+        "x": 45,
+        "z": 3
+      },
+      "outsidePosition": {
+        "x": 45,
+        "z": 2.2
+      },
+      "insidePosition": {
+        "x": 45,
+        "z": 3.2
+      }
+    },
+    {
+      "id": "E2",
+      "name": "Entrance E2",
+      "floorId": "GF",
+      "wall": "south",
+      "doorCentre": {
+        "x": 16,
+        "z": 3
+      },
+      "outsidePosition": {
+        "x": 16,
+        "z": 2.2
+      },
+      "insidePosition": {
+        "x": 16,
+        "z": 3.2
+      }
+    },
+    {
+      "id": "E3",
+      "name": "Entrance E3",
+      "floorId": "GF",
+      "wall": "north",
+      "doorCentre": {
+        "x": 34.5,
+        "z": 16
+      },
+      "outsidePosition": {
+        "x": 34.5,
+        "z": 16.8
+      },
+      "insidePosition": {
+        "x": 34.5,
+        "z": 15.8
+      }
+    },
+    {
+      "id": "E4",
+      "name": "Entrance E4",
+      "floorId": "GF",
+      "wall": "east",
+      "doorCentre": {
+        "x": 72.5,
+        "z": 19.5
+      },
+      "outsidePosition": {
+        "x": 73.3,
+        "z": 19.5
+      },
+      "insidePosition": {
+        "x": 72.3,
+        "z": 19.5
+      }
+    }
+  ],
+  "stairs": [
+    {
+      "id": "S2",
+      "name": "Staircase S2",
+      "kind": "stairs",
+      "floorIds": [
+        "GF",
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "bounds": {
+        "minX": 40.5,
+        "minZ": 21.5,
+        "maxX": 49.5,
+        "maxZ": 24.5,
+        "width": 9,
+        "depth": 3
+      }
+    },
+    {
+      "id": "S3",
+      "name": "Staircase S3",
+      "kind": "stairs",
+      "floorIds": [
+        "GF",
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "bounds": {
+        "minX": 71.5,
+        "minZ": 12,
+        "maxX": 75,
+        "maxZ": 16,
+        "width": 3.5,
+        "depth": 4
+      }
+    },
+    {
+      "id": "S1",
+      "name": "Staircase S1",
+      "kind": "stairs",
+      "floorIds": [
+        "GF",
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "bounds": {
+        "minX": 12.5,
+        "minZ": 3,
+        "maxX": 19.5,
+        "maxZ": 7,
+        "width": 7,
+        "depth": 4
+      }
+    }
+  ],
+  "elevators": [
+    {
+      "id": "L1",
+      "name": "Elevator L1",
+      "kind": "elevator",
+      "floorIds": [
+        "GF",
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "bounds": {
+        "minX": 49.5,
+        "minZ": 12,
+        "maxX": 52.5,
+        "maxZ": 17.5,
+        "width": 3,
+        "depth": 5.5
+      }
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "LM-ENT-E1",
+      "name": "Entrance E1",
+      "category": "entrance",
+      "floorId": "GF",
+      "position": {
+        "x": 45,
+        "z": 2.2
+      },
+      "nearestNodeId": "E1-OUT",
+      "aliases": [
+        "E1"
+      ]
+    },
+    {
+      "id": "LM-ENT-E2",
+      "name": "Entrance E2",
+      "category": "entrance",
+      "floorId": "GF",
+      "position": {
+        "x": 16,
+        "z": 2.2
+      },
+      "nearestNodeId": "E2-OUT",
+      "aliases": [
+        "E2"
+      ]
+    },
+    {
+      "id": "LM-ENT-E3",
+      "name": "Entrance E3",
+      "category": "entrance",
+      "floorId": "GF",
+      "position": {
+        "x": 34.5,
+        "z": 16.8
+      },
+      "nearestNodeId": "E3-OUT",
+      "aliases": [
+        "E3"
+      ]
+    },
+    {
+      "id": "LM-ENT-E4",
+      "name": "Entrance E4",
+      "category": "entrance",
+      "floorId": "GF",
+      "position": {
+        "x": 73.3,
+        "z": 19.5
+      },
+      "nearestNodeId": "E4-OUT",
+      "aliases": [
+        "E4"
+      ]
+    },
+    {
+      "id": "LM-GF-STAIR-S2",
+      "name": "Staircase S2 (Ground Floor)",
+      "category": "stairs",
+      "floorId": "GF",
+      "position": {
+        "x": 45,
+        "z": 21.15
+      },
+      "nearestNodeId": "GF-STAIR-S2",
+      "aliases": [
+        "S2",
+        "Stairs S2"
+      ]
+    },
+    {
+      "id": "LM-F1-STAIR-S2",
+      "name": "Staircase S2 (First Floor)",
+      "category": "stairs",
+      "floorId": "F1",
+      "position": {
+        "x": 45,
+        "z": 21.15
+      },
+      "nearestNodeId": "F1-STAIR-S2",
+      "aliases": [
+        "S2",
+        "Stairs S2"
+      ]
+    },
+    {
+      "id": "LM-F2-STAIR-S2",
+      "name": "Staircase S2 (Floor 2)",
+      "category": "stairs",
+      "floorId": "F2",
+      "position": {
+        "x": 45,
+        "z": 21.15
+      },
+      "nearestNodeId": "F2-STAIR-S2",
+      "aliases": [
+        "S2",
+        "Stairs S2"
+      ]
+    },
+    {
+      "id": "LM-F3-STAIR-S2",
+      "name": "Staircase S2 (Floor 3)",
+      "category": "stairs",
+      "floorId": "F3",
+      "position": {
+        "x": 45,
+        "z": 21.15
+      },
+      "nearestNodeId": "F3-STAIR-S2",
+      "aliases": [
+        "S2",
+        "Stairs S2"
+      ]
+    },
+    {
+      "id": "LM-GF-STAIR-S3",
+      "name": "Staircase S3 (Ground Floor)",
+      "category": "stairs",
+      "floorId": "GF",
+      "position": {
+        "x": 73.25,
+        "z": 11.65
+      },
+      "nearestNodeId": "GF-STAIR-S3",
+      "aliases": [
+        "S3",
+        "Stairs S3"
+      ]
+    },
+    {
+      "id": "LM-F1-STAIR-S3",
+      "name": "Staircase S3 (First Floor)",
+      "category": "stairs",
+      "floorId": "F1",
+      "position": {
+        "x": 73.25,
+        "z": 11.65
+      },
+      "nearestNodeId": "F1-STAIR-S3",
+      "aliases": [
+        "S3",
+        "Stairs S3"
+      ]
+    },
+    {
+      "id": "LM-F2-STAIR-S3",
+      "name": "Staircase S3 (Floor 2)",
+      "category": "stairs",
+      "floorId": "F2",
+      "position": {
+        "x": 73.25,
+        "z": 11.65
+      },
+      "nearestNodeId": "F2-STAIR-S3",
+      "aliases": [
+        "S3",
+        "Stairs S3"
+      ]
+    },
+    {
+      "id": "LM-F3-STAIR-S3",
+      "name": "Staircase S3 (Floor 3)",
+      "category": "stairs",
+      "floorId": "F3",
+      "position": {
+        "x": 73.25,
+        "z": 11.65
+      },
+      "nearestNodeId": "F3-STAIR-S3",
+      "aliases": [
+        "S3",
+        "Stairs S3"
+      ]
+    },
+    {
+      "id": "LM-GF-STAIR-S1",
+      "name": "Staircase S1 (Ground Floor)",
+      "category": "stairs",
+      "floorId": "GF",
+      "position": {
+        "x": 16,
+        "z": 7.35
+      },
+      "nearestNodeId": "GF-STAIR-S1",
+      "aliases": [
+        "S1",
+        "Stairs S1"
+      ]
+    },
+    {
+      "id": "LM-F1-STAIR-S1",
+      "name": "Staircase S1 (First Floor)",
+      "category": "stairs",
+      "floorId": "F1",
+      "position": {
+        "x": 16,
+        "z": 7.35
+      },
+      "nearestNodeId": "F1-STAIR-S1",
+      "aliases": [
+        "S1",
+        "Stairs S1"
+      ]
+    },
+    {
+      "id": "LM-F2-STAIR-S1",
+      "name": "Staircase S1 (Floor 2)",
+      "category": "stairs",
+      "floorId": "F2",
+      "position": {
+        "x": 16,
+        "z": 7.35
+      },
+      "nearestNodeId": "F2-STAIR-S1",
+      "aliases": [
+        "S1",
+        "Stairs S1"
+      ]
+    },
+    {
+      "id": "LM-F3-STAIR-S1",
+      "name": "Staircase S1 (Floor 3)",
+      "category": "stairs",
+      "floorId": "F3",
+      "position": {
+        "x": 16,
+        "z": 7.35
+      },
+      "nearestNodeId": "F3-STAIR-S1",
+      "aliases": [
+        "S1",
+        "Stairs S1"
+      ]
+    },
+    {
+      "id": "LM-GF-LIFT-L1",
+      "name": "Elevator L1 (Ground Floor)",
+      "category": "stairs",
+      "floorId": "GF",
+      "position": {
+        "x": 49.15,
+        "z": 14.75
+      },
+      "nearestNodeId": "GF-LIFT-L1",
+      "aliases": [
+        "L1",
+        "Lift",
+        "Elevator"
+      ]
+    },
+    {
+      "id": "LM-F1-LIFT-L1",
+      "name": "Elevator L1 (First Floor)",
+      "category": "stairs",
+      "floorId": "F1",
+      "position": {
+        "x": 49.15,
+        "z": 14.75
+      },
+      "nearestNodeId": "F1-LIFT-L1",
+      "aliases": [
+        "L1",
+        "Lift",
+        "Elevator"
+      ]
+    },
+    {
+      "id": "LM-F2-LIFT-L1",
+      "name": "Elevator L1 (Floor 2)",
+      "category": "stairs",
+      "floorId": "F2",
+      "position": {
+        "x": 49.15,
+        "z": 14.75
+      },
+      "nearestNodeId": "F2-LIFT-L1",
+      "aliases": [
+        "L1",
+        "Lift",
+        "Elevator"
+      ]
+    },
+    {
+      "id": "LM-F3-LIFT-L1",
+      "name": "Elevator L1 (Floor 3)",
+      "category": "stairs",
+      "floorId": "F3",
+      "position": {
+        "x": 49.15,
+        "z": 14.75
+      },
+      "nearestNodeId": "F3-LIFT-L1",
+      "aliases": [
+        "L1",
+        "Lift",
+        "Elevator"
+      ]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "GF-P2",
+        "floorId": "GF",
+        "x": 16,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P3",
+        "floorId": "GF",
+        "x": 13,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P4",
+        "floorId": "GF",
+        "x": 18.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P6",
+        "floorId": "GF",
+        "x": 18,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P1",
+        "floorId": "GF",
+        "x": 14,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P7",
+        "floorId": "GF",
+        "x": 18,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P8",
+        "floorId": "GF",
+        "x": 14,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P5",
+        "floorId": "GF",
+        "x": 16,
+        "z": 26,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P9",
+        "floorId": "GF",
+        "x": 16,
+        "z": 3.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P11",
+        "floorId": "GF",
+        "x": 13,
+        "z": 15.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P12",
+        "floorId": "GF",
+        "x": 16,
+        "z": 8.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P13",
+        "floorId": "GF",
+        "x": 16,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P14",
+        "floorId": "GF",
+        "x": 18.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P17",
+        "floorId": "GF",
+        "x": 39.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P18",
+        "floorId": "GF",
+        "x": 45,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P19",
+        "floorId": "GF",
+        "x": 48,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P20",
+        "floorId": "GF",
+        "x": 45,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P23",
+        "floorId": "GF",
+        "x": 49.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P24",
+        "floorId": "GF",
+        "x": 58.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P25",
+        "floorId": "GF",
+        "x": 67.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P26",
+        "floorId": "GF",
+        "x": 71.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P27",
+        "floorId": "GF",
+        "x": 45,
+        "z": 5.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P28",
+        "floorId": "GF",
+        "x": 45,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P29",
+        "floorId": "GF",
+        "x": 50,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P30",
+        "floorId": "GF",
+        "x": 58.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P31",
+        "floorId": "GF",
+        "x": 58.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P32",
+        "floorId": "GF",
+        "x": 61.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P33",
+        "floorId": "GF",
+        "x": 58.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P34",
+        "floorId": "GF",
+        "x": 61.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P35",
+        "floorId": "GF",
+        "x": 32.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P36",
+        "floorId": "GF",
+        "x": 39.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P37",
+        "floorId": "GF",
+        "x": 34.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P38",
+        "floorId": "GF",
+        "x": 61.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P39",
+        "floorId": "GF",
+        "x": 70,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P40",
+        "floorId": "GF",
+        "x": 73.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P43",
+        "floorId": "GF",
+        "x": 11.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P44",
+        "floorId": "GF",
+        "x": 20.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P21",
+        "floorId": "GF",
+        "x": 43,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P10",
+        "floorId": "GF",
+        "x": 13,
+        "z": 10.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P2",
+        "floorId": "F1",
+        "x": 16,
+        "z": 26,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P3",
+        "floorId": "F1",
+        "x": 16,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P4",
+        "floorId": "F1",
+        "x": 16,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P5",
+        "floorId": "F1",
+        "x": 13,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P6",
+        "floorId": "F1",
+        "x": 18.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P7",
+        "floorId": "F1",
+        "x": 14,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P8",
+        "floorId": "F1",
+        "x": 18,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P9",
+        "floorId": "F1",
+        "x": 18,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P10",
+        "floorId": "F1",
+        "x": 14,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P11",
+        "floorId": "F1",
+        "x": 5,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P12",
+        "floorId": "F1",
+        "x": 27,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P13",
+        "floorId": "F1",
+        "x": 13,
+        "z": 15.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P14",
+        "floorId": "F1",
+        "x": 13,
+        "z": 10.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P16",
+        "floorId": "F1",
+        "x": 16,
+        "z": 8.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P18",
+        "floorId": "F1",
+        "x": 39.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P19",
+        "floorId": "F1",
+        "x": 45,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P20",
+        "floorId": "F1",
+        "x": 48,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P15",
+        "floorId": "F1",
+        "x": 20.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P21",
+        "floorId": "F1",
+        "x": 11.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P22",
+        "floorId": "F1",
+        "x": 32.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P23",
+        "floorId": "F1",
+        "x": 39.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P24",
+        "floorId": "F1",
+        "x": 45,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P25",
+        "floorId": "F1",
+        "x": 50,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P26",
+        "floorId": "F1",
+        "x": 58.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P27",
+        "floorId": "F1",
+        "x": 61.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P28",
+        "floorId": "F1",
+        "x": 70,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P29",
+        "floorId": "F1",
+        "x": 73.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P30",
+        "floorId": "F1",
+        "x": 45,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P31",
+        "floorId": "F1",
+        "x": 49.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P32",
+        "floorId": "F1",
+        "x": 58.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P33",
+        "floorId": "F1",
+        "x": 68,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P34",
+        "floorId": "F1",
+        "x": 5,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P35",
+        "floorId": "F1",
+        "x": 5,
+        "z": 25,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P36",
+        "floorId": "F1",
+        "x": 27,
+        "z": 25,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P37",
+        "floorId": "F1",
+        "x": 27,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P38",
+        "floorId": "F1",
+        "x": 58.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P39",
+        "floorId": "F1",
+        "x": 61.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P40",
+        "floorId": "F1",
+        "x": 61.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P41",
+        "floorId": "F1",
+        "x": 58.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P1",
+        "floorId": "F1",
+        "x": 18.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P15",
+        "floorId": "GF",
+        "x": 25.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P16",
+        "floorId": "GF",
+        "x": 32.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-P22",
+        "floorId": "GF",
+        "x": 25.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P42",
+        "floorId": "F1",
+        "x": 25.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P17",
+        "floorId": "F1",
+        "x": 25.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F1-P43",
+        "floorId": "F1",
+        "x": 32.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P2",
+        "floorId": "F2",
+        "x": 16,
+        "z": 26,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P3",
+        "floorId": "F2",
+        "x": 16,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P4",
+        "floorId": "F2",
+        "x": 16,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P5",
+        "floorId": "F2",
+        "x": 13,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P6",
+        "floorId": "F2",
+        "x": 18.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P7",
+        "floorId": "F2",
+        "x": 14,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P8",
+        "floorId": "F2",
+        "x": 18,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P9",
+        "floorId": "F2",
+        "x": 18,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P10",
+        "floorId": "F2",
+        "x": 14,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P11",
+        "floorId": "F2",
+        "x": 5,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P12",
+        "floorId": "F2",
+        "x": 27,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P13",
+        "floorId": "F2",
+        "x": 13,
+        "z": 15.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P14",
+        "floorId": "F2",
+        "x": 13,
+        "z": 10.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P16",
+        "floorId": "F2",
+        "x": 16,
+        "z": 8.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P18",
+        "floorId": "F2",
+        "x": 39.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P19",
+        "floorId": "F2",
+        "x": 45,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P20",
+        "floorId": "F2",
+        "x": 48,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P15",
+        "floorId": "F2",
+        "x": 20.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P21",
+        "floorId": "F2",
+        "x": 11.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P22",
+        "floorId": "F2",
+        "x": 32.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P23",
+        "floorId": "F2",
+        "x": 39.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P24",
+        "floorId": "F2",
+        "x": 45,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P25",
+        "floorId": "F2",
+        "x": 50,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P26",
+        "floorId": "F2",
+        "x": 58.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P27",
+        "floorId": "F2",
+        "x": 61.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P28",
+        "floorId": "F2",
+        "x": 70,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P29",
+        "floorId": "F2",
+        "x": 73.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P30",
+        "floorId": "F2",
+        "x": 45,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P31",
+        "floorId": "F2",
+        "x": 49.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P32",
+        "floorId": "F2",
+        "x": 58.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P33",
+        "floorId": "F2",
+        "x": 68,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P34",
+        "floorId": "F2",
+        "x": 5,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P35",
+        "floorId": "F2",
+        "x": 5,
+        "z": 25,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P36",
+        "floorId": "F2",
+        "x": 27,
+        "z": 25,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P37",
+        "floorId": "F2",
+        "x": 27,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P38",
+        "floorId": "F2",
+        "x": 58.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P39",
+        "floorId": "F2",
+        "x": 61.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P40",
+        "floorId": "F2",
+        "x": 61.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P41",
+        "floorId": "F2",
+        "x": 58.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P1",
+        "floorId": "F2",
+        "x": 18.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P42",
+        "floorId": "F2",
+        "x": 25.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P17",
+        "floorId": "F2",
+        "x": 25.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F2-P43",
+        "floorId": "F2",
+        "x": 32.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P2",
+        "floorId": "F3",
+        "x": 16,
+        "z": 26,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P3",
+        "floorId": "F3",
+        "x": 16,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P4",
+        "floorId": "F3",
+        "x": 16,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P5",
+        "floorId": "F3",
+        "x": 13,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P6",
+        "floorId": "F3",
+        "x": 18.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P7",
+        "floorId": "F3",
+        "x": 14,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P8",
+        "floorId": "F3",
+        "x": 18,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P9",
+        "floorId": "F3",
+        "x": 18,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P10",
+        "floorId": "F3",
+        "x": 14,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P11",
+        "floorId": "F3",
+        "x": 5,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P12",
+        "floorId": "F3",
+        "x": 27,
+        "z": 28,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P13",
+        "floorId": "F3",
+        "x": 13,
+        "z": 15.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P14",
+        "floorId": "F3",
+        "x": 13,
+        "z": 10.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P16",
+        "floorId": "F3",
+        "x": 16,
+        "z": 8.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P18",
+        "floorId": "F3",
+        "x": 39.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P19",
+        "floorId": "F3",
+        "x": 45,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P20",
+        "floorId": "F3",
+        "x": 48,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P15",
+        "floorId": "F3",
+        "x": 20.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P21",
+        "floorId": "F3",
+        "x": 11.5,
+        "z": 17,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P22",
+        "floorId": "F3",
+        "x": 32.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P23",
+        "floorId": "F3",
+        "x": 39.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P24",
+        "floorId": "F3",
+        "x": 45,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P25",
+        "floorId": "F3",
+        "x": 50,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P26",
+        "floorId": "F3",
+        "x": 58.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P27",
+        "floorId": "F3",
+        "x": 61.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P28",
+        "floorId": "F3",
+        "x": 70,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P29",
+        "floorId": "F3",
+        "x": 73.5,
+        "z": 10,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P30",
+        "floorId": "F3",
+        "x": 45,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P31",
+        "floorId": "F3",
+        "x": 49.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P32",
+        "floorId": "F3",
+        "x": 58.5,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P33",
+        "floorId": "F3",
+        "x": 68,
+        "z": 19.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P34",
+        "floorId": "F3",
+        "x": 5,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P35",
+        "floorId": "F3",
+        "x": 5,
+        "z": 25,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P36",
+        "floorId": "F3",
+        "x": 27,
+        "z": 25,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P37",
+        "floorId": "F3",
+        "x": 27,
+        "z": 31,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P38",
+        "floorId": "F3",
+        "x": 58.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P39",
+        "floorId": "F3",
+        "x": 61.5,
+        "z": 7.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P40",
+        "floorId": "F3",
+        "x": 61.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P41",
+        "floorId": "F3",
+        "x": 58.5,
+        "z": 13,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P1",
+        "floorId": "F3",
+        "x": 18.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P42",
+        "floorId": "F3",
+        "x": 25.5,
+        "z": 12,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P17",
+        "floorId": "F3",
+        "x": 25.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "F3-P43",
+        "floorId": "F3",
+        "x": 32.5,
+        "z": 14.5,
+        "kind": "corridor",
+        "label": null
+      },
+      {
+        "id": "GF-R02-DOOR",
+        "floorId": "GF",
+        "x": 11.5,
+        "z": 15.3,
+        "kind": "door",
+        "label": "Female Washrooms door"
+      },
+      {
+        "id": "GF-R09-DOOR",
+        "floorId": "GF",
+        "x": 58.5,
+        "z": 21.2,
+        "kind": "door",
+        "label": "Front office area door"
+      },
+      {
+        "id": "GF-R10-DOOR",
+        "floorId": "GF",
+        "x": 58.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "CL-5 door"
+      },
+      {
+        "id": "GF-R11-DOOR",
+        "floorId": "GF",
+        "x": 61.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Canteen door"
+      },
+      {
+        "id": "GF-R12-DOOR",
+        "floorId": "GF",
+        "x": 58.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "CL-4 door"
+      },
+      {
+        "id": "GF-R16-DOOR",
+        "floorId": "GF",
+        "x": 70,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Print shop door"
+      },
+      {
+        "id": "GF-R01-DOOR",
+        "floorId": "GF",
+        "x": 11.5,
+        "z": 10.3,
+        "kind": "door",
+        "label": "Male washrooms door"
+      },
+      {
+        "id": "GF-R04-DOOR",
+        "floorId": "GF",
+        "x": 19.2,
+        "z": 17,
+        "kind": "door",
+        "label": "G-08 door"
+      },
+      {
+        "id": "GF-R06-DOOR",
+        "floorId": "GF",
+        "x": 18,
+        "z": 29.7,
+        "kind": "door",
+        "label": "G-07 door"
+      },
+      {
+        "id": "F1-R03-DOOR",
+        "floorId": "F1",
+        "x": 19.2,
+        "z": 17,
+        "kind": "door",
+        "label": "112 door"
+      },
+      {
+        "id": "F1-R04-DOOR",
+        "floorId": "F1",
+        "x": 27,
+        "z": 26.3,
+        "kind": "door",
+        "label": "111 door"
+      },
+      {
+        "id": "F1-R06-DOOR",
+        "floorId": "F1",
+        "x": 27,
+        "z": 29.7,
+        "kind": "door",
+        "label": "110 door"
+      },
+      {
+        "id": "F1-R05-DOOR",
+        "floorId": "F1",
+        "x": 18,
+        "z": 29.7,
+        "kind": "door",
+        "label": "109 door"
+      },
+      {
+        "id": "F1-R07-DOOR",
+        "floorId": "F1",
+        "x": 14,
+        "z": 29.7,
+        "kind": "door",
+        "label": "108 door"
+      },
+      {
+        "id": "F1-R08-DOOR",
+        "floorId": "F1",
+        "x": 5,
+        "z": 29.7,
+        "kind": "door",
+        "label": "107 door"
+      },
+      {
+        "id": "GF-R03-DOOR",
+        "floorId": "GF",
+        "x": 12.8,
+        "z": 17,
+        "kind": "door",
+        "label": "G-05 door"
+      },
+      {
+        "id": "GF-R05-DOOR",
+        "floorId": "GF",
+        "x": 14,
+        "z": 29.7,
+        "kind": "door",
+        "label": "G-06 door"
+      },
+      {
+        "id": "F1-R01-DOOR",
+        "floorId": "F1",
+        "x": 5,
+        "z": 26.3,
+        "kind": "door",
+        "label": "106 door"
+      },
+      {
+        "id": "F1-R02-DOOR",
+        "floorId": "F1",
+        "x": 12.8,
+        "z": 17,
+        "kind": "door",
+        "label": "105 door"
+      },
+      {
+        "id": "F1-R09-DOOR",
+        "floorId": "F1",
+        "x": 11.5,
+        "z": 15.3,
+        "kind": "door",
+        "label": "Female Washrooms door"
+      },
+      {
+        "id": "F1-R10-DOOR",
+        "floorId": "F1",
+        "x": 11.5,
+        "z": 10.3,
+        "kind": "door",
+        "label": "Male washrooms door"
+      },
+      {
+        "id": "F1-R13-DOOR",
+        "floorId": "F1",
+        "x": 58.5,
+        "z": 21.2,
+        "kind": "door",
+        "label": "Admin/Conference room door"
+      },
+      {
+        "id": "F1-R14-DOOR",
+        "floorId": "F1",
+        "x": 58.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "126 door"
+      },
+      {
+        "id": "F1-R15-DOOR",
+        "floorId": "F1",
+        "x": 61.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Haier LAB door"
+      },
+      {
+        "id": "F1-R16-DOOR",
+        "floorId": "F1",
+        "x": 70,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Print Shop door"
+      },
+      {
+        "id": "F1-R17-DOOR",
+        "floorId": "F1",
+        "x": 58.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "CL-8 door"
+      },
+      {
+        "id": "GF-R13-DOOR",
+        "floorId": "GF",
+        "x": 61.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "CL-6 door"
+      },
+      {
+        "id": "GF-R14-DOOR",
+        "floorId": "GF",
+        "x": 73.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "Female washrooms door"
+      },
+      {
+        "id": "GF-R15-DOOR",
+        "floorId": "GF",
+        "x": 74.7,
+        "z": 10,
+        "kind": "door",
+        "label": "Male washrooms door"
+      },
+      {
+        "id": "F1-R18-DOOR",
+        "floorId": "F1",
+        "x": 61.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "CL-7 door"
+      },
+      {
+        "id": "F1-R19-DOOR",
+        "floorId": "F1",
+        "x": 73.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "Female washrooms door"
+      },
+      {
+        "id": "F1-R20-DOOR",
+        "floorId": "F1",
+        "x": 74.7,
+        "z": 10,
+        "kind": "door",
+        "label": "Male washrooms door"
+      },
+      {
+        "id": "GF-R07-DOOR",
+        "floorId": "GF",
+        "x": 25.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "FYP LAB door"
+      },
+      {
+        "id": "GF-R08-DOOR",
+        "floorId": "GF",
+        "x": 32.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "FYP-Unclassified door"
+      },
+      {
+        "id": "GF-R17-DOOR",
+        "floorId": "GF",
+        "x": 39.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "FYP LAB door"
+      },
+      {
+        "id": "F1-R11-DOOR",
+        "floorId": "F1",
+        "x": 25.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "High End Computing lab door"
+      },
+      {
+        "id": "F1-R12-DOOR",
+        "floorId": "F1",
+        "x": 32.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "FYP LAB door"
+      },
+      {
+        "id": "F1-R21-DOOR",
+        "floorId": "F1",
+        "x": 39.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "101 door"
+      },
+      {
+        "id": "F2-R03-DOOR",
+        "floorId": "F2",
+        "x": 19.2,
+        "z": 17,
+        "kind": "door",
+        "label": "213 door"
+      },
+      {
+        "id": "F2-R04-DOOR",
+        "floorId": "F2",
+        "x": 27,
+        "z": 26.3,
+        "kind": "door",
+        "label": "212 door"
+      },
+      {
+        "id": "F2-R06-DOOR",
+        "floorId": "F2",
+        "x": 27,
+        "z": 29.7,
+        "kind": "door",
+        "label": "211 door"
+      },
+      {
+        "id": "F2-R05-DOOR",
+        "floorId": "F2",
+        "x": 18,
+        "z": 29.7,
+        "kind": "door",
+        "label": "210 door"
+      },
+      {
+        "id": "F2-R07-DOOR",
+        "floorId": "F2",
+        "x": 14,
+        "z": 29.7,
+        "kind": "door",
+        "label": "209 door"
+      },
+      {
+        "id": "F2-R08-DOOR",
+        "floorId": "F2",
+        "x": 5,
+        "z": 29.7,
+        "kind": "door",
+        "label": "208 door"
+      },
+      {
+        "id": "F2-R01-DOOR",
+        "floorId": "F2",
+        "x": 5,
+        "z": 26.3,
+        "kind": "door",
+        "label": "207 door"
+      },
+      {
+        "id": "F2-R02-DOOR",
+        "floorId": "F2",
+        "x": 12.8,
+        "z": 17,
+        "kind": "door",
+        "label": "206 door"
+      },
+      {
+        "id": "F2-R09-DOOR",
+        "floorId": "F2",
+        "x": 11.5,
+        "z": 15.3,
+        "kind": "door",
+        "label": "Female Washrooms door"
+      },
+      {
+        "id": "F2-R10-DOOR",
+        "floorId": "F2",
+        "x": 11.5,
+        "z": 10.3,
+        "kind": "door",
+        "label": "Male washrooms door"
+      },
+      {
+        "id": "F2-R13-DOOR",
+        "floorId": "F2",
+        "x": 58.5,
+        "z": 21.2,
+        "kind": "door",
+        "label": "Administration door"
+      },
+      {
+        "id": "F2-R14-DOOR",
+        "floorId": "F2",
+        "x": 58.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "CL-10 door"
+      },
+      {
+        "id": "F2-R15-DOOR",
+        "floorId": "F2",
+        "x": 61.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Canteen door"
+      },
+      {
+        "id": "F2-R16-DOOR",
+        "floorId": "F2",
+        "x": 70,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Unclassified door"
+      },
+      {
+        "id": "F2-R17-DOOR",
+        "floorId": "F2",
+        "x": 58.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "CL-12 door"
+      },
+      {
+        "id": "F2-R18-DOOR",
+        "floorId": "F2",
+        "x": 61.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "CL-11 door"
+      },
+      {
+        "id": "F2-R19-DOOR",
+        "floorId": "F2",
+        "x": 73.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "Female Washrooms door"
+      },
+      {
+        "id": "F2-R20-DOOR",
+        "floorId": "F2",
+        "x": 74.7,
+        "z": 10,
+        "kind": "door",
+        "label": "Male Washrooms door"
+      },
+      {
+        "id": "F2-R11-DOOR",
+        "floorId": "F2",
+        "x": 25.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "FYP LAB door"
+      },
+      {
+        "id": "F2-R12-DOOR",
+        "floorId": "F2",
+        "x": 32.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "Female Prayer Room door"
+      },
+      {
+        "id": "F2-R21-DOOR",
+        "floorId": "F2",
+        "x": 39.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "201 door"
+      },
+      {
+        "id": "F3-R03-DOOR",
+        "floorId": "F3",
+        "x": 19.2,
+        "z": 17,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R04-DOOR",
+        "floorId": "F3",
+        "x": 27,
+        "z": 26.3,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R06-DOOR",
+        "floorId": "F3",
+        "x": 27,
+        "z": 29.7,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R05-DOOR",
+        "floorId": "F3",
+        "x": 18,
+        "z": 29.7,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R07-DOOR",
+        "floorId": "F3",
+        "x": 14,
+        "z": 29.7,
+        "kind": "door",
+        "label": "CL-16 door"
+      },
+      {
+        "id": "F3-R08-DOOR",
+        "floorId": "F3",
+        "x": 5,
+        "z": 29.7,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R01-DOOR",
+        "floorId": "F3",
+        "x": 5,
+        "z": 26.3,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R02-DOOR",
+        "floorId": "F3",
+        "x": 12.8,
+        "z": 17,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R09-DOOR",
+        "floorId": "F3",
+        "x": 11.5,
+        "z": 15.3,
+        "kind": "door",
+        "label": "Female washrooms door"
+      },
+      {
+        "id": "F3-R10-DOOR",
+        "floorId": "F3",
+        "x": 11.5,
+        "z": 10.3,
+        "kind": "door",
+        "label": "Male washrooms door"
+      },
+      {
+        "id": "F3-R13-DOOR",
+        "floorId": "F3",
+        "x": 58.5,
+        "z": 21.2,
+        "kind": "door",
+        "label": "Administration door"
+      },
+      {
+        "id": "F3-R14-DOOR",
+        "floorId": "F3",
+        "x": 58.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Classroom door"
+      },
+      {
+        "id": "F3-R15-DOOR",
+        "floorId": "F3",
+        "x": 61.5,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Classroom door"
+      },
+      {
+        "id": "F3-R16-DOOR",
+        "floorId": "F3",
+        "x": 70,
+        "z": 11.7,
+        "kind": "door",
+        "label": "Canteen door"
+      },
+      {
+        "id": "F3-R17-DOOR",
+        "floorId": "F3",
+        "x": 58.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R18-DOOR",
+        "floorId": "F3",
+        "x": 61.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "Studio door"
+      },
+      {
+        "id": "F3-R19-DOOR",
+        "floorId": "F3",
+        "x": 73.5,
+        "z": 8.8,
+        "kind": "door",
+        "label": "Female washrooms door"
+      },
+      {
+        "id": "F3-R20-DOOR",
+        "floorId": "F3",
+        "x": 74.7,
+        "z": 10,
+        "kind": "door",
+        "label": "Male washrooms door"
+      },
+      {
+        "id": "F3-R11-DOOR",
+        "floorId": "F3",
+        "x": 25.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "CL-13 door"
+      },
+      {
+        "id": "F3-R12-DOOR",
+        "floorId": "F3",
+        "x": 32.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "CL-9 door"
+      },
+      {
+        "id": "F3-R21-DOOR",
+        "floorId": "F3",
+        "x": 39.5,
+        "z": 13.3,
+        "kind": "door",
+        "label": "Laboratory door"
+      },
+      {
+        "id": "GF-STAIR-S2",
+        "floorId": "GF",
+        "x": 45,
+        "z": 21.15,
+        "kind": "stair",
+        "label": "Staircase S2 (Ground Floor)"
+      },
+      {
+        "id": "F1-STAIR-S2",
+        "floorId": "F1",
+        "x": 45,
+        "z": 21.15,
+        "kind": "stair",
+        "label": "Staircase S2 (First Floor)"
+      },
+      {
+        "id": "F2-STAIR-S2",
+        "floorId": "F2",
+        "x": 45,
+        "z": 21.15,
+        "kind": "stair",
+        "label": "Staircase S2 (Floor 2)"
+      },
+      {
+        "id": "F3-STAIR-S2",
+        "floorId": "F3",
+        "x": 45,
+        "z": 21.15,
+        "kind": "stair",
+        "label": "Staircase S2 (Floor 3)"
+      },
+      {
+        "id": "GF-STAIR-S3",
+        "floorId": "GF",
+        "x": 73.25,
+        "z": 11.65,
+        "kind": "stair",
+        "label": "Staircase S3 (Ground Floor)"
+      },
+      {
+        "id": "F1-STAIR-S3",
+        "floorId": "F1",
+        "x": 73.25,
+        "z": 11.65,
+        "kind": "stair",
+        "label": "Staircase S3 (First Floor)"
+      },
+      {
+        "id": "F2-STAIR-S3",
+        "floorId": "F2",
+        "x": 73.25,
+        "z": 11.65,
+        "kind": "stair",
+        "label": "Staircase S3 (Floor 2)"
+      },
+      {
+        "id": "F3-STAIR-S3",
+        "floorId": "F3",
+        "x": 73.25,
+        "z": 11.65,
+        "kind": "stair",
+        "label": "Staircase S3 (Floor 3)"
+      },
+      {
+        "id": "GF-STAIR-S1",
+        "floorId": "GF",
+        "x": 16,
+        "z": 7.35,
+        "kind": "stair",
+        "label": "Staircase S1 (Ground Floor)"
+      },
+      {
+        "id": "F1-STAIR-S1",
+        "floorId": "F1",
+        "x": 16,
+        "z": 7.35,
+        "kind": "stair",
+        "label": "Staircase S1 (First Floor)"
+      },
+      {
+        "id": "F2-STAIR-S1",
+        "floorId": "F2",
+        "x": 16,
+        "z": 7.35,
+        "kind": "stair",
+        "label": "Staircase S1 (Floor 2)"
+      },
+      {
+        "id": "F3-STAIR-S1",
+        "floorId": "F3",
+        "x": 16,
+        "z": 7.35,
+        "kind": "stair",
+        "label": "Staircase S1 (Floor 3)"
+      },
+      {
+        "id": "GF-LIFT-L1",
+        "floorId": "GF",
+        "x": 49.15,
+        "z": 14.75,
+        "kind": "elevator",
+        "label": "Elevator L1 (Ground Floor)"
+      },
+      {
+        "id": "F1-LIFT-L1",
+        "floorId": "F1",
+        "x": 49.15,
+        "z": 14.75,
+        "kind": "elevator",
+        "label": "Elevator L1 (First Floor)"
+      },
+      {
+        "id": "F2-LIFT-L1",
+        "floorId": "F2",
+        "x": 49.15,
+        "z": 14.75,
+        "kind": "elevator",
+        "label": "Elevator L1 (Floor 2)"
+      },
+      {
+        "id": "F3-LIFT-L1",
+        "floorId": "F3",
+        "x": 49.15,
+        "z": 14.75,
+        "kind": "elevator",
+        "label": "Elevator L1 (Floor 3)"
+      },
+      {
+        "id": "E1-OUT",
+        "floorId": "GF",
+        "x": 45,
+        "z": 3.2,
+        "kind": "entrance",
+        "label": "Entrance E1 (outside)"
+      },
+      {
+        "id": "E2-OUT",
+        "floorId": "GF",
+        "x": 16,
+        "z": 3.2,
+        "kind": "entrance",
+        "label": "Entrance E2 (outside)"
+      },
+      {
+        "id": "E3-OUT",
+        "floorId": "GF",
+        "x": 34.5,
+        "z": 15.8,
+        "kind": "entrance",
+        "label": "Entrance E3 (outside)"
+      },
+      {
+        "id": "E4-OUT",
+        "floorId": "GF",
+        "x": 72.3,
+        "z": 19.5,
+        "kind": "entrance",
+        "label": "Entrance E4 (outside)"
+      }
+    ],
+    "edges": [
+      {
+        "id": "GF-STAIR-S2__F1-STAIR-S2",
+        "from": "GF-STAIR-S2",
+        "to": "F1-STAIR-S2",
+        "bidirectional": true,
+        "distance": 21.16,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "F1-STAIR-S2__F2-STAIR-S2",
+        "from": "F1-STAIR-S2",
+        "to": "F2-STAIR-S2",
+        "bidirectional": true,
+        "distance": 21.16,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "F2-STAIR-S2__F3-STAIR-S2",
+        "from": "F2-STAIR-S2",
+        "to": "F3-STAIR-S2",
+        "bidirectional": true,
+        "distance": 21.16,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "GF-STAIR-S3__F1-STAIR-S3",
+        "from": "GF-STAIR-S3",
+        "to": "F1-STAIR-S3",
+        "bidirectional": true,
+        "distance": 11.836,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "F1-STAIR-S3__F2-STAIR-S3",
+        "from": "F1-STAIR-S3",
+        "to": "F2-STAIR-S3",
+        "bidirectional": true,
+        "distance": 11.836,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "F2-STAIR-S3__F3-STAIR-S3",
+        "from": "F2-STAIR-S3",
+        "to": "F3-STAIR-S3",
+        "bidirectional": true,
+        "distance": 11.836,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "GF-STAIR-S1__F1-STAIR-S1",
+        "from": "GF-STAIR-S1",
+        "to": "F1-STAIR-S1",
+        "bidirectional": true,
+        "distance": 18.468,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "F1-STAIR-S1__F2-STAIR-S1",
+        "from": "F1-STAIR-S1",
+        "to": "F2-STAIR-S1",
+        "bidirectional": true,
+        "distance": 18.468,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "F2-STAIR-S1__F3-STAIR-S1",
+        "from": "F2-STAIR-S1",
+        "to": "F3-STAIR-S1",
+        "bidirectional": true,
+        "distance": 18.468,
+        "type": "stairs",
+        "enabled": true,
+        "accessible": false
+      },
+      {
+        "id": "GF-LIFT-L1__F1-LIFT-L1",
+        "from": "GF-LIFT-L1",
+        "to": "F1-LIFT-L1",
+        "bidirectional": true,
+        "distance": 4,
+        "type": "elevator",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-LIFT-L1__F2-LIFT-L1",
+        "from": "F1-LIFT-L1",
+        "to": "F2-LIFT-L1",
+        "bidirectional": true,
+        "distance": 4,
+        "type": "elevator",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-LIFT-L1__F3-LIFT-L1",
+        "from": "F2-LIFT-L1",
+        "to": "F3-LIFT-L1",
+        "bidirectional": true,
+        "distance": 4,
+        "type": "elevator",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P6__GF-P5",
+        "from": "GF-P6",
+        "to": "GF-P5",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P8__GF-P5",
+        "from": "GF-P8",
+        "to": "GF-P5",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P5__GF-P2",
+        "from": "GF-P5",
+        "to": "GF-P2",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P2__GF-P13",
+        "from": "GF-P2",
+        "to": "GF-P13",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P13__GF-P4",
+        "from": "GF-P13",
+        "to": "GF-P4",
+        "bidirectional": true,
+        "distance": 3.536,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P13__GF-P3",
+        "from": "GF-P13",
+        "to": "GF-P3",
+        "bidirectional": true,
+        "distance": 3.905,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P13__GF-P11",
+        "from": "GF-P13",
+        "to": "GF-P11",
+        "bidirectional": true,
+        "distance": 3.162,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P11__GF-R02-DOOR",
+        "from": "GF-P11",
+        "to": "GF-R02-DOOR",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "E2-OUT__GF-P9",
+        "from": "E2-OUT",
+        "to": "GF-P9",
+        "bidirectional": true,
+        "distance": 0.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P9__GF-P12",
+        "from": "GF-P9",
+        "to": "GF-P12",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P12__GF-P13",
+        "from": "GF-P12",
+        "to": "GF-P13",
+        "bidirectional": true,
+        "distance": 6,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P13__GF-P14",
+        "from": "GF-P13",
+        "to": "GF-P14",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P37__E3-OUT",
+        "from": "GF-P37",
+        "to": "E3-OUT",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P37__GF-P17",
+        "from": "GF-P37",
+        "to": "GF-P17",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P17__GF-P18",
+        "from": "GF-P17",
+        "to": "GF-P18",
+        "bidirectional": true,
+        "distance": 5.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P18__GF-P19",
+        "from": "GF-P18",
+        "to": "GF-P19",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P18__GF-P20",
+        "from": "GF-P18",
+        "to": "GF-P20",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P20__GF-STAIR-S2",
+        "from": "GF-P20",
+        "to": "GF-STAIR-S2",
+        "bidirectional": true,
+        "distance": 1.65,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P20__GF-P23",
+        "from": "GF-P20",
+        "to": "GF-P23",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P23__GF-P24",
+        "from": "GF-P23",
+        "to": "GF-P24",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P24__GF-R09-DOOR",
+        "from": "GF-P24",
+        "to": "GF-R09-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P24__GF-P25",
+        "from": "GF-P24",
+        "to": "GF-P25",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P25__GF-P26",
+        "from": "GF-P25",
+        "to": "GF-P26",
+        "bidirectional": true,
+        "distance": 4,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P26__E4-OUT",
+        "from": "GF-P26",
+        "to": "E4-OUT",
+        "bidirectional": true,
+        "distance": 0.8,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P18__GF-P28",
+        "from": "GF-P18",
+        "to": "GF-P28",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P19__GF-LIFT-L1",
+        "from": "GF-P19",
+        "to": "GF-LIFT-L1",
+        "bidirectional": true,
+        "distance": 1.177,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P28__GF-P27",
+        "from": "GF-P28",
+        "to": "GF-P27",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P27__E1-OUT",
+        "from": "GF-P27",
+        "to": "E1-OUT",
+        "bidirectional": true,
+        "distance": 2.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P28__GF-P29",
+        "from": "GF-P28",
+        "to": "GF-P29",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P29__GF-P30",
+        "from": "GF-P29",
+        "to": "GF-P30",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P30__GF-R10-DOOR",
+        "from": "GF-P30",
+        "to": "GF-R10-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R10-DOOR__GF-P31",
+        "from": "GF-R10-DOOR",
+        "to": "GF-P31",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P30__GF-R12-DOOR",
+        "from": "GF-P30",
+        "to": "GF-R12-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R12-DOOR__GF-P33",
+        "from": "GF-R12-DOOR",
+        "to": "GF-P33",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P38__GF-P30",
+        "from": "GF-P38",
+        "to": "GF-P30",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P38__GF-R11-DOOR",
+        "from": "GF-P38",
+        "to": "GF-R11-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R11-DOOR__GF-P32",
+        "from": "GF-R11-DOOR",
+        "to": "GF-P32",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P38__GF-P39",
+        "from": "GF-P38",
+        "to": "GF-P39",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P39__GF-R16-DOOR",
+        "from": "GF-P39",
+        "to": "GF-R16-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P39__GF-P40",
+        "from": "GF-P39",
+        "to": "GF-P40",
+        "bidirectional": true,
+        "distance": 3.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P20__GF-P21",
+        "from": "GF-P20",
+        "to": "GF-P21",
+        "bidirectional": true,
+        "distance": 2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P12__GF-P10",
+        "from": "GF-P12",
+        "to": "GF-P10",
+        "bidirectional": true,
+        "distance": 3.606,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R01-DOOR__GF-P10",
+        "from": "GF-R01-DOOR",
+        "to": "GF-P10",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P40__GF-STAIR-S3",
+        "from": "GF-P40",
+        "to": "GF-STAIR-S3",
+        "bidirectional": true,
+        "distance": 1.669,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P7__GF-R06-DOOR",
+        "from": "GF-P7",
+        "to": "GF-R06-DOOR",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R06-DOOR__GF-P6",
+        "from": "GF-R06-DOOR",
+        "to": "GF-P6",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P4__GF-R04-DOOR",
+        "from": "GF-P4",
+        "to": "GF-R04-DOOR",
+        "bidirectional": true,
+        "distance": 0.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R04-DOOR__GF-P44",
+        "from": "GF-R04-DOOR",
+        "to": "GF-P44",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P8__GF-R05-DOOR",
+        "from": "GF-P8",
+        "to": "GF-R05-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R05-DOOR__GF-P1",
+        "from": "GF-R05-DOOR",
+        "to": "GF-P1",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P3__GF-R03-DOOR",
+        "from": "GF-P3",
+        "to": "GF-R03-DOOR",
+        "bidirectional": true,
+        "distance": 0.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R03-DOOR__GF-P43",
+        "from": "GF-R03-DOOR",
+        "to": "GF-P43",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P38__GF-R13-DOOR",
+        "from": "GF-P38",
+        "to": "GF-R13-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R13-DOOR__GF-P34",
+        "from": "GF-R13-DOOR",
+        "to": "GF-P34",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P40__GF-R14-DOOR",
+        "from": "GF-P40",
+        "to": "GF-R14-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P40__GF-R15-DOOR",
+        "from": "GF-P40",
+        "to": "GF-R15-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P34__F1-R08-DOOR",
+        "from": "F1-P34",
+        "to": "F1-R08-DOOR",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R08-DOOR__F1-P11",
+        "from": "F1-R08-DOOR",
+        "to": "F1-P11",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P11__F1-R01-DOOR",
+        "from": "F1-P11",
+        "to": "F1-R01-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R01-DOOR__F1-P35",
+        "from": "F1-R01-DOOR",
+        "to": "F1-P35",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P11__F1-P7",
+        "from": "F1-P11",
+        "to": "F1-P7",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P7__F1-R07-DOOR",
+        "from": "F1-P7",
+        "to": "F1-R07-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R07-DOOR__F1-P10",
+        "from": "F1-R07-DOOR",
+        "to": "F1-P10",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P8__F1-R05-DOOR",
+        "from": "F1-P8",
+        "to": "F1-R05-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R05-DOOR__F1-P9",
+        "from": "F1-R05-DOOR",
+        "to": "F1-P9",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P2__F1-P8",
+        "from": "F1-P2",
+        "to": "F1-P8",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P2__F1-P7",
+        "from": "F1-P2",
+        "to": "F1-P7",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P8__F1-P12",
+        "from": "F1-P8",
+        "to": "F1-P12",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P12__F1-R06-DOOR",
+        "from": "F1-P12",
+        "to": "F1-R06-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R06-DOOR__F1-P37",
+        "from": "F1-R06-DOOR",
+        "to": "F1-P37",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P12__F1-R04-DOOR",
+        "from": "F1-P12",
+        "to": "F1-R04-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R04-DOOR__F1-P36",
+        "from": "F1-R04-DOOR",
+        "to": "F1-P36",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P2__F1-P3",
+        "from": "F1-P2",
+        "to": "F1-P3",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P3__F1-P4",
+        "from": "F1-P3",
+        "to": "F1-P4",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P4__F1-P6",
+        "from": "F1-P4",
+        "to": "F1-P6",
+        "bidirectional": true,
+        "distance": 3.536,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P4__F1-P13",
+        "from": "F1-P4",
+        "to": "F1-P13",
+        "bidirectional": true,
+        "distance": 3.162,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P4__F1-P5",
+        "from": "F1-P4",
+        "to": "F1-P5",
+        "bidirectional": true,
+        "distance": 3.905,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P5__F1-R02-DOOR",
+        "from": "F1-P5",
+        "to": "F1-R02-DOOR",
+        "bidirectional": true,
+        "distance": 0.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R02-DOOR__F1-P21",
+        "from": "F1-R02-DOOR",
+        "to": "F1-P21",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P13__F1-R09-DOOR",
+        "from": "F1-P13",
+        "to": "F1-R09-DOOR",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P14__F1-P16",
+        "from": "F1-P14",
+        "to": "F1-P16",
+        "bidirectional": true,
+        "distance": 3.606,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P14__F1-R10-DOOR",
+        "from": "F1-P14",
+        "to": "F1-R10-DOOR",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P16__F1-P4",
+        "from": "F1-P16",
+        "to": "F1-P4",
+        "bidirectional": true,
+        "distance": 6,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P1__F1-P4",
+        "from": "F1-P1",
+        "to": "F1-P4",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P18__F1-P19",
+        "from": "F1-P18",
+        "to": "F1-P19",
+        "bidirectional": true,
+        "distance": 5.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P19__F1-P30",
+        "from": "F1-P19",
+        "to": "F1-P30",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P30__F1-STAIR-S2",
+        "from": "F1-P30",
+        "to": "F1-STAIR-S2",
+        "bidirectional": true,
+        "distance": 1.65,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P30__F1-P31",
+        "from": "F1-P30",
+        "to": "F1-P31",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P31__F1-P32",
+        "from": "F1-P31",
+        "to": "F1-P32",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P32__F1-R13-DOOR",
+        "from": "F1-P32",
+        "to": "F1-R13-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P32__F1-P33",
+        "from": "F1-P32",
+        "to": "F1-P33",
+        "bidirectional": true,
+        "distance": 9.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P19__F1-P20",
+        "from": "F1-P19",
+        "to": "F1-P20",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P20__F1-LIFT-L1",
+        "from": "F1-P20",
+        "to": "F1-LIFT-L1",
+        "bidirectional": true,
+        "distance": 1.177,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P19__F1-P24",
+        "from": "F1-P19",
+        "to": "F1-P24",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P24__F1-P25",
+        "from": "F1-P24",
+        "to": "F1-P25",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P25__F1-P26",
+        "from": "F1-P25",
+        "to": "F1-P26",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P26__F1-R14-DOOR",
+        "from": "F1-P26",
+        "to": "F1-R14-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R14-DOOR__F1-P41",
+        "from": "F1-R14-DOOR",
+        "to": "F1-P41",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P26__F1-P27",
+        "from": "F1-P26",
+        "to": "F1-P27",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P27__F1-R15-DOOR",
+        "from": "F1-P27",
+        "to": "F1-R15-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R15-DOOR__F1-P40",
+        "from": "F1-R15-DOOR",
+        "to": "F1-P40",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P26__F1-R17-DOOR",
+        "from": "F1-P26",
+        "to": "F1-R17-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R17-DOOR__F1-P38",
+        "from": "F1-R17-DOOR",
+        "to": "F1-P38",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P27__F1-R18-DOOR",
+        "from": "F1-P27",
+        "to": "F1-R18-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R18-DOOR__F1-P39",
+        "from": "F1-R18-DOOR",
+        "to": "F1-P39",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P27__F1-P28",
+        "from": "F1-P27",
+        "to": "F1-P28",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P28__F1-R16-DOOR",
+        "from": "F1-P28",
+        "to": "F1-R16-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P28__F1-P29",
+        "from": "F1-P28",
+        "to": "F1-P29",
+        "bidirectional": true,
+        "distance": 3.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P29__F1-STAIR-S3",
+        "from": "F1-P29",
+        "to": "F1-STAIR-S3",
+        "bidirectional": true,
+        "distance": 1.669,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P29__F1-R20-DOOR",
+        "from": "F1-P29",
+        "to": "F1-R20-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P29__F1-R19-DOOR",
+        "from": "F1-P29",
+        "to": "F1-R19-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P6__F1-R03-DOOR",
+        "from": "F1-P6",
+        "to": "F1-R03-DOOR",
+        "bidirectional": true,
+        "distance": 0.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R03-DOOR__F1-P15",
+        "from": "F1-R03-DOOR",
+        "to": "F1-P15",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P14__GF-P15",
+        "from": "GF-P14",
+        "to": "GF-P15",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P15__GF-P16",
+        "from": "GF-P15",
+        "to": "GF-P16",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P16__GF-P37",
+        "from": "GF-P16",
+        "to": "GF-P37",
+        "bidirectional": true,
+        "distance": 2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P17__GF-R17-DOOR",
+        "from": "GF-P17",
+        "to": "GF-R17-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R17-DOOR__GF-P36",
+        "from": "GF-R17-DOOR",
+        "to": "GF-P36",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P16__GF-R08-DOOR",
+        "from": "GF-P16",
+        "to": "GF-R08-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R08-DOOR__GF-P35",
+        "from": "GF-R08-DOOR",
+        "to": "GF-P35",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-P15__GF-R07-DOOR",
+        "from": "GF-P15",
+        "to": "GF-R07-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-R07-DOOR__GF-P22",
+        "from": "GF-R07-DOOR",
+        "to": "GF-P22",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-STAIR-S1__GF-P12",
+        "from": "GF-STAIR-S1",
+        "to": "GF-P12",
+        "bidirectional": true,
+        "distance": 1.15,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "GF-STAIR-S1__GF-P14",
+        "from": "GF-STAIR-S1",
+        "to": "GF-P14",
+        "bidirectional": true,
+        "distance": 7.574,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-STAIR-S1__F1-P16",
+        "from": "F1-STAIR-S1",
+        "to": "F1-P16",
+        "bidirectional": true,
+        "distance": 1.15,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-STAIR-S1__F1-P1",
+        "from": "F1-STAIR-S1",
+        "to": "F1-P1",
+        "bidirectional": true,
+        "distance": 7.574,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P1__F1-P17",
+        "from": "F1-P1",
+        "to": "F1-P17",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P17__F1-P43",
+        "from": "F1-P17",
+        "to": "F1-P43",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P43__F1-P18",
+        "from": "F1-P43",
+        "to": "F1-P18",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P18__F1-R21-DOOR",
+        "from": "F1-P18",
+        "to": "F1-R21-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R21-DOOR__F1-P23",
+        "from": "F1-R21-DOOR",
+        "to": "F1-P23",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P43__F1-R12-DOOR",
+        "from": "F1-P43",
+        "to": "F1-R12-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R12-DOOR__F1-P22",
+        "from": "F1-R12-DOOR",
+        "to": "F1-P22",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-P17__F1-R11-DOOR",
+        "from": "F1-P17",
+        "to": "F1-R11-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F1-R11-DOOR__F1-P42",
+        "from": "F1-R11-DOOR",
+        "to": "F1-P42",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P34__F2-R08-DOOR",
+        "from": "F2-P34",
+        "to": "F2-R08-DOOR",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R08-DOOR__F2-P11",
+        "from": "F2-R08-DOOR",
+        "to": "F2-P11",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P11__F2-R01-DOOR",
+        "from": "F2-P11",
+        "to": "F2-R01-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R01-DOOR__F2-P35",
+        "from": "F2-R01-DOOR",
+        "to": "F2-P35",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P11__F2-P7",
+        "from": "F2-P11",
+        "to": "F2-P7",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P7__F2-R07-DOOR",
+        "from": "F2-P7",
+        "to": "F2-R07-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R07-DOOR__F2-P10",
+        "from": "F2-R07-DOOR",
+        "to": "F2-P10",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P8__F2-R05-DOOR",
+        "from": "F2-P8",
+        "to": "F2-R05-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R05-DOOR__F2-P9",
+        "from": "F2-R05-DOOR",
+        "to": "F2-P9",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P2__F2-P8",
+        "from": "F2-P2",
+        "to": "F2-P8",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P2__F2-P7",
+        "from": "F2-P2",
+        "to": "F2-P7",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P8__F2-P12",
+        "from": "F2-P8",
+        "to": "F2-P12",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P12__F2-R06-DOOR",
+        "from": "F2-P12",
+        "to": "F2-R06-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R06-DOOR__F2-P37",
+        "from": "F2-R06-DOOR",
+        "to": "F2-P37",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P12__F2-R04-DOOR",
+        "from": "F2-P12",
+        "to": "F2-R04-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R04-DOOR__F2-P36",
+        "from": "F2-R04-DOOR",
+        "to": "F2-P36",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P2__F2-P3",
+        "from": "F2-P2",
+        "to": "F2-P3",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P3__F2-P4",
+        "from": "F2-P3",
+        "to": "F2-P4",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P4__F2-P6",
+        "from": "F2-P4",
+        "to": "F2-P6",
+        "bidirectional": true,
+        "distance": 3.536,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P4__F2-P13",
+        "from": "F2-P4",
+        "to": "F2-P13",
+        "bidirectional": true,
+        "distance": 3.162,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P4__F2-P5",
+        "from": "F2-P4",
+        "to": "F2-P5",
+        "bidirectional": true,
+        "distance": 3.905,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P5__F2-R02-DOOR",
+        "from": "F2-P5",
+        "to": "F2-R02-DOOR",
+        "bidirectional": true,
+        "distance": 0.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R02-DOOR__F2-P21",
+        "from": "F2-R02-DOOR",
+        "to": "F2-P21",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P13__F2-R09-DOOR",
+        "from": "F2-P13",
+        "to": "F2-R09-DOOR",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P14__F2-P16",
+        "from": "F2-P14",
+        "to": "F2-P16",
+        "bidirectional": true,
+        "distance": 3.606,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P14__F2-R10-DOOR",
+        "from": "F2-P14",
+        "to": "F2-R10-DOOR",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P16__F2-P4",
+        "from": "F2-P16",
+        "to": "F2-P4",
+        "bidirectional": true,
+        "distance": 6,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P1__F2-P4",
+        "from": "F2-P1",
+        "to": "F2-P4",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P18__F2-P19",
+        "from": "F2-P18",
+        "to": "F2-P19",
+        "bidirectional": true,
+        "distance": 5.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P19__F2-P30",
+        "from": "F2-P19",
+        "to": "F2-P30",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P30__F2-STAIR-S2",
+        "from": "F2-P30",
+        "to": "F2-STAIR-S2",
+        "bidirectional": true,
+        "distance": 1.65,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P30__F2-P31",
+        "from": "F2-P30",
+        "to": "F2-P31",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P31__F2-P32",
+        "from": "F2-P31",
+        "to": "F2-P32",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P32__F2-R13-DOOR",
+        "from": "F2-P32",
+        "to": "F2-R13-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P32__F2-P33",
+        "from": "F2-P32",
+        "to": "F2-P33",
+        "bidirectional": true,
+        "distance": 9.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P19__F2-P20",
+        "from": "F2-P19",
+        "to": "F2-P20",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P20__F2-LIFT-L1",
+        "from": "F2-P20",
+        "to": "F2-LIFT-L1",
+        "bidirectional": true,
+        "distance": 1.177,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P19__F2-P24",
+        "from": "F2-P19",
+        "to": "F2-P24",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P24__F2-P25",
+        "from": "F2-P24",
+        "to": "F2-P25",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P25__F2-P26",
+        "from": "F2-P25",
+        "to": "F2-P26",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P26__F2-R14-DOOR",
+        "from": "F2-P26",
+        "to": "F2-R14-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R14-DOOR__F2-P41",
+        "from": "F2-R14-DOOR",
+        "to": "F2-P41",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P26__F2-P27",
+        "from": "F2-P26",
+        "to": "F2-P27",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P27__F2-R15-DOOR",
+        "from": "F2-P27",
+        "to": "F2-R15-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R15-DOOR__F2-P40",
+        "from": "F2-R15-DOOR",
+        "to": "F2-P40",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P26__F2-R17-DOOR",
+        "from": "F2-P26",
+        "to": "F2-R17-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R17-DOOR__F2-P38",
+        "from": "F2-R17-DOOR",
+        "to": "F2-P38",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P27__F2-R18-DOOR",
+        "from": "F2-P27",
+        "to": "F2-R18-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R18-DOOR__F2-P39",
+        "from": "F2-R18-DOOR",
+        "to": "F2-P39",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P27__F2-P28",
+        "from": "F2-P27",
+        "to": "F2-P28",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P28__F2-R16-DOOR",
+        "from": "F2-P28",
+        "to": "F2-R16-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P28__F2-P29",
+        "from": "F2-P28",
+        "to": "F2-P29",
+        "bidirectional": true,
+        "distance": 3.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P29__F2-STAIR-S3",
+        "from": "F2-P29",
+        "to": "F2-STAIR-S3",
+        "bidirectional": true,
+        "distance": 1.669,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P29__F2-R20-DOOR",
+        "from": "F2-P29",
+        "to": "F2-R20-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P29__F2-R19-DOOR",
+        "from": "F2-P29",
+        "to": "F2-R19-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P6__F2-R03-DOOR",
+        "from": "F2-P6",
+        "to": "F2-R03-DOOR",
+        "bidirectional": true,
+        "distance": 0.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R03-DOOR__F2-P15",
+        "from": "F2-R03-DOOR",
+        "to": "F2-P15",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-STAIR-S1__F2-P16",
+        "from": "F2-STAIR-S1",
+        "to": "F2-P16",
+        "bidirectional": true,
+        "distance": 1.15,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-STAIR-S1__F2-P1",
+        "from": "F2-STAIR-S1",
+        "to": "F2-P1",
+        "bidirectional": true,
+        "distance": 7.574,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P1__F2-P17",
+        "from": "F2-P1",
+        "to": "F2-P17",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P17__F2-P43",
+        "from": "F2-P17",
+        "to": "F2-P43",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P43__F2-P18",
+        "from": "F2-P43",
+        "to": "F2-P18",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P18__F2-R21-DOOR",
+        "from": "F2-P18",
+        "to": "F2-R21-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R21-DOOR__F2-P23",
+        "from": "F2-R21-DOOR",
+        "to": "F2-P23",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P43__F2-R12-DOOR",
+        "from": "F2-P43",
+        "to": "F2-R12-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R12-DOOR__F2-P22",
+        "from": "F2-R12-DOOR",
+        "to": "F2-P22",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-P17__F2-R11-DOOR",
+        "from": "F2-P17",
+        "to": "F2-R11-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F2-R11-DOOR__F2-P42",
+        "from": "F2-R11-DOOR",
+        "to": "F2-P42",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P34__F3-R08-DOOR",
+        "from": "F3-P34",
+        "to": "F3-R08-DOOR",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R08-DOOR__F3-P11",
+        "from": "F3-R08-DOOR",
+        "to": "F3-P11",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P11__F3-R01-DOOR",
+        "from": "F3-P11",
+        "to": "F3-R01-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R01-DOOR__F3-P35",
+        "from": "F3-R01-DOOR",
+        "to": "F3-P35",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P11__F3-P7",
+        "from": "F3-P11",
+        "to": "F3-P7",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P7__F3-R07-DOOR",
+        "from": "F3-P7",
+        "to": "F3-R07-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R07-DOOR__F3-P10",
+        "from": "F3-R07-DOOR",
+        "to": "F3-P10",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P8__F3-R05-DOOR",
+        "from": "F3-P8",
+        "to": "F3-R05-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R05-DOOR__F3-P9",
+        "from": "F3-R05-DOOR",
+        "to": "F3-P9",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P2__F3-P8",
+        "from": "F3-P2",
+        "to": "F3-P8",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P2__F3-P7",
+        "from": "F3-P2",
+        "to": "F3-P7",
+        "bidirectional": true,
+        "distance": 2.828,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P8__F3-P12",
+        "from": "F3-P8",
+        "to": "F3-P12",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P12__F3-R06-DOOR",
+        "from": "F3-P12",
+        "to": "F3-R06-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R06-DOOR__F3-P37",
+        "from": "F3-R06-DOOR",
+        "to": "F3-P37",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P12__F3-R04-DOOR",
+        "from": "F3-P12",
+        "to": "F3-R04-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R04-DOOR__F3-P36",
+        "from": "F3-R04-DOOR",
+        "to": "F3-P36",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P2__F3-P3",
+        "from": "F3-P2",
+        "to": "F3-P3",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P3__F3-P4",
+        "from": "F3-P3",
+        "to": "F3-P4",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P4__F3-P6",
+        "from": "F3-P4",
+        "to": "F3-P6",
+        "bidirectional": true,
+        "distance": 3.536,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P4__F3-P13",
+        "from": "F3-P4",
+        "to": "F3-P13",
+        "bidirectional": true,
+        "distance": 3.162,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P4__F3-P5",
+        "from": "F3-P4",
+        "to": "F3-P5",
+        "bidirectional": true,
+        "distance": 3.905,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P5__F3-R02-DOOR",
+        "from": "F3-P5",
+        "to": "F3-R02-DOOR",
+        "bidirectional": true,
+        "distance": 0.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R02-DOOR__F3-P21",
+        "from": "F3-R02-DOOR",
+        "to": "F3-P21",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P13__F3-R09-DOOR",
+        "from": "F3-P13",
+        "to": "F3-R09-DOOR",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P14__F3-P16",
+        "from": "F3-P14",
+        "to": "F3-P16",
+        "bidirectional": true,
+        "distance": 3.606,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P14__F3-R10-DOOR",
+        "from": "F3-P14",
+        "to": "F3-R10-DOOR",
+        "bidirectional": true,
+        "distance": 1.513,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P16__F3-P4",
+        "from": "F3-P16",
+        "to": "F3-P4",
+        "bidirectional": true,
+        "distance": 6,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P1__F3-P4",
+        "from": "F3-P1",
+        "to": "F3-P4",
+        "bidirectional": true,
+        "distance": 2.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P18__F3-P19",
+        "from": "F3-P18",
+        "to": "F3-P19",
+        "bidirectional": true,
+        "distance": 5.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P19__F3-P30",
+        "from": "F3-P19",
+        "to": "F3-P30",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P30__F3-STAIR-S2",
+        "from": "F3-P30",
+        "to": "F3-STAIR-S2",
+        "bidirectional": true,
+        "distance": 1.65,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P30__F3-P31",
+        "from": "F3-P30",
+        "to": "F3-P31",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P31__F3-P32",
+        "from": "F3-P31",
+        "to": "F3-P32",
+        "bidirectional": true,
+        "distance": 9,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P32__F3-R13-DOOR",
+        "from": "F3-P32",
+        "to": "F3-R13-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P32__F3-P33",
+        "from": "F3-P32",
+        "to": "F3-P33",
+        "bidirectional": true,
+        "distance": 9.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P19__F3-P20",
+        "from": "F3-P19",
+        "to": "F3-P20",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P20__F3-LIFT-L1",
+        "from": "F3-P20",
+        "to": "F3-LIFT-L1",
+        "bidirectional": true,
+        "distance": 1.177,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P19__F3-P24",
+        "from": "F3-P19",
+        "to": "F3-P24",
+        "bidirectional": true,
+        "distance": 4.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P24__F3-P25",
+        "from": "F3-P24",
+        "to": "F3-P25",
+        "bidirectional": true,
+        "distance": 5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P25__F3-P26",
+        "from": "F3-P25",
+        "to": "F3-P26",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P26__F3-R14-DOOR",
+        "from": "F3-P26",
+        "to": "F3-R14-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R14-DOOR__F3-P41",
+        "from": "F3-R14-DOOR",
+        "to": "F3-P41",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P26__F3-P27",
+        "from": "F3-P26",
+        "to": "F3-P27",
+        "bidirectional": true,
+        "distance": 3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P27__F3-R15-DOOR",
+        "from": "F3-P27",
+        "to": "F3-R15-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R15-DOOR__F3-P40",
+        "from": "F3-R15-DOOR",
+        "to": "F3-P40",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P26__F3-R17-DOOR",
+        "from": "F3-P26",
+        "to": "F3-R17-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R17-DOOR__F3-P38",
+        "from": "F3-R17-DOOR",
+        "to": "F3-P38",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P27__F3-R18-DOOR",
+        "from": "F3-P27",
+        "to": "F3-R18-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R18-DOOR__F3-P39",
+        "from": "F3-R18-DOOR",
+        "to": "F3-P39",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P27__F3-P28",
+        "from": "F3-P27",
+        "to": "F3-P28",
+        "bidirectional": true,
+        "distance": 8.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P28__F3-R16-DOOR",
+        "from": "F3-P28",
+        "to": "F3-R16-DOOR",
+        "bidirectional": true,
+        "distance": 1.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P28__F3-P29",
+        "from": "F3-P28",
+        "to": "F3-P29",
+        "bidirectional": true,
+        "distance": 3.5,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P29__F3-STAIR-S3",
+        "from": "F3-P29",
+        "to": "F3-STAIR-S3",
+        "bidirectional": true,
+        "distance": 1.669,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P29__F3-R20-DOOR",
+        "from": "F3-P29",
+        "to": "F3-R20-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P29__F3-R19-DOOR",
+        "from": "F3-P29",
+        "to": "F3-R19-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P6__F3-R03-DOOR",
+        "from": "F3-P6",
+        "to": "F3-R03-DOOR",
+        "bidirectional": true,
+        "distance": 0.7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R03-DOOR__F3-P15",
+        "from": "F3-R03-DOOR",
+        "to": "F3-P15",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-STAIR-S1__F3-P16",
+        "from": "F3-STAIR-S1",
+        "to": "F3-P16",
+        "bidirectional": true,
+        "distance": 1.15,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-STAIR-S1__F3-P1",
+        "from": "F3-STAIR-S1",
+        "to": "F3-P1",
+        "bidirectional": true,
+        "distance": 7.574,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P1__F3-P17",
+        "from": "F3-P1",
+        "to": "F3-P17",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P17__F3-P43",
+        "from": "F3-P17",
+        "to": "F3-P43",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P43__F3-P18",
+        "from": "F3-P43",
+        "to": "F3-P18",
+        "bidirectional": true,
+        "distance": 7,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P18__F3-R21-DOOR",
+        "from": "F3-P18",
+        "to": "F3-R21-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R21-DOOR__F3-P23",
+        "from": "F3-R21-DOOR",
+        "to": "F3-P23",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P43__F3-R12-DOOR",
+        "from": "F3-P43",
+        "to": "F3-R12-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R12-DOOR__F3-P22",
+        "from": "F3-R12-DOOR",
+        "to": "F3-P22",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-P17__F3-R11-DOOR",
+        "from": "F3-P17",
+        "to": "F3-R11-DOOR",
+        "bidirectional": true,
+        "distance": 1.2,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      },
+      {
+        "id": "F3-R11-DOOR__F3-P42",
+        "from": "F3-R11-DOOR",
+        "to": "F3-P42",
+        "bidirectional": true,
+        "distance": 1.3,
+        "type": "corridor",
+        "enabled": true,
+        "accessible": true
+      }
+    ]
+  }
+}

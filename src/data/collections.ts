@@ -8,7 +8,6 @@ export const COL = {
   gallery: 'gallery',
   faqs: 'faqs',
   developers: 'developers',
-  destinations: 'destinations',
   adminUsers: 'adminUsers',
   projectsExpo: 'projectsExpo',
   submissions: 'submissions',

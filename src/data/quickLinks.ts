@@ -15,7 +15,6 @@ export const quickLinks: QuickLink[] = [
   { id: 'ql-12', label: 'IEEE CS LinkedIn', url: 'https://linkedin.com', category: 'Society Links' },
   { id: 'ql-13', label: 'IEEE CS WhatsApp Channel', url: 'https://whatsapp.com', category: 'Society Links' },
   { id: 'ql-14', label: 'Event Registration Forms', url: '/events', category: 'Event Links' },
-  { id: 'ql-15', label: 'Submit a Project', url: '/projects-expo/submit', category: 'Forms' },
   { id: 'ql-16', label: 'Report a Navigation Issue', url: '/navigation/report', category: 'Forms' },
   { id: 'ql-17', label: 'General Feedback Form', url: '/contribute', category: 'Forms' },
   { id: 'ql-18', label: 'FAQ & Contact', url: '/faq-contact', category: 'Student Help' },

@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -15,9 +16,14 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SectionHeading from '@/components/layout/SectionHeading';
 import Magnetic from '@/components/effects/Magnetic';
-import { hierarchyTerms as seedTerms } from '@/data/hierarchy';
-import { useStore } from '@/hooks/useCollection';
-import type { HierarchyTerm } from '@/types';
+import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
+import {
+  hierarchyService,
+  indexRoles,
+  sortMembers,
+  titleForRole,
+  type HierarchyCouncil,
+} from '@/services/hierarchyService';
 
 const pillars = [
   {
@@ -50,8 +56,39 @@ const stats = [
 ];
 
 export default function AboutPage() {
-  const [terms] = useStore<HierarchyTerm>('hierarchyTerms', seedTerms);
-  const currentHierarchy = terms[0];
+  /*
+   * The serving council, read from the database rather than from the static roster this page
+   * used to import. `loadCurrentCouncil` finds the term by its is_current flag; the previous
+   * code took terms[0], which is the newest row and stops being the serving one the moment a
+   * term is promoted back out of the archive.
+   */
+  const [council, setCouncil] = useState<HierarchyCouncil | null>(null);
+  const [councilFailed, setCouncilFailed] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+
+    hierarchyService
+      .loadCurrentCouncil()
+      .then((loaded) => {
+        if (!ignore) setCouncil(loaded);
+      })
+      .catch((error) => {
+        console.error('Could not load the council', error);
+        if (!ignore) setCouncilFailed(true);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const roleIndex = useMemo(() => indexRoles(council?.roles ?? []), [council]);
+  const councilMembers = useMemo(
+    () => sortMembers(council?.members ?? [], roleIndex),
+    [council, roleIndex]
+  );
+
   return (
     <div className="relative">
       <PageHero
@@ -160,7 +197,7 @@ export default function AboutPage() {
       <PageSection tone="cream">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <SectionHeading
-            eyebrow={`Executive Council · ${currentHierarchy.term}`}
+            eyebrow={`Executive Council${council?.term ? ` · ${council.term.term}` : ''}`}
             title="The students steering the chapter."
           />
           <Magnetic>
@@ -173,33 +210,45 @@ export default function AboutPage() {
             </Link>
           </Magnetic>
         </div>
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-          variants={{ visible: { transition: { staggerChildren: 0.06 } } }}
-          className="mt-12 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6"
-        >
-          {currentHierarchy.members.map((m) => (
-            <motion.div
-              key={m.id}
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              className="group flex flex-col items-center rounded-2xl border border-black/5 bg-white p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
-            >
-              <div className="relative">
-                <div className="absolute inset-0 rounded-full bg-ieee-orange/20 blur-md opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                <img
-                  src={m.photo}
-                  alt={m.name}
-                  loading="lazy"
-                  className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white"
-                />
-              </div>
-              <p className="mt-3 text-sm font-semibold text-slate-900">{m.name}</p>
-              <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wide text-ieee-orange">{m.role}</p>
-            </motion.div>
-          ))}
-        </motion.div>
+        {councilMembers.length === 0 ? (
+          <p className="mt-12 text-sm text-slate-500">
+            {councilFailed
+              ? 'The council roster could not be loaded right now.'
+              : council
+                ? 'The council roster has not been published yet.'
+                : 'Loading the council…'}
+          </p>
+        ) : (
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.2 }}
+            variants={{ visible: { transition: { staggerChildren: 0.06 } } }}
+            className="mt-12 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6"
+          >
+            {councilMembers.map((m) => (
+              <motion.div
+                key={m.id}
+                variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+                className="group flex flex-col items-center rounded-2xl border border-black/5 bg-white p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-ieee-orange/20 blur-md opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <img
+                    src={m.photo || PLACEHOLDER_PHOTO}
+                    alt={m.name}
+                    loading="lazy"
+                    className="relative h-16 w-16 rounded-full object-cover ring-2 ring-white"
+                  />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-slate-900">{m.name}</p>
+                <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wide text-ieee-orange">
+                  {titleForRole(roleIndex, m.roleSlug)}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
       </PageSection>
 
       {/* Explore more */}

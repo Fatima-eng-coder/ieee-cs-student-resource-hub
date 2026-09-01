@@ -14,3 +14,26 @@ export function timeAgo(iso: string): string {
   if (weeks < 5) return `${weeks}w`;
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
+
+/**
+ * An ISO instant as `<input type="datetime-local">` wants it: the reader's own
+ * wall clock, with no zone marker. `toISOString()` would render UTC and quietly
+ * shift a 9am event by five hours for everyone in Pakistan.
+ */
+export function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return '';
+
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(
+    when.getMinutes()
+  )}`;
+}
+
+/** The inverse: a datetime-local value back to an ISO instant, or null when cleared. */
+export function fromLocalInput(value: string): string | null {
+  if (!value) return null;
+  const when = new Date(value);
+  return Number.isNaN(when.getTime()) ? null : when.toISOString();
+}

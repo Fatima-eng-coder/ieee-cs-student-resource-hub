@@ -94,7 +94,8 @@ function facultySuggestionToSubmission(facultySuggestion: FacultySuggestion): Fa
     facultySuggestion,
     data: {
       suggestionType: formatMaterialType(facultySuggestion.suggestionType),
-      teacherName: facultySuggestion.teacherName,
+      subject: facultySuggestion.subject || 'Not provided',
+      teacherName: facultySuggestion.teacherName || 'Not provided',
       email: facultySuggestion.email || 'Not provided',
       department: facultySuggestion.department || 'Not provided',
       designation: facultySuggestion.designation || 'Not provided',
@@ -107,7 +108,37 @@ function facultySuggestionToSubmission(facultySuggestion: FacultySuggestion): Fa
   };
 }
 
-const typeLabel = (type: Submission['type']) =>
+/**
+ * The three source kinds, plus two cuts through the teacher-suggestion pile. A faculty
+ * addition is a different job from an email correction — it creates a directory entry rather
+ * than editing one — and an 'other' request may not name a teacher at all, so both are worth
+ * reaching without reading every row.
+ */
+type SubmissionFilter = 'all' | Submission['type'] | 'faculty-addition' | 'other-request';
+
+const filterLabels: Partial<Record<SubmissionFilter, string>> = {
+  'faculty-addition': 'Faculty additions',
+  'other-request': 'Other requests',
+};
+
+const matchesFilter = (submission: ReviewSubmission, filter: SubmissionFilter): boolean => {
+  if (filter === 'all') return true;
+  if (filter === 'faculty-addition') {
+    return (
+      submission.source === 'teacher-suggestion' &&
+      (submission.facultySuggestion.suggestionType === 'faculty_addition' ||
+        submission.facultySuggestion.suggestionType === 'new_teacher')
+    );
+  }
+  if (filter === 'other-request') {
+    return submission.source === 'teacher-suggestion' && submission.facultySuggestion.suggestionType === 'other';
+  }
+  return submission.type === filter;
+};
+
+const typeLabel = (type: SubmissionFilter) =>
+  filterLabels[type] ??
+
   type
     .replace(/-/g, ' ')
     .split(' ')
@@ -132,7 +163,9 @@ const submissionTitle = (submission: ReviewSubmission) => {
     return [submission.request.courseCode, submission.request.courseName].filter(Boolean).join(' - ');
   }
   if (submission.source === 'course-resource') return formatMaterialType(submission.resourceSubmission.resourceType);
-  return submission.facultySuggestion.teacherName;
+  // An 'other' request carries its subject instead of a name; without this the row would be
+  // the one thing in the queue with a blank title.
+  return submission.facultySuggestion.teacherName || submission.facultySuggestion.subject || 'Free-form request';
 };
 
 const submissionMaterial = (submission: ReviewSubmission) => {
@@ -165,7 +198,7 @@ export default function AdminSubmissionsPage() {
   const [paperRequestSubmissions, setPaperRequestSubmissions] = useState<PaperRequestReviewSubmission[]>([]);
   const [courseResourceSubmissions, setCourseResourceSubmissions] = useState<CourseResourceReviewSubmission[]>([]);
   const [facultySuggestionSubmissions, setFacultySuggestionSubmissions] = useState<FacultySuggestionReviewSubmission[]>([]);
-  const [filter, setFilter] = useState<'all' | Submission['type']>('all');
+  const [filter, setFilter] = useState<SubmissionFilter>('all');
   const [viewing, setViewing] = useState<ReviewSubmission | null>(null);
   const [rejecting, setRejecting] = useState<ReviewSubmission | null>(null);
   const [reviewingCourseResource, setReviewingCourseResource] = useState<{
@@ -541,8 +574,14 @@ export default function AdminSubmissionsPage() {
   };
 
   const pendingSubmissions = submissions.filter(isPendingSubmission);
-  const filtered = filter === 'all' ? pendingSubmissions : pendingSubmissions.filter((s) => s.type === filter);
-  const types: Submission['type'][] = ['paper-request', 'course-resource', 'teacher-suggestion'];
+  const filtered = pendingSubmissions.filter((s) => matchesFilter(s, filter));
+  const types: SubmissionFilter[] = [
+    'paper-request',
+    'course-resource',
+    'teacher-suggestion',
+    'faculty-addition',
+    'other-request',
+  ];
   const pendingCount = pendingSubmissions.length;
 
   const columns: AdminTableColumn<ReviewSubmission>[] = [
@@ -710,7 +749,11 @@ export default function AdminSubmissionsPage() {
                 ? 'No course resource submissions are waiting for review.'
                 : filter === 'teacher-suggestion'
                   ? 'No teacher info suggestions are waiting for review.'
-                  : 'No submissions are waiting for review right now.'
+                  : filter === 'faculty-addition'
+                    ? 'Nobody has asked for a teacher to be added to the directory.'
+                    : filter === 'other-request'
+                      ? 'No free-form requests are waiting for review.'
+                      : 'No submissions are waiting for review right now.'
           }
         />
       </div>

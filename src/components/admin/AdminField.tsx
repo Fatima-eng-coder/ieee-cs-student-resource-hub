@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { ImagePlus, X, Loader2, Paperclip, FileCheck2 } from 'lucide-react';
 import { downscaleImage } from '@/utils/image';
+import AvatarCropper from '@/components/ui/AvatarCropper';
 
 const inputClass =
   'w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-ieee-orange focus:ring-2 focus:ring-ieee-orange/20 placeholder:text-slate-400';
@@ -40,10 +41,64 @@ export function AdminSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>
   return <select {...props} className={`${inputClass} ${props.className ?? ''}`} />;
 }
 
-/** Image field that stores a downscaled data URL (swap for a real upload URL later). */
-export function AdminImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+/**
+ * Image field that stores a downscaled data URL (swap for a real upload URL later).
+ *
+ * `shape="circle"` opens the cropper instead of taking the file as-is. Anything the site
+ * renders as a circle needs it: `object-cover` crops from the centre, which reliably cuts the
+ * top off a portrait, and the person uploading has no way to see that until it is published.
+ * Rectangular art — banners, gallery covers, posters — keeps the plain path.
+ */
+export function AdminImageField({
+  value,
+  onChange,
+  shape = 'rect',
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  shape?: 'rect' | 'circle';
+}) {
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [cropping, setCropping] = useState(false);
+
+  if (shape === 'circle') {
+    if (cropping || !value) {
+      return (
+        <AvatarCropper
+          value={value}
+          size={200}
+          onChange={(dataUrl) => {
+            onChange(dataUrl);
+            setCropping(false);
+          }}
+          onCancel={value ? () => setCropping(false) : undefined}
+        />
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-4">
+        <img src={value} alt="" className="h-20 w-20 rounded-full border border-black/10 object-cover" />
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCropping(true)}
+            className="text-sm font-semibold text-slate-600 transition hover:text-ieee-orange"
+          >
+            Reposition or replace
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-left text-xs font-medium text-slate-400 transition hover:text-rose-600"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

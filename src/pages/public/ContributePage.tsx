@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, X, Check } from 'lucide-react';
+import { ArrowUpRight, X, Check, AlertCircle, Loader2, LogIn } from 'lucide-react';
 import Icon, { type IconName } from '@/components/ui/Icon';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
-import MultiImageUpload from '@/components/projects/MultiImageUpload';
+import PhotoFilePicker from '@/components/ui/PhotoFilePicker';
 import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
-import { appendToStorage, makeId } from '@/utils/storage';
-import type { EventItem, Submission } from '@/types';
+import {
+  eventImageSubmissionsService,
+  MAX_EVENT_PHOTOS,
+} from '@/services/eventImageSubmissionsService';
+import { useAuth } from '@/context/AuthContext';
+import type { EventItem } from '@/types';
 
 interface Option {
   title: string;
@@ -22,7 +26,6 @@ const options: Option[] = [
   { title: 'Contribute Past Paper', icon: 'file', to: '/past-papers/contribute', description: 'Upload a past exam paper for your juniors.' },
   { title: 'Suggest Course Resource', icon: 'book', to: '/courses/suggest-correction', description: 'Correct or add missing course information.' },
   { title: 'Suggest Teacher Info', icon: 'faculty', to: '/courses/suggest-teacher', description: 'Share missing or updated faculty contact details.' },
-  { title: 'Submit Project', icon: 'layers', to: '/projects-expo/submit', description: 'Showcase your semester project.' },
   { title: 'Report Navigation Issue', icon: 'compass', to: '/navigation/report', description: 'Flag an incorrect indoor route.' },
   { title: 'Submit Event Photos', icon: 'image', action: 'event-photos', description: 'Share photos from a recent event.' },
   { title: 'General Feedback', icon: 'message', to: '/faq-contact', description: 'Tell us what we can improve.' },
@@ -30,10 +33,13 @@ const options: Option[] = [
 ];
 
 export default function ContributePage() {
+  const { user, ensureAuth } = useAuth();
   const [events, setEvents] = useState<EventItem[]>([]);
   const [photoModal, setPhotoModal] = useState(false);
   const [eventId, setEventId] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -60,26 +66,39 @@ export default function ContributePage() {
 
   const previousEvents = useMemo(() => events.filter((event) => event.timing === 'previous'), [events]);
 
-  const submitPhotos = () => {
+  /**
+   * The upload needs a session, so a guest is asked to sign in at the point they click rather
+   * than after they have chosen an event and three photos and pressed send.
+   */
+  const openPhotoModal = () => {
+    if (!ensureAuth(() => setPhotoModal(true), 'Log in to send photos from an event.')) return;
+    setPhotoModal(true);
+  };
+
+  const submitPhotos = async () => {
     const ev = previousEvents.find((e) => e.id === eventId);
-    const submission: Submission = {
-      id: makeId('sub'),
-      type: 'event-photos',
-      submittedBy: 'Student',
-      submittedAt: new Date().toISOString().slice(0, 10),
-      status: 'pending',
-      data: { event: ev?.title ?? 'Unspecified', photos: String(photos.length) },
-    };
-    appendToStorage<Submission>('ieeecs_submissions', [], submission);
-    setDone(true);
+    if (!ev) return setError('Choose which event these photos are from.');
+
+    setSending(true);
+    setError('');
+    try {
+      await eventImageSubmissionsService.submit({ eventName: ev.title, files: photos });
+      setDone(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Those photos could not be sent.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const closeModal = () => {
+    if (sending) return;
     setPhotoModal(false);
     setTimeout(() => {
       setDone(false);
       setPhotos([]);
       setEventId('');
+      setError('');
     }, 200);
   };
 
@@ -120,7 +139,7 @@ export default function ContributePage() {
                 transition={{ duration: 0.35, delay: (idx % 3) * 0.05 }}
               >
                 {opt.action === 'event-photos' ? (
-                  <button type="button" data-cursor="link" onClick={() => setPhotoModal(true)} className={cls}>
+                  <button type="button" data-cursor="link" onClick={openPhotoModal} className={cls}>
                     {inner}
                   </button>
                 ) : (
@@ -165,7 +184,9 @@ export default function ContributePage() {
                     <Check className="h-7 w-7" />
                   </div>
                   <h2 className="mt-4 font-display text-xl font-bold text-slate-900">Photos submitted!</h2>
-                  <p className="mt-1 text-sm text-slate-500">Thanks — the team will review and add them to the gallery.</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Thanks — the team will review them and add them to the gallery.
+                  </p>
                   <button
                     onClick={closeModal}
                     className="mt-5 rounded-xl bg-ieee-orange px-5 py-2.5 text-sm font-semibold text-white hover:bg-ieee-orange-dark"
@@ -200,16 +221,35 @@ export default function ContributePage() {
 
                   <label className="mt-4 block text-sm font-semibold text-slate-700">Photos</label>
                   <div className="mt-1.5">
-                    <MultiImageUpload value={photos} onChange={setPhotos} max={3} />
+                    <PhotoFilePicker value={photos} onChange={setPhotos} max={MAX_EVENT_PHOTOS} />
                   </div>
 
-                  <button
-                    onClick={submitPhotos}
-                    disabled={!eventId || photos.length === 0}
-                    className="mt-5 w-full rounded-xl bg-ieee-orange px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Submit Photos
-                  </button>
+                  {error && (
+                    <p
+                      role="alert"
+                      className="mt-4 flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700"
+                    >
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+                    </p>
+                  )}
+
+                  {!user ? (
+                    <button
+                      onClick={() => ensureAuth(undefined, 'Log in to send photos from an event.')}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ieee-orange px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark"
+                    >
+                      <LogIn className="h-4 w-4" /> Log in to send photos
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => void submitPhotos()}
+                      disabled={!eventId || photos.length === 0 || sending}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ieee-orange px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {sending && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {sending ? 'Sending…' : 'Submit Photos'}
+                    </button>
+                  )}
                 </>
               )}
             </motion.div>

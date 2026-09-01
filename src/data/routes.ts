@@ -1,22 +1,10 @@
-import type { RouteEntrance, RouteInfo, DestinationType } from '@/types';
+import type { RouteEntrance, RouteInfo } from '@/types';
 
 export const entrances: RouteEntrance[] = [
   { id: 'ent-1', name: 'Entrance 1', description: 'Main gate facing the parking lot' },
   { id: 'ent-2', name: 'Entrance 2', description: 'Side gate near the cafeteria' },
   { id: 'ent-3', name: 'Entrance 3', description: 'Back gate near the sports ground' },
   { id: 'ent-4', name: 'Entrance 4', description: 'Faculty block connecting corridor' },
-];
-
-export const destinationTypes: DestinationType[] = [
-  { id: 'dt-classroom', label: 'Classroom', icon: 'classroom' },
-  { id: 'dt-lab', label: 'Lab', icon: 'lab' },
-  { id: 'dt-faculty', label: 'Faculty Office', icon: 'faculty' },
-  { id: 'dt-dept', label: 'Department Office', icon: 'department' },
-  { id: 'dt-seminar', label: 'Seminar Room', icon: 'seminar' },
-  { id: 'dt-washroom', label: 'Washroom', icon: 'washroom' },
-  { id: 'dt-stairs', label: 'Stairs', icon: 'stairs' },
-  { id: 'dt-notice', label: 'Notice Board', icon: 'notice' },
-  { id: 'dt-other', label: 'Other', icon: 'pin' },
 ];
 
 // Keyed by `${entranceId}__${destinationId}` for lookups.

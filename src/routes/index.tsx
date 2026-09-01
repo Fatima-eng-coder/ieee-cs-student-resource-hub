@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import PublicLayout from '@/components/layout/PublicLayout';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -19,11 +20,13 @@ import SuggestTeacherPage from '@/pages/public/SuggestTeacherPage';
 import EventsPage from '@/pages/public/EventsPage';
 import EventDetailPage from '@/pages/public/EventDetailPage';
 import EventRegisterPage from '@/pages/public/EventRegisterPage';
-import NavigationPage from '@/pages/public/NavigationPage';
+// The wayfinding map bundles the whole building dataset, so keep it out of the
+// main chunk — most visitors never open it.
+const NavigationPage = lazy(() => import('@/pages/public/NavigationPage'));
 import NavigationReportPage from '@/pages/public/NavigationReportPage';
 import ProjectsExpoPage from '@/pages/public/ProjectsExpoPage';
-import ProjectDetailPage from '@/pages/public/ProjectDetailPage';
 import SubmitProjectPage from '@/pages/public/SubmitProjectPage';
+import ProjectDetailPage from '@/pages/public/ProjectDetailPage';
 import QuickLinksPage from '@/pages/public/QuickLinksPage';
 import AnnouncementsPage from '@/pages/public/AnnouncementsPage';
 import AnnouncementDetailPage from '@/pages/public/AnnouncementDetailPage';
@@ -47,6 +50,8 @@ import AdminTeachersPage from '@/pages/admin/AdminTeachersPage';
 import AdminLoginPage from '@/pages/admin/AdminLoginPage';
 import DashboardPage from '@/pages/admin/DashboardPage';
 import AdminEventsPage from '@/pages/admin/AdminEventsPage';
+import AdminRegistrationsPage from '@/pages/admin/AdminRegistrationsPage';
+import AdminInboxPage from '@/pages/admin/AdminInboxPage';
 import AdminBannersPage from '@/pages/admin/AdminBannersPage';
 import AdminPapersPage from '@/pages/admin/AdminPapersPage';
 import AdminCoursesPage from '@/pages/admin/AdminCoursesPage';
@@ -92,6 +97,8 @@ export const router = createBrowserRouter([
       { path: 'events/:id/register', element: <EventRegisterPage /> },
       { path: 'navigation', element: <NavigationPage /> },
       { path: 'navigation/report', element: <NavigationReportPage /> },
+      // Projects Expo is deferred. The landing route explains that; its old child routes
+      // redirect there so shared links and bookmarks do not 404.
       { path: 'projects-expo', element: <ProjectsExpoPage /> },
       { path: 'projects-expo/submit', element: <SubmitProjectPage /> },
       { path: 'projects-expo/:id', element: <ProjectDetailPage /> },
@@ -134,6 +141,7 @@ export const router = createBrowserRouter([
     children: [
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'events', element: <AdminEventsPage /> },
+      { path: 'registrations', element: <AdminRegistrationsPage /> },
       { path: 'banners', element: <AdminBannersPage /> },
       { path: 'papers', element: <AdminPapersPage /> },
       { path: 'teachers', element: <AdminTeachersPage /> },   //newwwwwwwwwwwww
@@ -141,6 +149,7 @@ export const router = createBrowserRouter([
       { path: 'projects', element: <AdminProjectsPage /> },
       { path: 'navigation', element: <AdminNavigationPage /> },
       { path: 'hierarchy', element: <AdminHierarchyPage /> },
+      { path: 'inbox', element: <AdminInboxPage /> },
       { path: 'submissions', element: <AdminSubmissionsPage /> },
       { path: 'submissions/history', element: <AdminSubmissionHistoryPage /> },
       { path: 'quick-links', element: <AdminQuickLinksPage /> },

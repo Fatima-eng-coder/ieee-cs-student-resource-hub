@@ -7,13 +7,14 @@ import { useNavLinks } from '@/hooks/useNavLinks';
 import { makeId } from '@/utils/storage';
 
 export default function AdminNavbarPage() {
-  const { items, update, setAll, add, remove, error: loadError } = useNavLinks();
+  const { items, loaded, update, setAll, add, remove, error: loadError } = useNavLinks();
   const [draft, setDraft] = useState({ label: '', to: '' });
   const [formError, setFormError] = useState<string | null>(null);
 
   const enabled = items.filter((l) => l.enabled);
 
   const move = (id: string, dir: -1 | 1) => {
+    if (!loaded) return;
     const i = items.findIndex((l) => l.id === id);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= items.length) return;
@@ -24,6 +25,7 @@ export default function AdminNavbarPage() {
 
   const addLink = () => {
     setFormError(null);
+    if (!loaded) return setFormError('The navbar has not been read yet, so it cannot be edited.');
     const label = draft.label.trim();
     let to = draft.to.trim();
     if (!label) return setFormError('Give the link a label.');
@@ -40,6 +42,14 @@ export default function AdminNavbarPage() {
         {loadError && (
           <p className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
             {loadError}
+          </p>
+        )}
+
+        {/* Editing what was never read would save this page's idea of the navbar over the real
+            one, so until a read succeeds there is nothing here to edit. */}
+        {!loaded && !loadError && (
+          <p className="mb-4 rounded-xl border border-black/5 bg-white px-4 py-3 text-sm text-slate-500">
+            Loading the navbar…
           </p>
         )}
 

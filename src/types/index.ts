@@ -260,6 +260,7 @@ export interface FormField {
   id: string;
   type: FormFieldType;
   label: string;
+  /** Stored as form_fields.help_text. */
   description?: string;
   placeholder?: string;
   required: boolean;
@@ -274,16 +275,43 @@ export interface FormPage {
   fields: FormField[];
 }
 
+/**
+ * draft = built but never released; open = accepting responses; closed = kept
+ * with its data but no longer accepting. The database enforces these three, so
+ * the app mirrors them rather than carrying its own vocabulary.
+ */
+export type FormStatus = 'draft' | 'open' | 'closed';
+
 export interface FormDef {
   id: string;
   title: string;
   description: string;
   pages: FormPage[];
-  /** open = visible to students; disabled = hidden but kept with its data. */
-  status: 'open' | 'disabled';
+  status: FormStatus;
   createdAt: string;
+  updatedAt?: string;
   /** The seeded feedback form is pinned below admin-created forms. */
   isDefault?: boolean;
+  /** Before this instant the form is built but not yet accepting responses. */
+  opensAt?: string | null;
+  /** After this instant the form stops accepting responses. */
+  closesAt?: string | null;
+  /** null means unlimited. */
+  maxResponses?: number | null;
+  /** Whether students may see how many seats are left. */
+  showRemaining?: boolean;
+  createdBy?: string | null;
+}
+
+/**
+ * Seat availability for a form. The counts come back null when the form hides
+ * them from students; isOpen is always trustworthy.
+ */
+export interface FormCapacity {
+  maxResponses: number | null;
+  responseCount: number | null;
+  remaining: number | null;
+  isOpen: boolean;
 }
 
 /** A single answer value: text, a choice, multiple choices, or a file marker. */
@@ -292,7 +320,10 @@ export type FormAnswer = string | string[];
 export interface FormResponse {
   id: string;
   formId: string;
+  /** Auth user id, absent for anonymous submissions. */
   submittedBy?: string;
+  /** Stamped server-side from the session; never sent by the client. */
+  studentEmail?: string | null;
   submittedAt: string;
   /** Keyed by field id. */
   answers: Record<string, FormAnswer>;
@@ -300,17 +331,46 @@ export interface FormResponse {
   fieldLabels: Record<string, string>;
 }
 
+/**
+ * A seat on the society's org chart.
+ *
+ * Roles live in their own catalogue rather than as an enum on the member, because the
+ * council reshuffles mid-term and the number of Joint Secretaries changes every year.
+ * `tier` is depth in the tree and `rank` orders siblings within a tier, so adding or
+ * renaming a role never means touching rendering code.
+ *
+ * Deliberately NOT linked to `profiles`: the Faculty Advisor and most Joint Secretaries
+ * have no portal login, and promoting a new council must not silently grant or revoke
+ * anyone's admin access.
+ */
+export interface HierarchyRole {
+  slug: string;
+  title: string;
+  tier: number;
+  rank: number;
+  /** True where several people hold the same title (Joint Secretary). */
+  multiple: boolean;
+}
+
 export interface HierarchyMember {
   id: string;
   name: string;
-  role: string;
+  /** Catalogue slug. Falls back to free text for roles created ad hoc. */
+  roleSlug: string;
+  /** Order among people sharing a role; ignored unless the role allows several. */
+  seat?: number;
   photo: string;
   email?: string;
   linkedin?: string;
 }
 
 export interface HierarchyTerm {
+  /** Session code, e.g. "FA26". Unique. */
   term: string;
+  /** Exactly one term is current; promoting a new one demotes the previous. */
+  isCurrent: boolean;
+  /** Human label for the archive selector, e.g. "Fall 2026". */
+  label: string;
   members: HierarchyMember[];
 }
 
@@ -426,14 +486,24 @@ export interface SearchResult {
   link: string;
 }
 
+/**
+ * The only part of a developer's entry an admin may change.
+ *
+ * Everything else — who is on the list, their name, role, photo and write-up — is fixed in
+ * src/data/developers.ts. The database enforces that too: developer_links has no INSERT or
+ * DELETE policy for anyone, and a trigger refuses a slug rename, so "cannot add or remove a
+ * developer" is a guarantee rather than a convention in the UI.
+ */
 export interface DeveloperLinks {
   portfolio?: string;
   github?: string;
   linkedin?: string;
   email?: string;
+  phone?: string;
 }
 
-export interface Developer {
+/** The fixed part of a developer's entry, authored in the repo. */
+export interface DeveloperProfile {
   id: string;
   name: string;
   role: string;
@@ -441,6 +511,10 @@ export interface Developer {
   contribution: string;
   bio: string;
   skills: string[];
+}
+
+/** A profile with its editable links merged in, which is what the page renders. */
+export interface Developer extends DeveloperProfile {
   links: DeveloperLinks;
 }
 

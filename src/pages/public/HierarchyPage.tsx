@@ -1,49 +1,186 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SectionHeading from '@/components/layout/SectionHeading';
-import { hierarchyTerms as seedTerms } from '@/data/hierarchy';
-import { useStore } from '@/hooks/useCollection';
-import type { HierarchyTerm } from '@/types';
+import EmptyState from '@/components/ui/EmptyState';
+import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
+import {
+  UNFILED_TIER,
+  hierarchyService,
+  indexRoles,
+  sortMembers,
+  titleForRole,
+  type HierarchyMemberRecord,
+  type HierarchyTermRecord,
+} from '@/services/hierarchyService';
+import type { HierarchyRole } from '@/types';
 
-function MemberChip({
-  name,
-  role,
-  photo,
-  tone,
+/**
+ * Groups a roster into org-chart rows.
+ *
+ * The shape of the chart comes entirely from the role catalogue's `tier`/`rank`, never from
+ * the member order — so adding a role, renaming one, or running seven Joint Secretaries
+ * instead of three needs no change here. The catalogue is the one in the database, not the
+ * static list in src/data/hierarchy.ts: an admin can change the former and only the former.
+ * Roles missing from it land in a final row rather than disappearing, which keeps an ad-hoc
+ * role visible until someone files it.
+ */
+function buildTiers(members: HierarchyMemberRecord[], roleIndex: Map<string, HierarchyRole>) {
+  const rows = new Map<number, HierarchyMemberRecord[]>();
+
+  for (const member of sortMembers(members, roleIndex)) {
+    const tier = roleIndex.get(member.roleSlug)?.tier ?? UNFILED_TIER;
+    rows.set(tier, [...(rows.get(tier) ?? []), member]);
+  }
+
+  return [...rows.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([tier, people]) => ({ tier, people }));
+}
+
+function MemberCard({
+  member,
+  roleIndex,
+  prominence,
 }: {
-  name: string;
-  role: string;
-  photo: string;
-  tone: 'lead' | 'exec' | 'core';
+  member: HierarchyMemberRecord;
+  roleIndex: Map<string, HierarchyRole>;
+  prominence: 'lead' | 'exec' | 'core';
 }) {
   const ring =
-    tone === 'lead'
-      ? 'ring-ieee-orange'
-      : tone === 'exec'
-        ? 'ring-ieee-orange/50'
-        : 'ring-white';
+    prominence === 'lead' ? 'ring-ieee-orange' : prominence === 'exec' ? 'ring-ieee-orange/45' : 'ring-white';
+  const size = prominence === 'lead' ? 'h-14 w-14' : prominence === 'exec' ? 'h-12 w-12' : 'h-11 w-11';
+
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 shadow-sm">
-      <img src={photo} alt={name} loading="lazy" className={`h-11 w-11 rounded-full object-cover ring-2 ${ring}`} />
-      <div className="pr-1">
-        <p className="text-sm font-semibold leading-tight text-slate-900">{name}</p>
-        <p className="font-mono text-[10px] uppercase tracking-wide text-ieee-orange">{role}</p>
+    <div className="flex min-w-[10.5rem] items-center gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <img
+        src={member.photo || PLACEHOLDER_PHOTO}
+        alt=""
+        loading="lazy"
+        className={`${size} shrink-0 rounded-full bg-cream object-cover ring-2 ${ring}`}
+      />
+      <div className="min-w-0">
+        <p className="truncate text-sm leading-tight font-semibold text-slate-900">{member.name}</p>
+        <p className="mt-0.5 font-mono text-[10px] tracking-wide text-ieee-orange uppercase">
+          {titleForRole(roleIndex, member.roleSlug)}
+        </p>
       </div>
     </div>
   );
 }
 
-export default function HierarchyPage() {
-  const [terms] = useStore<HierarchyTerm>('hierarchyTerms', seedTerms);
-  const current = terms[0];
-  const [selectedTerm, setSelectedTerm] = useState(seedTerms[0].term);
-  const selected = terms.find((t) => t.term === selectedTerm) ?? terms[0];
+/** The stem joining one tier to the next. Purely decorative. */
+function Connector() {
+  return <div className="h-7 w-px bg-gradient-to-b from-ieee-orange/50 to-slate-300" aria-hidden="true" />;
+}
 
-  const chair = current.members[0];
-  const secondTier = current.members.slice(1, 3);
-  const leads = current.members.slice(3);
+export default function HierarchyPage() {
+  const [roles, setRoles] = useState<HierarchyRole[]>([]);
+  const [terms, setTerms] = useState<HierarchyTermRecord[]>([]);
+  const [current, setCurrent] = useState<HierarchyTermRecord | null>(null);
+  const [currentMembers, setCurrentMembers] = useState<HierarchyMemberRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [selectedTermId, setSelectedTermId] = useState('');
+  const [archiveMembers, setArchiveMembers] = useState<HierarchyMemberRecord[]>([]);
+  /**
+   * Kept apart from `error`, which decides whether the page renders at all. One failed archive
+   * lookup must not replace a council that has already loaded and is on screen with the
+   * "unavailable" hero — the visitor would lose the roster they came for over a term they
+   * merely clicked on, with no way back but a reload.
+   */
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  const roleIndex = useMemo(() => indexRoles(roles), [roles]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    Promise.all([hierarchyService.loadCurrentCouncil(), hierarchyService.listTerms()])
+      .then(([council, allTerms]) => {
+        if (ignore) return;
+        setRoles(council.roles);
+        setCurrent(council.term);
+        setCurrentMembers(council.members);
+        setTerms(allTerms);
+        setSelectedTermId(council.term?.id ?? allTerms[0]?.id ?? '');
+      })
+      .catch((err) => {
+        if (!ignore) setError(err instanceof Error ? err.message : 'Failed to load the council.');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // The archive selector reaches terms the first load never fetched, so each pick is its own
+  // read. Selecting the serving term costs nothing: its roster is already here.
+  useEffect(() => {
+    if (!selectedTermId || selectedTermId === current?.id) {
+      setArchiveMembers([]);
+      setArchiveError(null);
+      return;
+    }
+
+    let ignore = false;
+    setArchiveError(null);
+    hierarchyService
+      .listMembers(selectedTermId)
+      .then((rows) => {
+        if (!ignore) setArchiveMembers(rows);
+      })
+      .catch((err) => {
+        if (ignore) return;
+        setArchiveMembers([]);
+        setArchiveError(err instanceof Error ? err.message : 'Failed to load that council.');
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedTermId, current?.id]);
+
+  const tiers = useMemo(() => buildTiers(currentMembers, roleIndex), [currentMembers, roleIndex]);
+  const shownMembers = useMemo(
+    () => sortMembers(selectedTermId === current?.id ? currentMembers : archiveMembers, roleIndex),
+    [selectedTermId, current?.id, currentMembers, archiveMembers, roleIndex]
+  );
+
+  // Loading, a failed read and an unpublished council are three different things and the hero
+  // says which one it is, rather than showing an empty chart that looks like a finished page.
+  if (loading || error || !current) {
+    const subtitle = loading
+      ? 'Loading the council roster.'
+      : error
+        ? 'The council roster could not be loaded right now.'
+        : 'The council roster has not been published yet. Check back shortly.';
+
+    return (
+      <div className="relative">
+        <PageHero
+          eyebrow="Leadership"
+          breadcrumb={[{ label: 'Home', to: '/' }, { label: 'About', to: '/about' }, { label: 'Hierarchy' }]}
+          title="Leadership Hierarchy"
+          subtitle={subtitle}
+        />
+        <PageSection tone="cream" top>
+          {loading ? (
+            <EmptyState title="Loading the hierarchy" description="Fetching the council from the society database." />
+          ) : error ? (
+            <EmptyState title="Hierarchy unavailable" description={error} />
+          ) : (
+            <EmptyState title="No council published yet" description="The roster will appear here once the team publishes it." />
+          )}
+        </PageSection>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
@@ -53,93 +190,105 @@ export default function HierarchyPage() {
         title="Leadership Hierarchy"
         subtitle="The students who lead the IEEE CS Islamabad Branch each semester — and everyone who came before them."
         meta={[
-          { value: String(terms.length), label: 'Councils Archived' },
-          { value: String(current.members.length), label: `Members · ${current.term}` },
+          { value: String(currentMembers.length), label: `Members · ${current.term}` },
+          { value: String(terms.length), label: terms.length === 1 ? 'Council' : 'Councils' },
         ]}
       />
 
-      {/* Org tree */}
+      {/* ---- Org tree ------------------------------------------------ */}
       <PageSection tone="cream" top>
         <SectionHeading
           align="center"
           flourish
-          eyebrow={`Organizational Structure · ${current.term}`}
+          eyebrow={`Organizational Structure · ${current.label}`}
           title="How the council is organized."
         />
-        <div className="relative mt-14 flex flex-col items-center">
-          {/* Chair */}
-          <MemberChip name={chair.name} role={chair.role} photo={chair.photo} tone="lead" />
-          <div className="h-8 w-px bg-gradient-to-b from-ieee-orange/60 to-slate-300" />
 
-          {/* Second tier */}
-          <div className="flex flex-wrap justify-center gap-5">
-            {secondTier.map((m) => (
-              <MemberChip key={m.id} name={m.name} role={m.role} photo={m.photo} tone="exec" />
+        {currentMembers.length === 0 ? (
+          <p className="mt-10 text-center text-sm text-slate-500">
+            This council's roster is still being filled in.
+          </p>
+        ) : (
+          <div className="mt-12 flex flex-col items-center">
+            {tiers.map(({ tier, people }, index) => (
+              <div key={tier} className="flex flex-col items-center">
+                {index > 0 && <Connector />}
+                <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+                  {people.map((member) => (
+                    <MemberCard
+                      key={member.id}
+                      member={member}
+                      roleIndex={roleIndex}
+                      prominence={index === 0 ? 'lead' : index < 3 ? 'exec' : 'core'}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
-          {leads.length > 0 && <div className="h-8 w-px bg-gradient-to-b from-slate-300 to-slate-200" />}
-
-          {/* Leads */}
-          {leads.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-4">
-              {leads.map((m) => (
-                <MemberChip key={m.id} name={m.name} role={m.role} photo={m.photo} tone="core" />
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </PageSection>
 
-      {/* Archive */}
-      <PageSection tone="white">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <SectionHeading eyebrow="Council Archive" title="Every term, remembered." />
-          <div className="flex flex-wrap gap-2">
-            {terms.map((t) => (
-              <button
-                key={t.term}
-                type="button"
-                onClick={() => setSelectedTerm(t.term)}
-                data-cursor="link"
-                className={`rounded-full px-4 py-1.5 font-mono text-xs font-semibold uppercase tracking-wide transition ${
-                  selectedTerm === t.term
-                    ? 'bg-ieee-orange text-white shadow-[0_6px_20px_rgba(255,108,12,0.3)]'
-                    : 'border border-black/10 bg-white text-slate-600 hover:border-ieee-orange/50 hover:text-ieee-orange'
-                }`}
-              >
-                {t.term}
-              </button>
-            ))}
+      {/* ---- Archive ------------------------------------------------- */}
+      {terms.length > 1 && (
+        <PageSection tone="white">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <SectionHeading eyebrow="Council Archive" title="Every term, remembered." />
+            <div className="flex flex-wrap gap-2">
+              {terms.map((term) => (
+                <button
+                  key={term.id}
+                  type="button"
+                  onClick={() => setSelectedTermId(term.id)}
+                  data-cursor="link"
+                  aria-pressed={selectedTermId === term.id}
+                  className={`rounded-full px-4 py-1.5 font-mono text-xs font-semibold tracking-wide uppercase transition ${
+                    selectedTermId === term.id
+                      ? 'bg-ieee-orange text-white shadow-[0_6px_20px_rgba(255,108,12,0.3)]'
+                      : 'border border-black/10 bg-white text-slate-600 hover:border-ieee-orange/50 hover:text-ieee-orange'
+                  }`}
+                >
+                  {term.term}
+                  {term.isCurrent && <span className="ml-1.5 text-[9px] opacity-70">now</span>}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <AnimatePresence mode="wait">
+          {archiveError && (
+            <p className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700">
+              {archiveError}
+            </p>
+          )}
+
+          {/* Keyed on the term so the new roster animates in; no exit transition to stall on. */}
           <motion.div
-            key={selectedTerm}
+            key={selectedTermId}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.28 }}
             className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4"
           >
-            {selected.members.map((m) => (
+            {shownMembers.map((member) => (
               <div
-                key={m.id}
+                key={member.id}
                 className="group flex flex-col items-center rounded-2xl border border-black/5 bg-cream p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
               >
                 <img
-                  src={m.photo}
-                  alt={m.name}
+                  src={member.photo || PLACEHOLDER_PHOTO}
+                  alt=""
                   loading="lazy"
-                  className="h-16 w-16 rounded-full object-cover ring-2 ring-white transition-transform duration-300 group-hover:scale-105"
+                  className="h-16 w-16 rounded-full bg-white object-cover ring-2 ring-white transition-transform duration-300 group-hover:scale-105"
                 />
-                <p className="mt-3 text-sm font-semibold text-slate-900">{m.name}</p>
-                <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wide text-ieee-orange">{m.role}</p>
+                <p className="mt-3 text-sm font-semibold text-slate-900">{member.name}</p>
+                <p className="mt-0.5 font-mono text-[11px] tracking-wide text-ieee-orange uppercase">
+                  {titleForRole(roleIndex, member.roleSlug)}
+                </p>
               </div>
             ))}
           </motion.div>
-        </AnimatePresence>
-      </PageSection>
+        </PageSection>
+      )}
     </div>
   );
 }

@@ -1,0 +1,642 @@
+[
+  {
+    "id": "GF-R01",
+    "oldName": "Room 1",
+    "newName": "Male washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "GF-R02",
+    "oldName": "Room 2",
+    "newName": "Female Washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "GF-R03",
+    "oldName": "Room 3",
+    "newName": "G-05",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "GF-R04",
+    "oldName": "Room 4",
+    "newName": "G-08",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "GF-R05",
+    "oldName": "Room 5",
+    "newName": "G-06",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "GF-R06",
+    "oldName": "Room 6",
+    "newName": "G-07",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "GF-R07",
+    "oldName": "Room 7",
+    "newName": "FYP LAB",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "GF-R08",
+    "oldName": "Room 8",
+    "newName": "FYP-Unclassified",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "GF-R09",
+    "oldName": "Room 9",
+    "newName": "Front office area",
+    "oldCategory": "office",
+    "newCategory": "administration",
+    "worksheetCategory": "Administration"
+  },
+  {
+    "id": "GF-R10",
+    "oldName": "Room 10",
+    "newName": "CL-5",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "GF-R11",
+    "oldName": "Room 11",
+    "newName": "Canteen",
+    "oldCategory": "office",
+    "newCategory": "canteen",
+    "worksheetCategory": "Canteen"
+  },
+  {
+    "id": "GF-R12",
+    "oldName": "Room 12",
+    "newName": "CL-4",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "GF-R13",
+    "oldName": "Room 13",
+    "newName": "CL-6",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "GF-R14",
+    "oldName": "Room 14",
+    "newName": "Female washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "GF-R15",
+    "oldName": "Room 15",
+    "newName": "Male washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "GF-R16",
+    "oldName": "Room 16",
+    "newName": "Print shop",
+    "oldCategory": "office",
+    "newCategory": "print-shop",
+    "worksheetCategory": "Print shop"
+  },
+  {
+    "id": "GF-R17",
+    "oldName": "Room 17",
+    "newName": "FYP LAB",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F1-R01",
+    "oldName": "Room 1",
+    "newName": "106",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R02",
+    "oldName": "Room 2",
+    "newName": "105",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R03",
+    "oldName": "Room 3",
+    "newName": "112",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R04",
+    "oldName": "Room 4",
+    "newName": "111",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R05",
+    "oldName": "Room 5",
+    "newName": "109",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R06",
+    "oldName": "Room 6",
+    "newName": "110",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R07",
+    "oldName": "Room 7",
+    "newName": "108",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R08",
+    "oldName": "Room 8",
+    "newName": "107",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R09",
+    "oldName": "Room 9",
+    "newName": "Female Washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "F1-R10",
+    "oldName": "Room 10",
+    "newName": "Male washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "F1-R11",
+    "oldName": "Room 11",
+    "newName": "High End Computing lab",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F1-R12",
+    "oldName": "Room 12",
+    "newName": "FYP LAB",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F1-R13",
+    "oldName": "Room 13",
+    "newName": "Admin/Conference room",
+    "oldCategory": "office",
+    "newCategory": "administration",
+    "worksheetCategory": "Administration"
+  },
+  {
+    "id": "F1-R14",
+    "oldName": "Room 14",
+    "newName": "126",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F1-R15",
+    "oldName": "Room 15",
+    "newName": "Haier LAB",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F1-R16",
+    "oldName": "Room 16",
+    "newName": "Print Shop",
+    "oldCategory": "office",
+    "newCategory": "print-shop",
+    "worksheetCategory": "Print shop"
+  },
+  {
+    "id": "F1-R17",
+    "oldName": "Room 17",
+    "newName": "CL-8",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F1-R18",
+    "oldName": "Room 18",
+    "newName": "CL-7",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F1-R19",
+    "oldName": "Room 19",
+    "newName": "Female washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "F1-R20",
+    "oldName": "Room 20",
+    "newName": "Male washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "F1-R21",
+    "oldName": "Room 21",
+    "newName": "101",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R01",
+    "oldName": "Room 1",
+    "newName": "207",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R02",
+    "oldName": "Room 2",
+    "newName": "206",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R03",
+    "oldName": "Room 3",
+    "newName": "213",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R04",
+    "oldName": "Room 4",
+    "newName": "212",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R05",
+    "oldName": "Room 5",
+    "newName": "210",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R06",
+    "oldName": "Room 6",
+    "newName": "211",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R07",
+    "oldName": "Room 7",
+    "newName": "209",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R08",
+    "oldName": "Room 8",
+    "newName": "208",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F2-R09",
+    "oldName": "Room 9",
+    "newName": "Female Washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "F2-R10",
+    "oldName": "Room 10",
+    "newName": "Male washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "F2-R11",
+    "oldName": "Room 11",
+    "newName": "FYP LAB",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F2-R12",
+    "oldName": "Room 12",
+    "newName": "Female Prayer Room",
+    "oldCategory": "office",
+    "newCategory": "female-prayer-room",
+    "worksheetCategory": "Female Prayer room"
+  },
+  {
+    "id": "F2-R13",
+    "oldName": "Room 13",
+    "newName": "Administration",
+    "oldCategory": "office",
+    "newCategory": "administration",
+    "worksheetCategory": "Administration"
+  },
+  {
+    "id": "F2-R14",
+    "oldName": "Room 14",
+    "newName": "CL-10",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F2-R15",
+    "oldName": "Room 15",
+    "newName": "Canteen",
+    "oldCategory": "office",
+    "newCategory": "canteen",
+    "worksheetCategory": "Canteen"
+  },
+  {
+    "id": "F2-R16",
+    "oldName": "Room 16",
+    "newName": "Unclassified",
+    "oldCategory": "office",
+    "newCategory": "unclassified",
+    "worksheetCategory": "Unclassified"
+  },
+  {
+    "id": "F2-R17",
+    "oldName": "Room 17",
+    "newName": "CL-12",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F2-R18",
+    "oldName": "Room 18",
+    "newName": "CL-11",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F2-R19",
+    "oldName": "Room 19",
+    "newName": "Female Washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "F2-R20",
+    "oldName": "Room 20",
+    "newName": "Male Washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "F2-R21",
+    "oldName": "Room 21",
+    "newName": "201",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R01",
+    "oldName": "Room 1",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R02",
+    "oldName": "Room 2",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R03",
+    "oldName": "Room 3",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R04",
+    "oldName": "Room 4",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R05",
+    "oldName": "Room 5",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R06",
+    "oldName": "Room 6",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R07",
+    "oldName": "Room 7",
+    "newName": "CL-16",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F3-R08",
+    "oldName": "Room 8",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R09",
+    "oldName": "Room 9",
+    "newName": "Female washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "F3-R10",
+    "oldName": "Room 10",
+    "newName": "Male washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "F3-R11",
+    "oldName": "Room 11",
+    "newName": "CL-13",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F3-R12",
+    "oldName": "Room 12",
+    "newName": "CL-9",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F3-R13",
+    "oldName": "Room 13",
+    "newName": "Administration",
+    "oldCategory": "office",
+    "newCategory": "administration",
+    "worksheetCategory": "Administration"
+  },
+  {
+    "id": "F3-R14",
+    "oldName": "Room 14",
+    "newName": "Classroom",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R15",
+    "oldName": "Room 15",
+    "newName": "Classroom",
+    "oldCategory": "office",
+    "newCategory": "classroom",
+    "worksheetCategory": "Classroom"
+  },
+  {
+    "id": "F3-R16",
+    "oldName": "Room 16",
+    "newName": "Canteen",
+    "oldCategory": "office",
+    "newCategory": "canteen",
+    "worksheetCategory": "Canteen"
+  },
+  {
+    "id": "F3-R17",
+    "oldName": "Room 17",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F3-R18",
+    "oldName": "Room 18",
+    "newName": "Studio",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  },
+  {
+    "id": "F3-R19",
+    "oldName": "Room 19",
+    "newName": "Female washrooms",
+    "oldCategory": "office",
+    "newCategory": "female-washroom",
+    "worksheetCategory": "Female washroom"
+  },
+  {
+    "id": "F3-R20",
+    "oldName": "Room 20",
+    "newName": "Male washrooms",
+    "oldCategory": "office",
+    "newCategory": "male-washroom",
+    "worksheetCategory": "Male washroom"
+  },
+  {
+    "id": "F3-R21",
+    "oldName": "Room 21",
+    "newName": "Laboratory",
+    "oldCategory": "office",
+    "newCategory": "laboratory",
+    "worksheetCategory": "Laboratory"
+  }
+]

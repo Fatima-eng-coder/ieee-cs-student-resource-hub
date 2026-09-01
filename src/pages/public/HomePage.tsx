@@ -5,11 +5,10 @@ import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import HeroSection from '@/components/layout/HeroSection';
 import QuickLinkGrid from '@/components/layout/QuickLinkGrid';
 import EventsShowcase from '@/components/home/EventsShowcase';
-import ProjectShowcase from '@/components/home/ProjectShowcase';
 import HierarchyOrbit from '@/components/home/HierarchyOrbit';
+import PromoSpotlight from '@/components/home/PromoSpotlight';
 import ScrollProgress from '@/components/effects/ScrollProgress';
 import Magnetic from '@/components/effects/Magnetic';
-import { projects } from '@/data/projects';
 import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
 import type { EventItem } from '@/types';
 
@@ -48,11 +47,13 @@ export default function HomePage() {
     <div className="relative">
       <ScrollProgress />
 
+      {/* Floats over the top of the hero rather than displacing it — see PromoSpotlight. */}
+      <PromoSpotlight />
+
       <HeroSection />
       <HierarchyOrbit />
       <QuickLinkGrid />
       <EventsShowcase events={flagship} />
-      <ProjectShowcase projects={projects} />
 
       <motion.section
         id="about-cta"

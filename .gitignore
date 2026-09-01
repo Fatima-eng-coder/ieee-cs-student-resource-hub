@@ -31,3 +31,5 @@ dist-ssr
 .env
 .env.local
 .env.*
+# The template is team documentation, not a secret — keep it tracked.
+!.env.example

@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, ExternalLink, ImagePlus, Loader2, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, ExternalLink, ImagePlus, Loader2, MapPin, Megaphone, Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import { AdminField, AdminInput, AdminSelect, AdminTextarea } from '@/components/admin/AdminField';
-import ConfirmModal from '@/components/ui/ConfirmModal';
+import ConfirmLinkedDelete from '@/components/admin/ConfirmLinkedDelete';
 import EmptyState from '@/components/ui/EmptyState';
+import FormAttachmentField, { PromotionFields } from '@/components/admin/FormAttachmentField';
 import { adminAuthService } from '@/services/adminAuthService';
+import { announcementsService } from '@/services/announcementsService';
 import { eventsService, subscribeEventsChanged, type AdminEvent, type EventSaveInput } from '@/services/eventsService';
+import { formsService, type FormLinkImpact } from '@/services/formsService';
 import type { EventCategory, EventImageLayout } from '@/types';
 import { hasFile } from '@/utils/files';
 
@@ -48,7 +51,33 @@ const emptyEvent = (): AdminEvent => ({
   imageLayout: 'poster',
   createdAt: '',
   updatedAt: '',
+  formSource: 'none',
+  externalFormUrl: null,
+  formId: null,
+  promoted: false,
+  promoHeadline: '',
+  promoCtaLabel: '',
+  promoStartsAt: null,
+  promoEndsAt: null,
+  promoSort: 0,
 });
+
+const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
+
+/**
+ * Deleting a form takes its responses with it — form_responses cascades off forms — so the
+ * number is put in front of the admin before the click. An unreadable count says so rather
+ * than reporting the zero it does not know: "no responses" about a form holding forty is the
+ * single worst thing this dialog could say.
+ */
+const describeFormLoss = (count: number | null) => {
+  if (count === null) return 'Its questions and every response it holds go with it. The response count could not be read.';
+  if (count === 0) return 'It has collected no responses yet.';
+  return `${plural(count, 'response')} collected through it ${count === 1 ? 'is' : 'are'} deleted too, permanently.`;
+};
+
+const LOOKUP_FAILED =
+  'We could not read the form attached to this event, so its responses cannot be counted here. Deleting the event leaves the form itself untouched.';
 
 const parseOrganizers = (value: string) =>
   value
@@ -67,6 +96,12 @@ const getCleanError = (err: unknown, fallback: string) => {
   }
   if (message.toLowerCase().includes('featured') || message.toLowerCase().includes('image_layout')) {
     return 'The events table needs the featured and image display fields before this event can be saved.';
+  }
+  if (message.includes('events_form_config_check')) {
+    return 'The sign-up form is only half set up. Pick a form or a link, or choose "No form".';
+  }
+  if (message.includes('events_promo_window_check')) {
+    return 'The homepage promotion must end after it starts.';
   }
   return message;
 };
@@ -237,6 +272,12 @@ export default function AdminEventsPage() {
   const [organizersText, setOrganizersText] = useState('');
   const [previewing, setPreviewing] = useState<AdminEvent | null>(null);
   const [deleting, setDeleting] = useState<AdminEvent | null>(null);
+  const [impact, setImpact] = useState<FormLinkImpact | null>(null);
+  const [impactError, setImpactError] = useState<string | null>(null);
+  // The form the two above answer for. React commits the render that opens the dialog before
+  // the effect below runs, so an untagged answer is read as this event's form — including
+  // the absence of one, which reads as "nothing is attached" on the opening frame.
+  const [impactFor, setImpactFor] = useState<string | null>(null);
   const canManage = adminAuthService.canManageContent();
 
   const load = async (showLoading = true) => {
@@ -340,6 +381,32 @@ export default function AdminEventsPage() {
       ),
     },
     {
+      key: 'form',
+      header: 'Form',
+      sortValue: (event) => event.formSource,
+      render: (event) =>
+        event.formSource === 'none' ? (
+          <span className="text-slate-400">None</span>
+        ) : (
+          <span className="font-medium text-slate-600">
+            {event.formSource === 'internal' ? 'Site form' : 'Linked form'}
+          </span>
+        ),
+    },
+    {
+      key: 'promoted',
+      header: 'Homepage',
+      sortValue: (event) => (event.promoted ? 'promoted' : 'no'),
+      render: (event) =>
+        event.promoted ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-ieee-yellow/40 px-2.5 py-0.5 text-xs font-semibold text-ieee-black">
+            <Megaphone className="h-3.5 w-3.5" /> Promoted
+          </span>
+        ) : (
+          <span className="text-slate-400">No</span>
+        ),
+    },
+    {
       key: 'actions',
       header: '',
       align: 'right',
@@ -415,10 +482,18 @@ export default function AdminEventsPage() {
         featured: Boolean(draft.featured),
         imageLayout: draft.imageLayout ?? 'poster',
         registrationOpen: draft.registrationOpen,
-        registrationUrl: draft.registrationUrl,
         capacity: draft.capacity,
         organizers: parseOrganizers(organizersText),
         isPublished: draft.isPublished,
+        formSource: draft.formSource,
+        externalFormUrl: draft.externalFormUrl,
+        formId: draft.formId,
+        promoted: draft.promoted,
+        promoHeadline: draft.promoHeadline,
+        promoCtaLabel: draft.promoCtaLabel,
+        promoStartsAt: draft.promoStartsAt,
+        promoEndsAt: draft.promoEndsAt,
+        promoSort: draft.promoSort,
       };
 
       const saved = isNew ? await eventsService.create(input) : await eventsService.update(draft.id, input);
@@ -450,27 +525,121 @@ export default function AdminEventsPage() {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deleting) return;
+  // Only an internal form is a row in this database; an external link is a URL on the event
+  // and disappears with it, so there is nothing to offer to delete.
+  const attachedFormId = deleting?.formSource === 'internal' ? deleting.formId : null;
+
+  // Looked up when the dialog opens rather than per list render: the table already shows
+  // whether a form is attached, and the response count only matters at the moment the event
+  // is about to go.
+  useEffect(() => {
+    setImpact(null);
+    setImpactError(null);
+    setImpactFor(null);
+    if (!attachedFormId) return;
+
+    let alive = true;
+
+    formsService
+      .linkImpact(attachedFormId)
+      .then((next) => {
+        if (alive) {
+          setImpact(next);
+          setImpactFor(attachedFormId);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setImpactError(LOOKUP_FAILED);
+          setImpactFor(attachedFormId);
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [attachedFormId]);
+
+  // Until the lookup has answered for the form this event points at, the dialog is still
+  // asking — and with nothing attached there is nothing to ask, so both are null and it is
+  // settled.
+  const impactSettled = impactFor === attachedFormId;
+  const currentImpact = impactSettled ? impact : null;
+  const impactLoading = !!attachedFormId && !impactSettled;
+
+  /** Events and announcements other than this one that share the attached form. */
+  const otherUsers = [
+    ...(currentImpact?.events ?? []).filter((event) => event.id !== deleting?.id).map((event) => event.title),
+    ...(currentImpact?.announcements ?? []).map((announcement) => announcement.title),
+  ];
+
+  /**
+   * Ordering, in the order things can go wrong.
+   *
+   * The event row goes first. It is the reference: once it is gone nothing points at the
+   * form, so a failure anywhere after this leaves a form that simply exists, attached to
+   * whatever else was already using it. Deleting the form first would leave this event
+   * pointing at a row that is no longer there — rescued only by a database trigger that has
+   * to be deployed for the delete to even succeed, and not at all in the list on screen.
+   *
+   * The cover image goes second, and only as a courtesy. Removing it before the row, as this
+   * did previously, means a refused row delete leaves a live event on the public site with a
+   * broken poster; removing it after means the worst case is one orphaned storage object
+   * nobody sees.
+   *
+   * Then, if the admin ticked the box: the other items sharing the form are put back to "no
+   * form" before the form is deleted, so no surviving row is ever left pointing at it, and
+   * only then does the form go.
+   */
+  const confirmDelete = async (cascade: boolean) => {
+    const event = deleting;
+    if (!event) return;
     if (!canManage) {
       setError('You do not have permission to manage events.');
       setDeleting(null);
       return;
     }
 
+    const formId = event.formSource === 'internal' ? event.formId : null;
+    const formTitle = currentImpact?.title ?? 'its sign-up form';
+    let eventRemoved = false;
+
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      if (deleting.coverImagePath) {
-        await eventsService.removeCoverImage(deleting.coverImagePath);
+      await eventsService.remove(event.id);
+      eventRemoved = true;
+      setEvents((items) => items.filter((item) => item.id !== event.id));
+
+      if (event.coverImagePath) {
+        void eventsService.removeCoverImage(event.coverImagePath).catch((cause) => {
+          console.warn('Event cover could not be removed after the event was deleted', cause);
+        });
       }
-      await eventsService.remove(deleting.id);
-      setEvents((items) => items.filter((item) => item.id !== deleting.id));
+
+      if (cascade && formId) {
+        if (otherUsers.length > 0) {
+          await eventsService.detachForm(formId);
+          await announcementsService.detachForm(formId);
+        }
+        await formsService.remove(formId);
+      }
+
       setDeleting(null);
-      setSuccess('Event deleted successfully.');
+      setSuccess(
+        cascade && formId ? `Event and the form "${formTitle}" deleted successfully.` : 'Event deleted successfully.'
+      );
     } catch (err) {
-      setError(getCleanError(err, 'Failed to delete event.'));
+      const reason = getCleanError(err, 'Failed to delete event.');
+      // The event is the irreversible half. Once it is gone, say so, or the admin reads a
+      // bare failure message and tries the whole thing again against a row that has left.
+      setError(
+        eventRemoved && cascade
+          ? `${reason} The event was deleted, but "${formTitle}" was not — delete it from Forms if you still want it gone.`
+          : reason
+      );
+      setDeleting(null);
     } finally {
       setSaving(false);
     }
@@ -632,14 +801,31 @@ export default function AdminEventsPage() {
               />
               Registration open
             </label>
-            <AdminField label="Registration link" hint="Optional">
-              <AdminInput
-                type="url"
-                value={draft.registrationUrl}
-                onChange={(e) => setDraft({ ...draft, registrationUrl: e.target.value })}
-                placeholder="https://forms.gle/..."
-              />
-            </AdminField>
+            <p className="-mt-2 text-xs text-slate-400">
+              Turn this off to hide the sign-up button while the event stays on the site.
+            </p>
+            <FormAttachmentField
+              itemNoun="event"
+              value={{
+                formSource: draft.formSource,
+                externalFormUrl: draft.externalFormUrl,
+                formId: draft.formId,
+              }}
+              onChange={(attachment) => setDraft({ ...draft, ...attachment })}
+            />
+            <PromotionFields
+              itemNoun="event"
+              fallbackHeadline={draft.title}
+              value={{
+                promoted: draft.promoted,
+                promoHeadline: draft.promoHeadline,
+                promoCtaLabel: draft.promoCtaLabel,
+                promoStartsAt: draft.promoStartsAt,
+                promoEndsAt: draft.promoEndsAt,
+                promoSort: draft.promoSort,
+              }}
+              onChange={(promotion) => setDraft({ ...draft, ...promotion })}
+            />
           </div>
         )}
       </AdminEditDrawer>
@@ -648,14 +834,41 @@ export default function AdminEventsPage() {
         {previewing && <EventPublicPreview event={previewing} />}
       </AdminEditDrawer>
 
-      <ConfirmModal
+      <ConfirmLinkedDelete
         open={!!deleting}
         title="Delete this event?"
         description="This event will be removed from the admin list and public event pages."
-        confirmLabel={saving ? 'Deleting...' : 'Delete'}
-        danger
+        losses={deleting?.coverImagePath ? ['Its uploaded artwork is deleted from storage.'] : undefined}
+        loading={impactLoading}
+        lookupError={impactSettled ? impactError : null}
+        busy={saving}
+        linked={
+          currentImpact?.title
+            ? {
+                heading: 'People sign up for this event through a form built on the site.',
+                items: [
+                  {
+                    id: currentImpact.formId,
+                    title: currentImpact.title,
+                    detail: [
+                      currentImpact.status ? `Form · ${currentImpact.status}` : 'Form',
+                      currentImpact.responseCount === null
+                        ? 'response count unavailable'
+                        : plural(currentImpact.responseCount, 'response'),
+                    ].join(' · '),
+                  },
+                ],
+                cascadeLabel: 'Delete that form as well',
+                cascadeHint: describeFormLoss(currentImpact.responseCount),
+                cascadeWarning:
+                  otherUsers.length > 0
+                    ? `${plural(otherUsers.length, 'other item')} on the site use this form and will be left with no sign-up form: ${otherUsers.join(', ')}.`
+                    : undefined,
+              }
+            : null
+        }
         onCancel={() => setDeleting(null)}
-        onConfirm={confirmDelete}
+        onConfirm={(cascade) => void confirmDelete(cascade)}
       />
     </div>
   );

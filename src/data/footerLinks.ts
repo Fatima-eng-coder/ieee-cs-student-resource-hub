@@ -4,9 +4,13 @@ import type { FooterColumn, FooterLinkItem } from '@/types';
 export const footerColumns: FooterColumn[] = ['Explore', 'Society', 'Support'];
 
 /**
- * Which links appear in the public footer, grouped by column. Managed live from
- * the admin "Footer" module — toggle links on/off, reorder them, or add new ones
- * to any column.
+ * What the footer falls back to when it cannot read public.footer_links — nothing renders
+ * from here while the database is reachable, and an admin's edits in the "Footer" module are
+ * what visitors normally see.
+ *
+ * These are the same fifteen rows 20260901000400_hierarchy_and_content.sql seeded that table
+ * with, ids included, so the fallback is the site's own navigation rather than a stale guess.
+ * Changing one here changes only what an offline visitor sees; the live list is the table.
  */
 export const footerLinks: FooterLinkItem[] = [
   // Explore

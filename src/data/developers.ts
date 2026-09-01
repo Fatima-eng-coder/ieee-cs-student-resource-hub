@@ -1,6 +1,18 @@
-import type { Developer } from '@/types';
+import type { DeveloperProfile } from '@/types';
 
-export const developers: Developer[] = [
+/**
+ * THE DEVELOPER ROSTER — edit this file to change who appears on /developers.
+ *
+ * Names, roles, photos and write-ups are deliberately authored here rather than in the
+ * database: the list changes once a year at most, and an admin panel that can add or remove
+ * people is a way to lose them by accident. The admin panel edits only the contact links,
+ * which are the part that actually goes stale.
+ *
+ * `id` is the join key to the developer_links table. Adding someone here also needs a row
+ * there — see supabase/migrations/20260901000400_hierarchy_and_content.sql, which is where
+ * those rows are created, because the table has no INSERT policy for the app.
+ */
+export const developerProfiles: DeveloperProfile[] = [
   {
     id: 'dev-1',
     name: 'Hamza Ahsan',
@@ -9,12 +21,6 @@ export const developers: Developer[] = [
     contribution: 'Architected the resource hub, built the public site and admin panel, and led the overall product design.',
     bio: 'Full-stack developer focused on building clean, fast, and accessible tools for student communities.',
     skills: ['React', 'TypeScript', 'Tailwind CSS', 'Product Design'],
-    links: {
-      portfolio: 'https://example.dev',
-      github: 'https://github.com',
-      linkedin: 'https://linkedin.com',
-      email: 'hamza.ahsan@example.edu',
-    },
   },
   {
     id: 'dev-2',
@@ -24,10 +30,6 @@ export const developers: Developer[] = [
     contribution: 'Built the Past Papers and Courses modules, including search, filters, and detail pages.',
     bio: 'Enjoys crafting smooth UI interactions and making data-heavy pages easy to browse.',
     skills: ['React', 'Framer Motion', 'UI/UX'],
-    links: {
-      github: 'https://github.com',
-      linkedin: 'https://linkedin.com',
-    },
   },
   {
     id: 'dev-3',
@@ -37,10 +39,6 @@ export const developers: Developer[] = [
     contribution: 'Designed the visual system, color palette, and component library used across the hub.',
     bio: 'Designer with a soft spot for clean academic-tech interfaces and accessible color systems.',
     skills: ['Figma', 'Design Systems', 'Accessibility'],
-    links: {
-      portfolio: 'https://example.design',
-      linkedin: 'https://linkedin.com',
-    },
   },
   {
     id: 'dev-4',
@@ -50,10 +48,6 @@ export const developers: Developer[] = [
     contribution: 'Structured the dummy data layer and defined the shapes that will map to the future API.',
     bio: 'Interested in backend architecture, data modeling, and developer tooling.',
     skills: ['Node.js', 'PostgreSQL', 'API Design'],
-    links: {
-      github: 'https://github.com',
-      email: 'usman.riaz@example.edu',
-    },
   },
   {
     id: 'dev-5',
@@ -63,9 +57,5 @@ export const developers: Developer[] = [
     contribution: 'Tested every form and flow across the site and coordinated the dummy content for events and papers.',
     bio: 'Detail-oriented tester who loves catching edge cases before users do.',
     skills: ['QA Testing', 'Content Strategy'],
-    links: {
-      linkedin: 'https://linkedin.com',
-      email: 'sara.malik@example.edu',
-    },
   },
 ];

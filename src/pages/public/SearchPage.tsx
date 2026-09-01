@@ -6,18 +6,44 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SearchBar from '@/components/ui/SearchBar';
 import EmptyState from '@/components/ui/EmptyState';
-import { search } from '@/utils/search';
+import {
+  search,
+  getSiteContentVersion,
+  getUnavailableCollections,
+  getPendingCollections,
+  primeSiteContent,
+  subscribeSiteContent,
+} from '@/utils/search';
+import { searchNavigation } from '@/utils/navigationSearch';
 import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
 import { papersService, subscribeMaterialsChanged } from '@/services/papersService';
 import type { SearchResult } from '@/types';
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+/** "courses" / "courses and events" / "FAQs, courses and events", ready to start a sentence. */
+const namesToSentence = (names: string[]) => {
+  const joined =
+    names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
+};
+
 export default function SearchPage() {
   const [params] = useSearchParams();
-  const [query, setQuery] = useState(params.get('q') ?? '');
+  const urlQuery = params.get('q') ?? '';
+  const [query, setQuery] = useState(urlQuery);
   const [announcementResults, setAnnouncementResults] = useState<SearchResult[]>([]);
   const [paperResults, setPaperResults] = useState<SearchResult[]>([]);
+  const [roomResults, setRoomResults] = useState<SearchResult[]>([]);
+
+  /**
+   * `?q=` is a shareable entry point, so it has to apply on every navigation — not only
+   * the first render. Without this, arriving at /search?q=X while the page is already
+   * open (a link, browser back/forward) leaves the previous query on screen.
+   */
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
 
   useEffect(() => {
     let ignore = false;
@@ -83,6 +109,46 @@ export default function SearchPage() {
     };
   }, []);
 
+  // Rooms come from the wayfinding index (which knows that "cl11" means CL-11), so they
+  // are searched by that matcher rather than the generic substring filter below.
+  useEffect(() => {
+    let ignore = false;
+    if (!query.trim()) {
+      setRoomResults([]);
+      return;
+    }
+    searchNavigation(query)
+      .then((found) => {
+        if (!ignore) setRoomResults(found);
+      })
+      .catch((error) => {
+        console.error('Failed to search rooms', error);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [query]);
+
+  // The FAQ, quick-link, course and event part of the index is fetched, so it is not there for
+  // the first search of a visit. Subscribing turns that arrival into a re-render instead of a
+  // result set that stays wrong until the visitor types something else.
+  const [siteContentVersion, setSiteContentVersion] = useState(getSiteContentVersion);
+  // Which of those four could not be read at all. "No results found" over an index that is
+  // quietly missing every course is the one answer this page must never give.
+  const [unavailable, setUnavailable] = useState(getUnavailableCollections);
+  // Still in flight. A slow read is not an empty index, and saying "no results" while one is
+  // outstanding is the same wrong answer as saying it after one failed.
+  const [pending, setPending] = useState(getPendingCollections);
+
+  useEffect(() => {
+    primeSiteContent();
+    return subscribeSiteContent(() => {
+      setSiteContentVersion(getSiteContentVersion());
+      setUnavailable(getUnavailableCollections());
+      setPending(getPendingCollections());
+    });
+  }, []);
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
@@ -91,8 +157,13 @@ export default function SearchPage() {
       const hay = `${item.title} ${item.description} ${item.tags.join(' ')}`.toLowerCase();
       return hay.includes(q) || (nq.length >= 2 && norm(hay).includes(nq));
     });
-    return [...search(query), ...liveResults];
-  }, [announcementResults, paperResults, query]);
+    return [...search(query), ...liveResults, ...roomResults];
+    // siteContentVersion is not read in the body and the linter is right about that — it is
+    // here precisely to re-run this when search()'s module-level snapshot of the fetched
+    // collections fills. Removing it puts back the bug where the first search of a visit
+    // silently omits all of them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [announcementResults, paperResults, roomResults, query, siteContentVersion]);
 
   return (
     <div className="relative">
@@ -101,14 +172,14 @@ export default function SearchPage() {
         eyebrow="Find Anything"
         breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Search' }]}
         title="Search the Hub"
-        subtitle="Search across past papers, courses, events, projects and more — everything in one box."
+        subtitle="Search across past papers, courses, events, projects, rooms and more — everything in one box."
       >
         <div className="w-full max-w-2xl">
           <div className="rounded-2xl bg-white/95 shadow-[0_10px_40px_rgba(0,0,0,0.25)]">
             <SearchBar
-              placeholder="Try 'DSA', 'hackathon', or 'Lab 3'..."
+              placeholder="Try 'DSA', 'hackathon', or 'CL-11'..."
               onSearch={setQuery}
-              initialValue={query}
+              initialValue={urlQuery}
               size="lg"
             />
           </div>
@@ -116,11 +187,35 @@ export default function SearchPage() {
       </PageHero>
 
       <PageSection tone="cream" top width="narrow">
+        {unavailable.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p>
+              {namesToSentence(unavailable)} could not be loaded, so nothing from{' '}
+              {unavailable.length === 1 ? 'that list' : 'those lists'} is included below.
+            </p>
+            <button
+              type="button"
+              onClick={primeSiteContent}
+              data-cursor="link"
+              className="shrink-0 rounded-full border border-amber-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
         {!query ? (
           <EmptyState
             icon="search"
             title="Start typing to search"
             description="Results across the entire resource hub will appear here."
+          />
+        ) : results.length === 0 && pending.length > 0 ? (
+          <EmptyState
+            title="Still searching…"
+            description={`Nothing has matched "${query}" yet — ${namesToSentence(pending)} ${
+              pending.length === 1 ? 'is' : 'are'
+            } still loading.`}
           />
         ) : results.length === 0 ? (
           <EmptyState title="No results found" description={`Nothing matched "${query}".`} />

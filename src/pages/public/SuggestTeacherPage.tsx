@@ -7,9 +7,11 @@ import { FormField, TextArea, TextInput } from '@/components/ui/FormField';
 import SuccessState from '@/components/ui/SuccessState';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { useCourses } from '@/hooks/useCourses';
+import { useFaculty } from '@/hooks/useFaculty';
+import SearchSelect from '@/components/ui/SearchSelect';
 import { facultySuggestionService, type FacultySuggestionCourse, type FacultySuggestionType } from '@/services/facultySuggestionService';
 import { useAuth } from '@/context/AuthContext';
-import type { Course } from '@/types';
+import type { Course, Teacher } from '@/types';
 
 const suggestionLabels: Record<FacultySuggestionType, string> = {
   new_teacher: 'New teacher suggestion',
@@ -17,6 +19,8 @@ const suggestionLabels: Record<FacultySuggestionType, string> = {
   office_update: 'Office/location update',
   profile_update: 'Profile update',
   course_assignment: 'Course assignment',
+  faculty_addition: 'Faculty addition request',
+  other: 'Other request',
 };
 
 const validSuggestionTypes = new Set<FacultySuggestionType>([
@@ -25,10 +29,40 @@ const validSuggestionTypes = new Set<FacultySuggestionType>([
   'office_update',
   'profile_update',
   'course_assignment',
+  'faculty_addition',
+  'other',
 ]);
 
 const getSuggestionType = (value: string | null): FacultySuggestionType =>
-  value && validSuggestionTypes.has(value as FacultySuggestionType) ? (value as FacultySuggestionType) : 'new_teacher';
+  value && validSuggestionTypes.has(value as FacultySuggestionType) ? (value as FacultySuggestionType) : 'profile_update';
+
+/**
+ * Three things a student can actually be here to do. The seven suggestion types are the
+ * database's vocabulary, not a menu — asking someone to choose between "profile update" and
+ * "office update" before they have picked a teacher is asking them to fill in a form about
+ * the form. The type is derived from the mode and the field they filled in.
+ */
+type RequestMode = 'existing' | 'addition' | 'other';
+
+const modeOf = (type: FacultySuggestionType): RequestMode => {
+  if (type === 'other') return 'other';
+  if (type === 'faculty_addition' || type === 'new_teacher') return 'addition';
+  return 'existing';
+};
+
+const modeOptions: { mode: RequestMode; title: string; blurb: string }[] = [
+  {
+    mode: 'existing',
+    title: 'Fix a listed teacher',
+    blurb: 'Their email, office, designation or the courses they teach.',
+  },
+  {
+    mode: 'addition',
+    title: 'Add a missing teacher',
+    blurb: 'Someone who teaches here but is not in the directory yet.',
+  },
+  { mode: 'other', title: 'Something else', blurb: 'Anything the two above do not cover.' },
+];
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -189,8 +223,11 @@ function AssignedCoursePicker({
 export default function SuggestTeacherPage() {
   const [searchParams] = useSearchParams();
   const { courses, loading: coursesLoading } = useCourses();
+  const { teachers, loading: teachersLoading } = useFaculty();
   const { user } = useAuth();
-  const suggestionType = useMemo(() => getSuggestionType(searchParams.get('suggestionType')), [searchParams]);
+  const linkedType = useMemo(() => getSuggestionType(searchParams.get('suggestionType')), [searchParams]);
+  const [mode, setMode] = useState<RequestMode>(() => modeOf(linkedType));
+  const [subject, setSubject] = useState('');
   const focusTarget = searchParams.get('focus');
   const emailRef = useRef<HTMLInputElement>(null);
   const officeRef = useRef<HTMLInputElement>(null);
@@ -242,23 +279,83 @@ export default function SuggestTeacherPage() {
     return () => window.clearTimeout(timer);
   }, [focusTarget]);
 
+  /**
+   * What the request is called once it reaches the review queue. A deep link that already
+   * named a specific update keeps its name; otherwise the mode decides, and within the
+   * "fix a listed teacher" mode the single most specific field the student touched wins —
+   * so a request that only supplies an office arrives as an office update, not as a vague
+   * profile edit an admin has to read to classify.
+   */
+  const suggestionType: FacultySuggestionType =
+    mode === 'other'
+      ? 'other'
+      : mode === 'addition'
+        ? 'faculty_addition'
+        : modeOf(linkedType) === 'existing'
+          ? linkedType
+          : 'profile_update';
+
   const emailRequired = suggestionType === 'email_update';
   const officeRequired = suggestionType === 'office_update';
   const courseRequired = suggestionType === 'course_assignment';
+  const teacherRequired = mode === 'existing';
 
   const guidance =
-    suggestionType === 'email_update'
-      ? 'Please add the missing email address for this listed teacher.'
-      : suggestionType === 'office_update'
-        ? 'Please add the missing office or location for this listed teacher.'
-        : suggestionType === 'course_assignment' || focusTarget === 'course'
-          ? 'Please add or correct the course this teacher is currently teaching.'
-          : 'Suggest a teacher who is not currently listed in the directory.';
+    mode === 'other'
+      ? 'Tell us in one line what this is about, then add the detail below.'
+      : mode === 'addition'
+        ? 'Suggest a teacher who is not currently listed. The course is optional — you do not need to know what they teach.'
+        : suggestionType === 'email_update'
+          ? 'Please add the missing email address for this listed teacher.'
+          : suggestionType === 'office_update'
+            ? 'Please add the missing office or location for this listed teacher.'
+            : suggestionType === 'course_assignment' || focusTarget === 'course'
+              ? 'Please add or correct the course this teacher is currently teaching.'
+              : 'Find the teacher, then change whatever is wrong or missing.';
+
+  /**
+   * Changing mode drops the link to the directory entry.
+   *
+   * Without this a selection made in "fix a listed teacher" survived a trip through the other
+   * two modes and came back attached — so a request typed as an addition, or as something
+   * else entirely, could still be submitted against a teacher the student had stopped
+   * thinking about several clicks ago. Found by driving the form: it filed a real, empty
+   * profile update against a teacher I had only selected to test the prefill.
+   */
+  const changeMode = (next: RequestMode) => {
+    if (next === mode) return;
+    setMode(next);
+    setError(null);
+    setForm((current) => ({ ...current, facultyId: '', name: next === 'existing' ? '' : current.name }));
+  };
+
+  /** Picking someone fills the form with what the directory already holds, so the student
+   *  edits the one wrong value instead of retyping a record they can see on screen. */
+  const pickTeacher = (teacher: Teacher | null) => {
+    if (!teacher) {
+      setForm((current) => ({ ...current, facultyId: '', name: '' }));
+      return;
+    }
+    setForm((current) => ({
+      ...current,
+      facultyId: teacher.id,
+      name: teacher.name,
+      email: current.email || teacher.email,
+      department: current.department || teacher.department,
+      designation: current.designation || teacher.designation,
+      office: current.office || teacher.office,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
+
+    if (teacherRequired && !form.facultyId) {
+      setSaving(false);
+      return setError('Pick the teacher this is about, or switch to "Add a missing teacher".');
+    }
 
     const suggestion = {
       facultyId: form.facultyId,
@@ -276,6 +373,7 @@ export default function SuggestTeacherPage() {
           course_name: course.name,
         })),
       suggestionType,
+      subject: subject.trim(),
       notes: form.notes.trim(),
     };
 
@@ -335,14 +433,86 @@ export default function SuggestTeacherPage() {
                 {error}
               </div>
             )}
-            <FormField label="Teacher Name" required>
-              <TextInput
-                required
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Dr. Ayesha Khan"
-              />
+            <FormField label="What do you want to tell us?">
+              <div className="grid gap-2 sm:grid-cols-3">
+                {modeOptions.map((option) => (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    data-cursor="link"
+                    onClick={() => changeMode(option.mode)}
+                    aria-pressed={mode === option.mode}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                      mode === option.mode
+                        ? 'border-ieee-orange bg-ieee-orange/5 text-slate-900'
+                        : 'border-black/10 bg-white text-slate-600 hover:border-ieee-orange/40'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.title}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-slate-500">{option.blurb}</span>
+                  </button>
+                ))}
+              </div>
             </FormField>
+
+            {mode === 'other' && (
+              <FormField label="Subject" required hint="One line, so the team can route it without opening it.">
+                <TextInput
+                  required
+                  maxLength={120}
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Two teachers listed for the same lab section"
+                />
+              </FormField>
+            )}
+
+            {mode === 'existing' ? (
+              <FormField label="Teacher" required hint="Search by name, department or designation.">
+                <SearchSelect<Teacher>
+                  items={teachers}
+                  value={form.facultyId}
+                  onChange={(_key, teacher) => pickTeacher(teacher)}
+                  getKey={(teacher) => teacher.id}
+                  getLabel={(teacher) => teacher.name}
+                  getSearchText={(teacher) =>
+                    `${teacher.name} ${teacher.designation} ${teacher.department} ${teacher.email}`
+                  }
+                  renderOption={(teacher) => (
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-800">{teacher.name}</span>
+                      <span className="block truncate text-xs text-slate-400">
+                        {[teacher.designation, teacher.department].filter(Boolean).join(' · ') || 'Faculty'}
+                      </span>
+                    </span>
+                  )}
+                  label="Teacher"
+                  placeholder="Search the faculty directory"
+                  emptyMessage="No teacher by that name."
+                  loading={teachersLoading}
+                  allowClear
+                  disabled={saving}
+                  footer={
+                    <button
+                      type="button"
+                      onClick={() => changeMode('addition')}
+                      className="w-full px-3 py-2 text-left text-xs font-semibold text-ieee-orange hover:underline"
+                    >
+                      Not listed? Ask us to add them →
+                    </button>
+                  }
+                />
+              </FormField>
+            ) : (
+              <FormField label="Teacher Name" required={mode === 'addition'}>
+                <TextInput
+                  required={mode === 'addition'}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value, facultyId: '' })}
+                  placeholder="Dr. Ayesha Khan"
+                />
+              </FormField>
+            )}
             <FormField label="Email" required={emailRequired}>
               <TextInput
                 ref={emailRef}
@@ -353,9 +523,9 @@ export default function SuggestTeacherPage() {
                 placeholder="name@university.edu.pk"
               />
             </FormField>
-            <FormField label="Department" required>
+            <FormField label="Department" required={mode !== 'other'}>
               <TextInput
-                required
+                required={mode !== 'other'}
                 value={form.department}
                 onChange={(e) => setForm({ ...form, department: e.target.value })}
                 placeholder="Computer Science"

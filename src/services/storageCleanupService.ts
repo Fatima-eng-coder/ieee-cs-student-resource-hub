@@ -66,13 +66,30 @@ const cleanPath = (path?: string | null) => path?.trim().replace(/^\/+/, '') || 
 async function loadReferencedCourseDocumentPaths(): Promise<Set<string>> {
   const referenced = new Set<string>();
 
-  const [{ data: courses, error: coursesError }, { data: submissions, error: submissionsError }] = await Promise.all([
+  /*
+   * Every table that stores a path in this bucket has to be listed here, because anything
+   * missing from this set is classified as an orphan and offered up for permanent deletion.
+   *
+   * date_sheets was the one that got away. It arrived later, files under date-sheets/, and was
+   * never added — so every published exam date sheet showed up on the cleanup screen as
+   * unreferenced, one click away from a broken download with no way back. A table added to this
+   * bucket in future has to be added here in the same change.
+   */
+  const [
+    { data: courses, error: coursesError },
+    { data: submissions, error: submissionsError },
+    { data: sheets, error: sheetsError },
+  ] = await Promise.all([
     supabase.from('courses').select('cdf_path,lab_manual_path'),
     supabase.from('course_resource_submissions').select('file_path'),
+    supabase.from('date_sheets').select('file_path'),
   ]);
 
   if (coursesError) throw new Error(friendlyCleanupError(coursesError.message));
   if (submissionsError) throw new Error(friendlyCleanupError(submissionsError.message));
+  // Deliberately fatal rather than skipped: carrying on with an unreadable date_sheets table
+  // means presenting its files as orphans, which is the failure this read exists to prevent.
+  if (sheetsError) throw new Error(friendlyCleanupError(sheetsError.message));
 
   ((courses ?? []) as CourseDocumentRow[]).forEach((course) => {
     const cdfPath = cleanPath(course.cdf_path);
@@ -83,6 +100,11 @@ async function loadReferencedCourseDocumentPaths(): Promise<Set<string>> {
 
   ((submissions ?? []) as CourseResourceSubmissionRow[]).forEach((submission) => {
     const filePath = cleanPath(submission.file_path);
+    if (filePath) referenced.add(filePath);
+  });
+
+  ((sheets ?? []) as { file_path: string | null }[]).forEach((sheet) => {
+    const filePath = cleanPath(sheet.file_path);
     if (filePath) referenced.add(filePath);
   });
 

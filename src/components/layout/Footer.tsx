@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, Mail } from 'lucide-react';
 import Magnetic from '@/components/effects/Magnetic';
 import { InstagramIcon, LinkedInIcon } from '@/components/ui/SocialIcons';
 import BrandLogo from '@/components/ui/BrandLogo';
-import { useCollection } from '@/hooks/useCollection';
-import { footerLinks as footerLinksSeed, footerColumns } from '@/data/footerLinks';
+import { footerLinksService } from '@/services/siteContentService';
+import { footerColumns, footerLinks } from '@/data/footerLinks';
 import type { FooterLinkItem } from '@/types';
 
 function NewsletterForm() {
@@ -50,7 +50,42 @@ function NewsletterForm() {
 }
 
 export default function Footer() {
-  const { items: allFooterLinks } = useCollection<FooterLinkItem>('footerLinks', footerLinksSeed);
+  const [allFooterLinks, setAllFooterLinks] = useState<FooterLinkItem[]>([]);
+
+  /**
+   * The footer is on every page, so the read is deliberately not awaited by anything: the rest
+   * of the page renders immediately and the link columns fill in when the answer arrives.
+   *
+   * A failure raises no banner, which is the opposite of what every other read in this app
+   * does. Elsewhere a banner is the honest thing, because the visitor came for that content.
+   * Nobody navigates to a footer — putting "could not load footer links" at the bottom of all
+   * 30-odd pages would report a database problem to the wrong audience on the wrong screen.
+   *
+   * Saying nothing is not the same as showing nothing, though, and site navigation is not
+   * optional. So a failed read falls back to the same fifteen links the migration seeded the
+   * table with, compiled into the bundle: not a cache of what the database last said, and not
+   * a guess — the fixed list this site has always had. An empty answer is left empty, because
+   * that is an admin's decision rather than a failure. The console line keeps a real outage
+   * findable for whoever can act on it.
+   */
+  useEffect(() => {
+    let ignore = false;
+
+    footerLinksService
+      .list()
+      .then((links) => {
+        if (!ignore) setAllFooterLinks(links);
+      })
+      .catch((err) => {
+        console.warn('Could not load footer links, falling back to the built-in list', err);
+        if (!ignore) setAllFooterLinks(footerLinks);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   const columns = footerColumns
     .map((title) => ({ title, links: allFooterLinks.filter((l) => l.column === title && l.enabled) }))
     .filter((col) => col.links.length > 0);
@@ -117,7 +152,7 @@ export default function Footer() {
               </h4>
               <ul className="flex flex-col gap-2.5 text-sm">
                 {col.links.map((link) => (
-                  <li key={link.to}>
+                  <li key={link.id}>
                     <Link to={link.to} className="text-slate-400 transition-colors hover:text-ieee-orange">
                       {link.label}
                     </Link>

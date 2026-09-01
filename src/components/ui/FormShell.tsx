@@ -8,9 +8,22 @@ interface FormShellProps {
   children: ReactNode;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   submitLabel?: string;
+  /**
+   * Blocks the button while a submission is in flight. Changing only the label left it live, so
+   * a second click during a slow network sent a second submission — the pages guard themselves
+   * with a ref, but a button that still looks pressable is an invitation to keep pressing.
+   */
+  submitDisabled?: boolean;
 }
 
-export default function FormShell({ title, description, children, onSubmit, submitLabel = 'Submit' }: FormShellProps) {
+export default function FormShell({
+  title,
+  description,
+  children,
+  onSubmit,
+  submitLabel = 'Submit',
+  submitDisabled = false,
+}: FormShellProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -24,7 +37,9 @@ export default function FormShell({ title, description, children, onSubmit, subm
         {children}
         <button
           type="submit"
-          className="mt-2 w-full rounded-xl bg-ieee-orange px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark active:scale-[0.99]"
+          disabled={submitDisabled}
+          aria-busy={submitDisabled || undefined}
+          className="mt-2 w-full rounded-xl bg-ieee-orange px-5 py-3 font-semibold text-white shadow-sm transition enabled:hover:bg-ieee-orange-dark enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitLabel}
         </button>
