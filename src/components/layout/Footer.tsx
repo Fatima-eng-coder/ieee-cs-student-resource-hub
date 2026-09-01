@@ -1,53 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Mail } from 'lucide-react';
-import Magnetic from '@/components/effects/Magnetic';
+import { Mail } from 'lucide-react';
 import { InstagramIcon, LinkedInIcon } from '@/components/ui/SocialIcons';
 import BrandLogo from '@/components/ui/BrandLogo';
 import { footerLinksService } from '@/services/siteContentService';
 import { footerColumns, footerLinks } from '@/data/footerLinks';
 import type { FooterLinkItem } from '@/types';
-
-function NewsletterForm() {
-  const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!email) return;
-    setSubmitted(true);
-  }
-
-  if (submitted) {
-    return (
-      <div className="flex items-center gap-2 rounded-full border border-ieee-orange/40 bg-ieee-orange/10 px-4 py-3 text-sm font-medium text-ieee-orange">
-        <Check className="h-4 w-4" /> You&apos;re on the list.
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2.5 sm:flex-row">
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="you@student.comsats.edu.pk"
-        className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-ieee-orange/60 sm:max-w-xs"
-      />
-      <Magnetic>
-        <button
-          type="submit"
-          data-cursor="link"
-          className="flex w-full items-center justify-center gap-1.5 rounded-full bg-ieee-orange px-5 py-3 text-sm font-semibold text-white transition hover:bg-ieee-orange-dark sm:w-auto"
-        >
-          Notify Me <ArrowRight className="h-4 w-4" />
-        </button>
-      </Magnetic>
-    </form>
-  );
-}
 
 export default function Footer() {
   const [allFooterLinks, setAllFooterLinks] = useState<FooterLinkItem[]>([]);
@@ -95,19 +53,7 @@ export default function Footer() {
       <div className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full bg-ieee-orange/10 blur-[110px]" />
 
       <div className="relative mx-auto max-w-7xl px-5 pb-14 pt-16 sm:px-8 sm:pt-20 lg:px-12">
-        <div className="flex flex-col justify-between gap-8 border-b border-white/10 pb-12 md:flex-row md:items-end">
-          <div>
-            <span className="font-mono text-xs uppercase tracking-widest text-ieee-orange">
-              Stay in the loop
-            </span>
-            <h3 className="mt-3 max-w-md font-display text-2xl font-bold text-white sm:text-3xl">
-              Get updates on events, papers &amp; drops.
-            </h3>
-          </div>
-          <NewsletterForm />
-        </div>
-
-        <div className="grid grid-cols-2 gap-10 pt-12 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-10 md:grid-cols-5">
           <div className="col-span-2">
             <Link to="/" className="flex items-center gap-2.5">
               <BrandLogo className="h-9 w-9" />
@@ -136,13 +82,16 @@ export default function Footer() {
               >
                 <LinkedInIcon className="h-[18px] w-[18px]" />
               </a>
-              <a
-                href="mailto:ieeecs.studentbranch@example.edu"
+              {/* Was mailto:...@example.edu — a reserved domain that can never receive mail, so
+                  the icon opened a mail client addressed to nowhere. The contact form does
+                  reach the committee, and its messages land in the portal inbox. */}
+              <Link
+                to="/faq-contact"
                 aria-label="Email us"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-ieee-orange hover:text-ieee-orange"
               >
                 <Mail className="h-[18px] w-[18px]" />
-              </a>
+              </Link>
             </div>
           </div>
           {columns.map((col) => (

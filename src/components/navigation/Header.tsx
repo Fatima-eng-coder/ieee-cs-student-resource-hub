@@ -22,8 +22,9 @@ const RAIL_STEP = 0.7;
  *
  * Shrinking alone only moved the problem: the overflow was simply clipped, so the last few links
  * silently vanished with nothing to say they existed. Hence the arrows, the same answer the
- * wayfinder's chip strip uses — each appears only on a side that has more to reach, fades the
- * links out beneath itself rather than colliding with them, and goes away at the end.
+ * wayfinder's chip strip uses — each appears only on a side that has more to reach, and goes
+ * away once you get there. Just the button, with no fade behind it: the header is frosted, and a
+ * gradient to any solid colour prints a pale smear over whatever is showing through the glass.
  *
  * Hidden from assistive tech on purpose: they are a redundant control for something a keyboard
  * or screen reader user already reaches by tabbing through the links themselves.
@@ -68,11 +69,24 @@ function NavRail({ children }: { children: ReactNode }) {
 
   return (
     <div className="relative hidden min-w-0 flex-1 lg:block">
-      <div
-        ref={trackRef}
-        className="no-scrollbar flex items-center gap-0.5 overflow-x-auto scroll-smooth"
-      >
-        {children}
+      {/*
+        * The gutter for the arrows is on this wrapper, not on the scrolling element.
+        *
+        * Padding INSIDE a scroll container only extends how far it scrolls — the content still
+        * travels visually through that space, so an arrow sitting there still lands on top of a
+        * link. Measured: with px-8 on the track, "Date Sheets" was still covered mid-scroll.
+        * Insetting the track itself is what actually reserves the room.
+        *
+        * Constant rather than applied only while an arrow shows: the width feeds the very
+        * measurement that decides whether to show one, and the two would chase each other.
+        */}
+      <div className="px-8">
+        <div
+          ref={trackRef}
+          className="no-scrollbar flex items-center gap-0.5 overflow-x-auto scroll-smooth"
+        >
+          {children}
+        </div>
       </div>
 
       <RailArrow side="left" show={!atStart} onClick={() => nudge(-1)} />
@@ -88,19 +102,14 @@ function RailArrow({ side, show, onClick }: { side: 'left' | 'right'; show: bool
     <div
       aria-hidden="true"
       className={`absolute inset-y-0 flex items-center transition-opacity duration-200 ${
-        left ? 'left-0 pr-5' : 'right-0 pl-5'
+        left ? 'left-0' : 'right-0'
       } ${show ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-      style={{
-        // A translucent white rather than a solid colour: the header is frosted, so a hard fade
-        // to a page colour would print a pale block over whatever is showing through it.
-        background: `linear-gradient(to ${left ? 'right' : 'left'}, rgba(255,255,255,0.92) 40%, rgba(255,255,255,0))`,
-      }}
     >
       <button
         type="button"
         tabIndex={-1}
         onClick={onClick}
-        className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white/90 text-slate-500 shadow-sm transition hover:border-ieee-orange/40 hover:text-ieee-orange"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-slate-500 shadow-md transition hover:border-ieee-orange/40 hover:text-ieee-orange"
       >
         {left ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
       </button>
@@ -270,7 +279,7 @@ export default function Header() {
               * which is taller than what the reader can actually see.
               */}
             <div className="flex max-h-[calc(100dvh-7rem)] flex-col">
-              <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-3">
+              <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-2 pt-3">
                 {navItems.map((item) => (
                 <NavLink
                   key={item.id}

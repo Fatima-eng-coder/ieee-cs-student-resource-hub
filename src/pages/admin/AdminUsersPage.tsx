@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Check, Download, Loader2, Pencil, RefreshCw, Search, ShieldAlert, Trash2, UserCog } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { AdminField, AdminInput, AdminSelect } from '@/components/admin/AdminField';
 import Avatar from '@/components/ui/Avatar';
 import { useProfiles } from '@/hooks/useProfiles';
@@ -128,6 +130,10 @@ export default function AdminUsersPage() {
   const [deleting, setDeleting] = useState<DirectoryProfile | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
+  // Handing over chairperson revokes the caller's own access, so it is confirmed separately
+  // rather than happening the instant they press Save.
+  const [confirmHandover, setConfirmHandover] = useState(false);
+  const navigate = useNavigate();
 
   const currentAdmin = adminAuthService.getCurrentAdmin();
   const canManageRoles = currentAdmin?.role === 'chairperson';
@@ -213,6 +219,13 @@ export default function AdminUsersPage() {
       return;
     }
 
+    // Giving somebody else chairperson also takes it off the person doing it. Asking first is
+    // the difference between handing the role over and discovering you no longer have it.
+    if (draftRole === 'chairperson' && !confirmHandover) {
+      setConfirmHandover(true);
+      return;
+    }
+
     setSaving(true);
     try {
       const assignment = await updateRole(editing.id, draftRole);
@@ -225,7 +238,26 @@ export default function AdminUsersPage() {
           : `${assignment.name}'s access was updated to ${roleLabels[assignment.newRole]}.`,
       );
       setEditing(null);
+      setConfirmHandover(false);
       setReloadToken((token) => token + 1);
+
+      if (assignment.handover) {
+        /*
+         * The caller is a student as of a moment ago, and their portal session is now a
+         * fiction. loadCurrentAdmin() re-reads the profile, finds it can no longer reach the
+         * portal, and signs them out — it throws to say so, which is the expected path here
+         * rather than a failure.
+         *
+         * Without this they kept a working-looking admin panel until they happened to navigate,
+         * which is the one moment a handover must not be ambiguous about who is in charge.
+         */
+        await adminAuthService.loadCurrentAdmin().catch(() => undefined);
+        navigate('/portal/login', {
+          replace: true,
+          state: { notice: `You handed chairperson to ${assignment.name}. Your portal access ended with it.` },
+        });
+        return;
+      }
     } catch (err) {
       // The database's own refusals are written to be read — "Only the chairperson can assign
       // portal roles", "You cannot change your own role" — so they are shown as they came
@@ -234,6 +266,7 @@ export default function AdminUsersPage() {
       setError(message);
     } finally {
       setSaving(false);
+      setConfirmHandover(false);
     }
   };
 
@@ -693,6 +726,21 @@ export default function AdminUsersPage() {
           </div>
         )}
       </AdminEditDrawer>
+
+      <ConfirmModal
+        open={confirmHandover}
+        danger
+        title="Hand over chairperson?"
+        description={
+          editing
+            ? `${editing.name} becomes chairperson, and your own role becomes Student in the same move — only one person holds it at a time. You will be signed out of the portal immediately and only ${editing.name} will be able to give it back.`
+            : ''
+        }
+        confirmLabel={saving ? 'Handing over…' : 'Hand over and sign out'}
+        cancelLabel="Keep the role"
+        onConfirm={() => void handleSaveRole()}
+        onCancel={() => setConfirmHandover(false)}
+      />
 
       <DeleteAccountModal
         profile={deleting}

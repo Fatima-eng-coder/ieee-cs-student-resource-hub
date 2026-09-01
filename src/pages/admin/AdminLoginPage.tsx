@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, ShieldCheck, AlertCircle, Mail, Lock, ArrowLeft } from 'lucide-react';
 import RevealToggle from '@/components/ui/RevealToggle';
@@ -7,6 +7,12 @@ import { adminAuthService } from '@/services/adminAuthService';
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
+  /*
+   * Handing over chairperson signs the outgoing holder out and sends them here. Without this
+   * they arrive at a bare login form having just lost access, with nothing on screen connecting
+   * the two — which reads as being kicked out rather than as the handover they just confirmed.
+   */
+  const handoverNotice = (useLocation().state as { notice?: string } | null)?.notice ?? null;
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,6 +91,12 @@ export default function AdminLoginPage() {
             />
             <RevealToggle shown={showPassword} onToggle={() => setShowPassword((on) => !on)} />
           </label>
+
+          {handoverNotice && !error && (
+            <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {handoverNotice}
+            </p>
+          )}
 
           {error && (
             <p className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">
