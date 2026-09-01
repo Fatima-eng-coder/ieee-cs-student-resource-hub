@@ -26,7 +26,7 @@ export default function Header() {
   return (
     <div className="sticky top-0 z-40 px-3 pt-3 sm:px-5">
       <header
-        className={`mx-auto flex max-w-[96rem] items-center justify-between rounded-2xl border border-black/5 bg-white/95 px-4 py-2.5 backdrop-blur-xl transition-shadow duration-300 sm:px-5 ${scrolled ? 'shadow-[0_8px_30px_rgba(10,10,12,0.12)]' : 'shadow-[0_4px_16px_rgba(10,10,12,0.06)]'
+        className={`glass-header mx-auto flex max-w-[96rem] items-center gap-2 rounded-2xl border border-white/60 px-4 py-2.5 transition-shadow duration-300 sm:px-5 ${scrolled ? 'shadow-[0_8px_30px_rgba(10,10,12,0.12)]' : 'shadow-[0_4px_16px_rgba(10,10,12,0.06)]'
           }`}
       >
         <Link to="/" data-cursor="link" className="flex shrink-0 items-center gap-2.5">
@@ -34,7 +34,16 @@ export default function Header() {
           <span className="font-display text-sm font-bold tracking-tight text-slate-900">IEEE CS Hub</span>
         </Link>
 
-        <nav className="hidden min-w-0 items-center gap-0.5 lg:flex">
+        {/*
+          * min-w-0 is what makes this shrink at all — a flex child defaults to min-width:auto and
+          * refuses to go below its content, which is why the links used to run straight through
+          * the buttons beside them (measured: 404px past, at a 1024px viewport).
+          *
+          * Once it can shrink it has to do something with the overflow, and the rail scrolls.
+          * Dropping links or collapsing them into a "More" menu hides navigation the admin
+          * deliberately switched on; scrolling keeps every one of them reachable.
+          */}
+        <nav className="no-scrollbar hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto lg:flex">
           {navItems.map((item) => (
             <NavLink
               key={item.id}
@@ -158,8 +167,17 @@ export default function Header() {
             exit={{ height: 0, opacity: 0 }}
             className="mx-auto mt-2 max-w-[96rem] overflow-hidden rounded-2xl glass-panel border border-black/5 lg:hidden"
           >
-            <div className="flex flex-col px-4 py-3">
-              {navItems.map((item) => (
+            {/*
+              * Capped to the viewport and split in two. With enough links the sheet used to grow
+              * past the bottom of the screen and take the log in and sign up buttons with it —
+              * and on a phone those live nowhere else, so the site became unsignin-able.
+              *
+              * dvh rather than vh: on mobile browsers vh is the height with the URL bar hidden,
+              * which is taller than what the reader can actually see.
+              */}
+            <div className="flex max-h-[calc(100dvh-7rem)] flex-col">
+              <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-3">
+                {navItems.map((item) => (
                 <NavLink
                   key={item.id}
                   to={item.to}
@@ -171,10 +189,12 @@ export default function Header() {
                 >
                   {item.label}
                 </NavLink>
-              ))}
+                ))}
+              </div>
 
-              <div className="my-2 h-px bg-black/5" />
-
+              {/* Outside the scroller on purpose: signing in is the one thing that must never
+                  be below the fold, whatever the admin has added to the navbar. */}
+              <div className="shrink-0 border-t border-black/5 px-4 pb-3 pt-3">
               {user ? (
                 <>
                   <div className="flex items-center gap-3 px-3 py-2">
@@ -213,6 +233,7 @@ export default function Header() {
                   </Link>
                 </div>
               )}
+              </div>
             </div>
           </motion.nav>
         )}

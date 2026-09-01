@@ -72,6 +72,27 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
+/*
+ * The sticky header. More opaque than .glass-panel because nav text sits on it while arbitrary
+ * page content scrolls underneath — at 0.55 the labels pick up whatever passes beneath them and
+ * become unreadable over photography.
+ */
+.glass-header {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* A scroll container that scrolls without advertising it — used where the scrollbar would sit
+   across the middle of the design, as in the header's link rail. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .glass-panel-dark {
   background: rgba(10, 10, 12, 0.55);
   backdrop-filter: blur(20px) saturate(160%);
