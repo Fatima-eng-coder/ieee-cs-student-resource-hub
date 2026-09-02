@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, ExternalLink, Eye, History, SearchCheck, X } from 'lucide-react';
+import { Check, Download, ExternalLink, Eye, History, SearchCheck, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
@@ -8,6 +8,10 @@ import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { adminAuthService } from '@/services/adminAuthService';
+import {
+  eventImageSubmissionsService,
+  type EventImageSubmission,
+} from '@/services/eventImageSubmissionsService';
 import {
   courseResourceSubmissionsService,
   type CourseResourceSubmission,
@@ -25,10 +29,12 @@ import type { Submission } from '@/types';
 type ReviewSubmission =
   | (Submission & { source: 'paper-request'; request: PaperRequest; paper?: never })
   | (Submission & { source: 'course-resource'; resourceSubmission: CourseResourceSubmission; paper?: never })
-  | (Submission & { source: 'teacher-suggestion'; facultySuggestion: FacultySuggestion; paper?: never });
+  | (Submission & { source: 'teacher-suggestion'; facultySuggestion: FacultySuggestion; paper?: never })
+  | (Submission & { source: 'event-image'; eventImageSubmission: EventImageSubmission; paper?: never });
 type PaperRequestReviewSubmission = Extract<ReviewSubmission, { source: 'paper-request' }>;
 type CourseResourceReviewSubmission = Extract<ReviewSubmission, { source: 'course-resource' }>;
 type FacultySuggestionReviewSubmission = Extract<ReviewSubmission, { source: 'teacher-suggestion' }>;
+type EventImageReviewSubmission = Extract<ReviewSubmission, { source: 'event-image' }>;
 
 const actionBtn =
   'flex items-center gap-1 rounded-lg border border-black/5 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-ieee-orange/40 hover:text-ieee-orange';
@@ -136,9 +142,25 @@ const matchesFilter = (submission: ReviewSubmission, filter: SubmissionFilter): 
   return submission.type === filter;
 };
 
+function eventImageToSubmission(eventImageSubmission: EventImageSubmission): EventImageReviewSubmission {
+  return {
+    id: `event-image:${eventImageSubmission.id}`,
+    type: 'event-image',
+    submittedBy: 'Event audience',
+    submittedAt: eventImageSubmission.createdAt.slice(0, 10),
+    status: 'pending',
+    source: 'event-image',
+    eventImageSubmission,
+    data: {
+      eventName: eventImageSubmission.eventName,
+      images: `${eventImageSubmission.imageUrls.length} image${eventImageSubmission.imageUrls.length === 1 ? '' : 's'}`,
+      submissionStatus: eventImageSubmission.status,
+    },
+  };
+}
+
 const typeLabel = (type: SubmissionFilter) =>
   filterLabels[type] ??
-
   type
     .replace(/-/g, ' ')
     .split(' ')
@@ -155,6 +177,7 @@ const formatMaterialType = (type: string) =>
 const displayStatus = (submission: ReviewSubmission) => {
   if (submission.source === 'paper-request') return submission.request.status;
   if (submission.source === 'course-resource') return submission.resourceSubmission.status;
+  if (submission.source === 'event-image') return submission.eventImageSubmission.status;
   return submission.facultySuggestion.status;
 };
 
@@ -163,6 +186,7 @@ const submissionTitle = (submission: ReviewSubmission) => {
     return [submission.request.courseCode, submission.request.courseName].filter(Boolean).join(' - ');
   }
   if (submission.source === 'course-resource') return formatMaterialType(submission.resourceSubmission.resourceType);
+  if (submission.source === 'event-image') return submission.eventImageSubmission.eventName;
   // An 'other' request carries its subject instead of a name; without this the row would be
   // the one thing in the queue with a blank title.
   return submission.facultySuggestion.teacherName || submission.facultySuggestion.subject || 'Free-form request';
@@ -182,6 +206,11 @@ const submissionMaterial = (submission: ReviewSubmission) => {
       ? `${formatMaterialType(suggestion.suggestionType)} - ${course}`
       : formatMaterialType(suggestion.suggestionType);
   }
+  if (submission.source === 'event-image') {
+    return `${submission.eventImageSubmission.imageUrls.length} uploaded image${
+      submission.eventImageSubmission.imageUrls.length === 1 ? '' : 's'
+    }`;
+  }
 };
 
 const submissionNotes = (submission: ReviewSubmission) => {
@@ -189,6 +218,7 @@ const submissionNotes = (submission: ReviewSubmission) => {
   if (submission.source === 'course-resource') {
     return submission.resourceSubmission.notes || submission.resourceSubmission.suggestedValue || '-';
   }
+  if (submission.source === 'event-image') return 'Audience event photo upload';
   return submission.facultySuggestion.notes || '-';
 };
 
@@ -198,9 +228,11 @@ export default function AdminSubmissionsPage() {
   const [paperRequestSubmissions, setPaperRequestSubmissions] = useState<PaperRequestReviewSubmission[]>([]);
   const [courseResourceSubmissions, setCourseResourceSubmissions] = useState<CourseResourceReviewSubmission[]>([]);
   const [facultySuggestionSubmissions, setFacultySuggestionSubmissions] = useState<FacultySuggestionReviewSubmission[]>([]);
+  const [eventImageSubmissions, setEventImageSubmissions] = useState<EventImageReviewSubmission[]>([]);
   const [filter, setFilter] = useState<SubmissionFilter>('all');
   const [viewing, setViewing] = useState<ReviewSubmission | null>(null);
   const [rejecting, setRejecting] = useState<ReviewSubmission | null>(null);
+  const [deletingEventImage, setDeletingEventImage] = useState<EventImageReviewSubmission | null>(null);
   const [reviewingCourseResource, setReviewingCourseResource] = useState<{
     submission: CourseResourceReviewSubmission;
     status: Extract<CourseResourceSubmissionStatus, 'approved' | 'rejected'>;
@@ -318,10 +350,43 @@ export default function AdminSubmissionsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadEventImageSubmissions = async () => {
+      try {
+        const imageSubmissions = await eventImageSubmissionsService.listForAdmin();
+        if (!ignore) setEventImageSubmissions(imageSubmissions.map(eventImageToSubmission));
+      } catch (err) {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : 'Failed to load event image submissions.');
+        }
+      }
+    };
+
+    const refreshQuietly = () => void loadEventImageSubmissions();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) refreshQuietly();
+    };
+    const unsubscribe = eventImageSubmissionsService.subscribe(refreshQuietly);
+
+    void loadEventImageSubmissions();
+    window.addEventListener('focus', refreshQuietly);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      ignore = true;
+      unsubscribe();
+      window.removeEventListener('focus', refreshQuietly);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   const submissions: ReviewSubmission[] = [
     ...paperRequestSubmissions,
     ...courseResourceSubmissions,
     ...facultySuggestionSubmissions,
+    ...eventImageSubmissions,
   ].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
 
   const updatePaperRequestSubmission = (request: PaperRequest) => {
@@ -364,6 +429,15 @@ export default function AdminSubmissionsPage() {
       current?.source === 'teacher-suggestion' && current.facultySuggestion.id === facultySuggestion.id
         ? updated
         : current
+    );
+  };
+
+  const removeEventImageSubmission = (submissionId: string) => {
+    setEventImageSubmissions((items) =>
+      items.filter((item) => item.eventImageSubmission.id !== submissionId)
+    );
+    setViewing((current) =>
+      current?.source === 'event-image' && current.eventImageSubmission.id === submissionId ? null : current
     );
   };
 
@@ -573,12 +647,33 @@ export default function AdminSubmissionsPage() {
     }
   };
 
+  const confirmDeleteEventImage = async () => {
+    if (!deletingEventImage) return;
+
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await eventImageSubmissionsService.remove(deletingEventImage.eventImageSubmission);
+      removeEventImageSubmission(deletingEventImage.eventImageSubmission.id);
+      setDeletingEventImage(null);
+      setNotice('Event image submission deleted.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete event image submission.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const pendingSubmissions = submissions.filter(isPendingSubmission);
   const filtered = pendingSubmissions.filter((s) => matchesFilter(s, filter));
+  // The three source kinds — event photos now among them — then the two cuts through the
+  // teacher-suggestion pile.
   const types: SubmissionFilter[] = [
     'paper-request',
     'course-resource',
     'teacher-suggestion',
+    'event-image',
     'faculty-addition',
     'other-request',
   ];
@@ -660,20 +755,31 @@ export default function AdminSubmissionsPage() {
             </button>
           )}
           {canManage && displayStatus(s) !== 'rejected' && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() =>
-                s.source === 'course-resource'
-                  ? requestCourseResourceReview(s, 'rejected')
-                  : s.source === 'teacher-suggestion'
-                  ? void requestFacultySuggestionReview(s, 'rejected')
-                  : setRejecting(s)
-              }
-              className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-70"
-            >
-              <X className="h-3.5 w-3.5" /> Reject
-            </button>
+            s.source === 'event-image' ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setDeletingEventImage(s)}
+                className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-70"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() =>
+                  s.source === 'course-resource'
+                    ? requestCourseResourceReview(s, 'rejected')
+                    : s.source === 'teacher-suggestion'
+                    ? void requestFacultySuggestionReview(s, 'rejected')
+                    : setRejecting(s)
+                }
+                className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-70"
+              >
+                <X className="h-3.5 w-3.5" /> Reject
+              </button>
+            )
           )}
         </div>
       ),
@@ -749,11 +855,13 @@ export default function AdminSubmissionsPage() {
                 ? 'No course resource submissions are waiting for review.'
                 : filter === 'teacher-suggestion'
                   ? 'No teacher info suggestions are waiting for review.'
-                  : filter === 'faculty-addition'
-                    ? 'Nobody has asked for a teacher to be added to the directory.'
-                    : filter === 'other-request'
-                      ? 'No free-form requests are waiting for review.'
-                      : 'No submissions are waiting for review right now.'
+                  : filter === 'event-image'
+                    ? 'No event photo submissions are waiting for review.'
+                    : filter === 'faculty-addition'
+                      ? 'Nobody has asked for a teacher to be added to the directory.'
+                      : filter === 'other-request'
+                        ? 'No free-form requests are waiting for review.'
+                        : 'No submissions are waiting for review right now.'
           }
         />
       </div>
@@ -796,6 +904,29 @@ export default function AdminSubmissionsPage() {
                   </div>
                 ))}
               </dl>
+              {viewing.source === 'event-image' && viewing.eventImageSubmission.imageUrls.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {viewing.eventImageSubmission.imageUrls.map((url, index) => (
+                    <div key={`${url}-${index}`} className="overflow-hidden rounded-xl border border-black/5 bg-cream">
+                      <a href={url} target="_blank" rel="noreferrer" className="block">
+                        <img src={url} alt={`Event submission ${index + 1}`} className="aspect-square w-full object-cover" />
+                      </a>
+                      <div className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="text-xs font-semibold text-slate-500">Image {index + 1}</span>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          download
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-ieee-orange hover:underline"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Download
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             {canManage && (
               <div className="flex gap-2">
@@ -839,7 +970,16 @@ export default function AdminSubmissionsPage() {
                     <Check className="h-4 w-4" /> Approve
                   </button>
                 )}
-                {displayStatus(viewing) !== 'rejected' && (
+                {viewing.source === 'event-image' ? (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => setDeletingEventImage(viewing)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-70"
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </button>
+                ) : displayStatus(viewing) !== 'rejected' && (
                   <button
                     type="button"
                     disabled={saving}
@@ -1022,6 +1162,16 @@ export default function AdminSubmissionsPage() {
         danger
         onCancel={() => setRejecting(null)}
         onConfirm={() => void confirmReject()}
+      />
+
+      <ConfirmModal
+        open={!!deletingEventImage}
+        title="Delete this event image submission?"
+        description="This will remove the uploaded images from storage and delete the submission record. This action is permanent."
+        confirmLabel={saving ? 'Deleting...' : 'Delete'}
+        danger
+        onCancel={() => setDeletingEventImage(null)}
+        onConfirm={() => void confirmDeleteEventImage()}
       />
     </div>
   );

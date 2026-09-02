@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, ExternalLink, ImagePlus, Loader2, MapPin, Megaphone, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, ExternalLink, ImagePlus, Loader2, MapPin, Megaphone, Pencil, Plus, Trash2, X } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
@@ -112,16 +112,19 @@ function EventImageField({
   imageLayout,
   onFileChange,
   onImageLayoutChange,
+  onClearImage,
 }: {
   imageUrl: string;
   selectedFile: File | null;
   imageLayout: EventImageLayout;
   onFileChange: (file: File | null) => void;
   onImageLayoutChange: (layout: EventImageLayout) => void;
+  onClearImage: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useMemo(() => (selectedFile ? URL.createObjectURL(selectedFile) : ''), [selectedFile]);
   const displayUrl = previewUrl || imageUrl;
+  const hasArtwork = hasFile(displayUrl);
   const isBanner = imageLayout === 'banner';
   const modeDescription = isBanner
     ? 'Banner: Best for wide website covers.'
@@ -135,14 +138,17 @@ function EventImageField({
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className={`group flex w-full overflow-hidden rounded-xl border border-black/10 bg-ieee-ink transition hover:border-ieee-orange/60 ${
+      <div
+        className={`relative overflow-hidden rounded-xl border border-black/10 bg-ieee-ink transition hover:border-ieee-orange/60 ${
           isBanner ? 'aspect-[16/9]' : 'mx-auto aspect-[4/5] max-w-48'
         }`}
       >
-        {hasFile(displayUrl) ? (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="group flex h-full w-full"
+        >
+        {hasArtwork ? (
           <img
             src={displayUrl}
             alt="Event artwork preview"
@@ -154,7 +160,18 @@ function EventImageField({
             <span className="text-[11px] font-medium">Upload artwork</span>
           </span>
         )}
-      </button>
+        </button>
+        {hasArtwork && (
+          <button
+            type="button"
+            onClick={onClearImage}
+            aria-label="Remove selected event artwork"
+            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-ieee-ink/80 text-white shadow-sm backdrop-blur transition hover:bg-rose-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
@@ -462,7 +479,9 @@ export default function AdminEventsPage() {
     setSuccess(null);
 
     let uploadedCover: { url: string; path: string } | null = null;
-    const previousCoverPath = draft.coverImagePath;
+    const previousCoverPath = isNew
+      ? null
+      : events.find((event) => event.id === draft.id)?.coverImagePath ?? draft.coverImagePath;
 
     try {
       if (selectedCover) {
@@ -723,6 +742,10 @@ export default function AdminEventsPage() {
                 imageLayout={draft.imageLayout ?? 'poster'}
                 onFileChange={setSelectedCover}
                 onImageLayoutChange={(imageLayout) => setDraft({ ...draft, imageLayout })}
+                onClearImage={() => {
+                  setSelectedCover(null);
+                  setDraft({ ...draft, image: '', coverImagePath: null });
+                }}
               />
             </AdminField>
             <AdminField label="Title" required>

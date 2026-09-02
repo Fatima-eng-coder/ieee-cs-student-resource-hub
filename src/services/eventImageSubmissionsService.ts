@@ -1,38 +1,44 @@
 /**
  * Photos a student sends in from an event.
  *
- * Two writes, in this order and no other: the file goes to storage first, then the row that
- * points at it. The table's CHECK requires a non-empty image_urls, so there is no valid row
- * to write until the files exist — which means the failure mode to design for is a row that
- * never lands after the upload did. Every path that can fail after an upload sweeps its own
- * files back out before it rethrows; the storage policy is scoped to submissions/<uid>/, so a
- * student can always take back their own orphan.
+ * Merged from two independent implementations of the same feature. The admin half — the review
+ * queue's list, the discard, the realtime subscription — comes from master. The upload half is
+ * rewritten, because master's version cannot work against the database as it now stands:
  *
- * Signing in is required, and that is a deliberate narrowing: the bucket used to accept
- * uploads from anyone holding the publishable key. See 20260901000700/800 for what that
- * bought and what it cost.
+ *   it wrote to  submissions/<event-name>/…   and allowed submitted_by to be null
+ *   the policy allows  submissions/<uploader-uid>/…  and requires submitted_by = auth.uid()
+ *
+ * The bucket used to accept an upload from anyone holding the publishable key, to any path under
+ * submissions/ — an unmetered upload endpoint for the whole internet. 20260901000700 and 000800
+ * narrowed it to a signed-in student writing into their own folder, which is what the paths and
+ * the session check below are for. Uploading anonymously now returns 403 whatever the path.
+ *
+ * Two writes, in this order and no other: the file goes to storage first, then the row that
+ * points at it. The table's CHECK requires a non-empty image_urls, so there is no valid row to
+ * write until the files exist — which makes the failure to design for a row that never lands
+ * after the upload did. Every path that can fail afterwards sweeps its own files back out.
  */
 
 import { supabase } from '@/lib/supabase';
 
 const EVENT_IMAGES_BUCKET = 'event-images';
 
-/** The table's own ceiling. Kept here so the picker can stop before the database has to. */
+/** The table's own ceiling. Kept here so the picker stops before the database has to. */
 export const MAX_EVENT_PHOTOS = 3;
 
-export interface EventImageSubmissionInput {
-  /** The event's title, stored as free text: an album may be named before the event row is. */
-  eventName: string;
-  files: File[];
-}
+const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_BYTES = 5 * 1024 * 1024;
+
+export type EventImageSubmissionStatus = 'pending';
 
 export interface EventImageSubmission {
   id: string;
   eventName: string;
   imageUrls: string[];
   imagePaths: string[];
-  status: 'pending';
+  status: EventImageSubmissionStatus;
   submittedBy: string | null;
+  /** Stamped server-side from the session; never sent by the client. */
   studentEmail: string | null;
   createdAt: string;
 }
@@ -40,29 +46,76 @@ export interface EventImageSubmission {
 interface EventImageSubmissionRow {
   id: string;
   event_name: string;
-  image_urls: string[] | null;
-  image_paths: string[] | null;
-  status: 'pending';
+  image_urls: unknown;
+  image_paths: unknown;
+  status: EventImageSubmissionStatus;
   submitted_by: string | null;
   student_email: string | null;
   created_at: string;
 }
 
-const columns = 'id,event_name,image_urls,image_paths,status,submitted_by,student_email,created_at';
+export interface EventImageSubmissionInput {
+  /** Free text: an album may be named before the event row is. */
+  eventName: string;
+  files: File[];
+}
 
-const toSubmission = (row: EventImageSubmissionRow): EventImageSubmission => ({
+interface UploadResult {
+  url: string;
+  path: string;
+}
+
+const columns =
+  'id,event_name,image_urls,image_paths,status,submitted_by,student_email,created_at';
+
+/** jsonb columns arrive as unknown; anything that is not a string is not a path. */
+const toStringArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
+const toEventImageSubmission = (row: EventImageSubmissionRow): EventImageSubmission => ({
   id: row.id,
   eventName: row.event_name,
-  imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
-  imagePaths: Array.isArray(row.image_paths) ? row.image_paths : [],
+  imageUrls: toStringArray(row.image_urls),
+  imagePaths: toStringArray(row.image_paths),
   status: row.status,
   submittedBy: row.submitted_by,
   studentEmail: row.student_email,
   createdAt: row.created_at,
 });
 
-const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-const MAX_BYTES = 5 * 1024 * 1024;
+const friendlyPublicError = (message: string) => {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('5 pending') || lower.includes('pending submissions')) return message;
+  if (lower.includes('max_images')) return `Please send between 1 and ${MAX_EVENT_PHOTOS} photos.`;
+  if (lower.includes('row-level security') || lower.includes('permission denied')) {
+    return 'Your session does not allow this. Please log out, log back in, and try again.';
+  }
+  if (lower.includes('payload') || lower.includes('too large')) {
+    return 'Those photos are too large. Please pick smaller versions and try again.';
+  }
+  if (lower.includes('network') || lower.includes('fetch')) {
+    return 'We could not reach the server. Please check your connection and try again.';
+  }
+  return 'Those photos could not be sent right now. Please try again.';
+};
+
+const friendlyAdminError = (message: string) => {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('row-level security') || lower.includes('permission denied')) {
+    return 'Only content managers can review event photo submissions.';
+  }
+  if (lower.includes('network') || lower.includes('fetch')) {
+    return 'We could not reach the server. Please check your connection and try again.';
+  }
+  return 'Event photo submissions could not be loaded right now. Please try again.';
+};
+
+async function refreshAuthSession(): Promise<void> {
+  const { error } = await supabase.auth.refreshSession();
+  if (error) console.warn('Could not refresh auth session before protected action', error);
+}
 
 function assertPhotos(files: File[]): void {
   if (files.length === 0) throw new Error('Pick at least one photo to send.');
@@ -91,22 +144,6 @@ function safeFileName(file: File, index: number): string {
   return `${Date.now()}-${index}-${base || 'event-photo'}.${extension}`;
 }
 
-const friendlyError = (message: string) => {
-  const lower = message.toLowerCase();
-
-  if (lower.includes('5 pending') || lower.includes('pending submissions')) return message;
-  if (lower.includes('max_images')) {
-    return `Please send between 1 and ${MAX_EVENT_PHOTOS} photos.`;
-  }
-  if (lower.includes('row-level security') || lower.includes('permission denied')) {
-    return 'Your session does not allow this. Please log out, log back in, and try again.';
-  }
-  if (lower.includes('network') || lower.includes('fetch')) {
-    return 'We could not reach the server. Please check your connection and try again.';
-  }
-  return 'Those photos could not be sent right now. Please try again.';
-};
-
 /** Best effort: the row already failed, and a failed cleanup must not replace that message. */
 async function discard(paths: string[]): Promise<void> {
   if (paths.length === 0) return;
@@ -126,16 +163,18 @@ export const eventImageSubmissionsService = {
       throw new Error('Please log in with your university account before sending photos.');
     }
 
-    const uploaded: { url: string; path: string }[] = [];
+    const uploaded: UploadResult[] = [];
 
     try {
       for (const [index, file] of input.files.entries()) {
+        // submissions/<uid>/… is the only prefix the storage policy accepts, and the uid segment
+        // is compared against auth.uid() — one student cannot write into another's folder.
         const path = `submissions/${userId}/${safeFileName(file, index)}`;
         const { error } = await supabase.storage
           .from(EVENT_IMAGES_BUCKET)
           .upload(path, file, { cacheControl: '3600', upsert: false });
 
-        if (error) throw new Error(friendlyError(error.message));
+        if (error) throw new Error(friendlyPublicError(error.message));
 
         const { data } = supabase.storage.from(EVENT_IMAGES_BUCKET).getPublicUrl(path);
         uploaded.push({ url: data.publicUrl, path });
@@ -153,8 +192,8 @@ export const eventImageSubmissionsService = {
         .select(columns)
         .single();
 
-      if (error) throw new Error(friendlyError(error.message));
-      return toSubmission(data as EventImageSubmissionRow);
+      if (error) throw new Error(friendlyPublicError(error.message));
+      return toEventImageSubmission(data as EventImageSubmissionRow);
     } catch (cause) {
       await discard(uploaded.map((item) => item.path));
       throw cause;
@@ -168,7 +207,64 @@ export const eventImageSubmissionsService = {
       .select(columns)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(friendlyError(error.message));
-    return ((data ?? []) as EventImageSubmissionRow[]).map(toSubmission);
+    if (error) throw new Error(friendlyPublicError(error.message));
+    return ((data ?? []) as EventImageSubmissionRow[]).map(toEventImageSubmission);
+  },
+
+  /** The review queue. Content managers only — the policy sees to that. */
+  async listForAdmin(): Promise<EventImageSubmission[]> {
+    const { data, error } = await supabase
+      .from('event_image_submissions')
+      .select(columns)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(friendlyAdminError(error.message));
+    return ((data ?? []) as EventImageSubmissionRow[]).map(toEventImageSubmission);
+  },
+
+  /**
+   * Discards a submission and its files.
+   *
+   * Row first, sweep second — the reverse of how this arrived from master. Postgres reports a
+   * policy-declined DELETE as zero rows affected rather than as an error, so sweeping first and
+   * then failing to delete would leave the submission in the queue with its photos already gone
+   * and unrecoverable. The count is what tells a refusal apart from a success.
+   */
+  async remove(submission: EventImageSubmission): Promise<void> {
+    await refreshAuthSession();
+
+    const { error, count } = await supabase
+      .from('event_image_submissions')
+      .delete({ count: 'exact' })
+      .eq('id', submission.id);
+
+    if (error) throw new Error(friendlyAdminError(error.message));
+    // Only an explicit zero. A null count means the header was absent and proves nothing.
+    if (count === 0) {
+      throw new Error('That submission was not removed. It may already be gone, or you may not have permission.');
+    }
+
+    await discard(submission.imagePaths);
+  },
+
+  subscribe(callback: () => void): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+
+    let timeout: number | null = null;
+    const scheduleCallback = () => {
+      if (timeout) window.clearTimeout(timeout);
+      timeout = window.setTimeout(callback, 150);
+    };
+
+    const channel = supabase
+      .channel(`event-image-submissions-sync-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_image_submissions' }, scheduleCallback)
+      .subscribe();
+
+    return () => {
+      if (timeout) window.clearTimeout(timeout);
+      void supabase.removeChannel(channel);
+    };
   },
 };
