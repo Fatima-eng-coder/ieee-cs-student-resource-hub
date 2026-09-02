@@ -18,7 +18,7 @@ const normalisePath = (raw: string) => {
 };
 
 export default function AdminNavbarPage() {
-  const { items, loaded, update, setAll, add, remove, error: navbarError } = useNavLinks();
+  const { items, loaded, update, setAll, add, remove, error: navbarError } = useNavLinks(true);
   const [draft, setDraft] = useState({ label: '', to: '' });
   const [formError, setFormError] = useState<string | null>(null);
 

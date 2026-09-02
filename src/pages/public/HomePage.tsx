@@ -6,10 +6,10 @@ import HeroSection from '@/components/layout/HeroSection';
 import QuickLinkGrid from '@/components/layout/QuickLinkGrid';
 import EventsShowcase from '@/components/home/EventsShowcase';
 import HierarchyOrbit from '@/components/home/HierarchyOrbit';
-import PromoBanners from '@/components/home/PromoBanners';
+import PromoPopup from '@/components/home/PromoPopup';
 import ScrollProgress from '@/components/effects/ScrollProgress';
 import Magnetic from '@/components/effects/Magnetic';
-import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
+import { eventsService } from '@/services/eventsService';
 import type { EventItem } from '@/types';
 
 export default function HomePage() {
@@ -28,12 +28,27 @@ export default function HomePage() {
           if (!ignore) setEvents([]);
         });
 
-    const unsubscribe = subscribeEventsChanged(loadEvents);
+    /*
+     * Refreshed on return, not over realtime.
+     *
+     * This is the busiest page on the site, and a realtime subscription here means an open
+     * WebSocket for every visitor who lands on it. Concurrent realtime connections are the
+     * scarcest resource in this deployment by a wide margin, and an event list that updates a
+     * few seconds sooner is not worth one of them per reader. Somebody arriving after an event
+     * is published sees it on load; somebody already here sees it when they focus the tab.
+     */
+    const refreshOnReturn = () => {
+      if (!document.hidden) loadEvents();
+    };
+
     void loadEvents();
+    document.addEventListener('visibilitychange', refreshOnReturn);
+    window.addEventListener('focus', refreshOnReturn);
 
     return () => {
       ignore = true;
-      unsubscribe();
+      document.removeEventListener('visibilitychange', refreshOnReturn);
+      window.removeEventListener('focus', refreshOnReturn);
     };
   }, []);
 
@@ -52,7 +67,7 @@ export default function HomePage() {
       {/* Below the hero on purpose. The banners arrive after first paint, and the hero's
           min-height keeps this insertion point past the fold, so nothing the reader can see at
           scroll 0 moves when they land. Moving this above the hero reintroduces that shift. */}
-      <PromoBanners />
+      <PromoPopup />
 
       <HierarchyOrbit />
       <QuickLinkGrid />

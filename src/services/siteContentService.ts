@@ -359,8 +359,20 @@ export const faqsService = {
 
   async remove(id: string): Promise<void> {
     await refreshAuthSession();
-    const { error } = await supabase.from('faqs').delete().eq('id', id);
+    /*
+     * Counted. An RLS-refused DELETE is not an error — Postgres filters the row out and
+     * PostgREST answers 204 — so an uncounted delete reports success for a row still sitting
+     * in the table, and the page removes it from the list on that word alone. Only an explicit
+     * zero is a refusal; a null count means the header was absent and proves nothing.
+     */
+    const { error, count } = await supabase
+      .from('faqs')
+      .delete({ count: 'exact' })
+      .eq('id', id);
     if (error) throw toFriendlyError(error, 'delete an FAQ');
+    if (count === 0) {
+      throw new Error('That item was not removed. It may already be gone, or you may not have permission.');
+    }
   },
 
   /** Returns the list in its new order; unchanged when the entry is already at that end. */
@@ -445,8 +457,20 @@ export const quickLinksService = {
 
   async remove(id: string): Promise<void> {
     await refreshAuthSession();
-    const { error } = await supabase.from('quick_links').delete().eq('id', id);
+    /*
+     * Counted. An RLS-refused DELETE is not an error — Postgres filters the row out and
+     * PostgREST answers 204 — so an uncounted delete reports success for a row still sitting
+     * in the table, and the page removes it from the list on that word alone. Only an explicit
+     * zero is a refusal; a null count means the header was absent and proves nothing.
+     */
+    const { error, count } = await supabase
+      .from('quick_links')
+      .delete({ count: 'exact' })
+      .eq('id', id);
     if (error) throw toFriendlyError(error, 'delete a quick link');
+    if (count === 0) {
+      throw new Error('That item was not removed. It may already be gone, or you may not have permission.');
+    }
   },
 
   /**
@@ -546,8 +570,20 @@ export const footerLinksService = {
 
   async remove(id: string): Promise<void> {
     await refreshAuthSession();
-    const { error } = await supabase.from('footer_links').delete().eq('id', id);
+    /*
+     * Counted. An RLS-refused DELETE is not an error — Postgres filters the row out and
+     * PostgREST answers 204 — so an uncounted delete reports success for a row still sitting
+     * in the table, and the page removes it from the list on that word alone. Only an explicit
+     * zero is a refusal; a null count means the header was absent and proves nothing.
+     */
+    const { error, count } = await supabase
+      .from('footer_links')
+      .delete({ count: 'exact' })
+      .eq('id', id);
     if (error) throw toFriendlyError(error, 'delete a footer link');
+    if (count === 0) {
+      throw new Error('That item was not removed. It may already be gone, or you may not have permission.');
+    }
   },
 
   /**

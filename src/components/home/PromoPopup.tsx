@@ -22,7 +22,6 @@ import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react';
 import { bannersService, type PromoBanner } from '@/services/bannersService';
-import { adminAuthService } from '@/services/adminAuthService';
 import { readJSON, writeJSON } from '@/utils/storage';
 
 /** Shared with the older rail on purpose: a promotion dismissed there stays dismissed here. */
@@ -64,8 +63,8 @@ export default function PromoPopup() {
       })
       .catch((cause: unknown) => {
         if (ignore) return;
-        // Both sources failed. Nothing is shown to a visitor — a broken popup is worse than
-        // none — but a content manager checking on a promotion is told why below.
+        // Both sources failed. No popup is shown — a broken one is worse than none — and the
+        // notice below is what stops that being indistinguishable from having nothing to say.
         setLoadError(cause instanceof Error ? cause.message : 'Promotions could not be loaded.');
       });
 
@@ -178,16 +177,25 @@ export default function PromoPopup() {
     setIndex((i) => (i + delta + visible.length) % visible.length);
   };
 
-  // A failed read has no other symptom — "my promotion did not show" looks exactly like
-  // "nothing is promoted" — so the one person who came to check is told.
+  /*
+   * A failed read is announced to everyone, quietly, rather than to admins only.
+   *
+   * The first version gated this on adminAuthService.canManageContent(), which reads a profile
+   * cached only by the portal's RequireAdmin — on a direct load of `/` it is always false. So
+   * the one message distinguishing "we could not read the promotions" from "there are none"
+   * was shown to nobody, which is precisely the swallow it was written to prevent.
+   *
+   * A small line at the foot of the page costs a visitor nothing and is the only way the person
+   * who just published a promotion learns why it is not on screen.
+   */
   if (!open) {
-    if (loadError && adminAuthService.canManageContent()) {
+    if (loadError) {
       return (
         <div
           role="status"
-          className="fixed bottom-4 left-1/2 z-50 w-[min(92vw,32rem)] -translate-x-1/2 rounded-2xl border border-amber-400/30 px-4 py-2.5 text-xs font-medium text-amber-100 glass-panel-dark"
+          className="fixed bottom-4 left-1/2 z-50 w-[min(92vw,32rem)] -translate-x-1/2 rounded-2xl border border-amber-400/30 px-4 py-2.5 text-center text-xs font-medium text-amber-100 glass-panel-dark"
         >
-          Promotions could not be loaded, so none are showing: {loadError}
+          Announcements could not be loaded just now.
         </div>
       );
     }

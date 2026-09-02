@@ -33,7 +33,17 @@ const navLinksAreEqual = (a: NavLinkItem[], b: NavLinkItem[]) =>
  * it since the read began; otherwise it is dropped and re-asked for once the writes settle,
  * which is also how another admin's change arrives here.
  */
-export function useNavLinks() {
+/**
+ * @param live  Subscribe to cross-admin changes over realtime. Off by default, and that default
+ *   is the important part: this hook backs the Header, so it runs on every page for every
+ *   visitor, and subscribing there held an open WebSocket per anonymous reader. Concurrent
+ *   realtime connections are the scarcest resource in this deployment — a few hundred, against
+ *   request throughput an order of magnitude higher — so spending one per reader so a navbar
+ *   edit lands a few seconds sooner is the worst trade available. The public navbar reads once
+ *   and refreshes when the tab is focused; the admin editor passes `true`, where seeing another
+ *   admin's change arrive is worth something and the client count is small.
+ */
+export function useNavLinks(live = false) {
   const [items, setItems] = useState<NavLinkItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
@@ -210,8 +220,19 @@ export function useNavLinks() {
         .remove(id)
         .then(() => {
           setWriteError(null);
-          // sort_order is a link's position in this array, so everything past the gap moved.
-          runSave(next);
+          /*
+           * Renumber from what state holds NOW, not from `next`.
+           *
+           * `next` was computed before the delete was issued, so passing it here writes back a
+           * snapshot from before the round trip — any toggle, rename or reorder made while the
+           * delete was in flight is silently reverted by the very save meant to close the gap
+           * in sort_order. Reading through the setter is what makes the renumber operate on
+           * the list as it actually stands.
+           */
+          setItems((latest) => {
+            runSave(latest);
+            return latest;
+          });
         })
         .catch((err: unknown) => {
           setWriteError(err instanceof Error ? err.message : 'Failed to remove navbar link.');
@@ -228,7 +249,14 @@ export function useNavLinks() {
 
   useEffect(() => {
     void load();
-    const unsubscribeRealtime = navLinksService.subscribe(() => void load());
+
+    const refreshOnReturn = () => {
+      if (!document.hidden) void load();
+    };
+    document.addEventListener('visibilitychange', refreshOnReturn);
+    window.addEventListener('focus', refreshOnReturn);
+
+    const unsubscribeRealtime = live ? navLinksService.subscribe(() => void load()) : () => undefined;
 
     return () => {
       if (saveTimer.current) {
@@ -237,12 +265,18 @@ export function useNavLinks() {
       }
       // Flush an edit the debounce had not fired yet. Guarded for the same reason as above.
       if (pendingItems.current && loadedRef.current) {
-        void navLinksService.saveAll(pendingItems.current);
+        // Nothing is mounted to show this, but an uncaught rejection here surfaces as a page
+        // error in dev and as noise in production logs.
+        void navLinksService
+          .saveAll(pendingItems.current)
+          .catch((err: unknown) => console.warn('Navbar changes could not be saved on unmount', err));
       }
       pendingItems.current = null;
+      document.removeEventListener('visibilitychange', refreshOnReturn);
+      window.removeEventListener('focus', refreshOnReturn);
       unsubscribeRealtime();
     };
-  }, [load]);
+  }, [load, live]);
 
   return {
     items,
