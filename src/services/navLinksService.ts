@@ -133,15 +133,29 @@ export const navLinksService = {
     }
   },
 
+  /**
+   * saveAll is one statement but one event per row it wrote, and a reorder writes every row.
+   * Called straight through, a single nudge would ask the server for the whole navbar eight
+   * times over — eight chances for a read to land on a listener mid-edit. Collapsing the burst
+   * also lets the events from one save arrive together rather than interleaved with the write
+   * that produced them.
+   */
   subscribe(callback: () => void): () => void {
     if (typeof window === 'undefined') return () => undefined;
 
+    let timeout: number | null = null;
+    const scheduleCallback = () => {
+      if (timeout) window.clearTimeout(timeout);
+      timeout = window.setTimeout(callback, 150);
+    };
+
     const channel = supabase
       .channel(`nav-links-sync-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'nav_links' }, callback)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'nav_links' }, scheduleCallback)
       .subscribe();
 
     return () => {
+      if (timeout) window.clearTimeout(timeout);
       void supabase.removeChannel(channel);
     };
   },

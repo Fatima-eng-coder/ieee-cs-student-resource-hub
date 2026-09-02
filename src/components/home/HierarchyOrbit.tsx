@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, type Variants } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import { groupByTier } from '@/components/hierarchy/groupByTier';
 import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
 import {
   hierarchyService,
   indexRoles,
-  sortMembers,
   titleForRole,
   type HierarchyCouncil,
 } from '@/services/hierarchyService';
@@ -72,12 +72,24 @@ export default function HierarchyOrbit() {
   }, []);
 
   const roleIndex = useMemo(() => indexRoles(council?.roles ?? []), [council]);
-  const members = useMemo(
-    () => sortMembers(council?.members ?? [], roleIndex),
+  /*
+   * The whole team in one flow, NOT a chart.
+   *
+   * The org chart belongs on /about/hierarchy, which is where somebody goes to read who reports
+   * to whom. The homepage is an introduction — it should say "here is the team" and get out of
+   * the way, and drawing a second chart here made the page argue with the one page it links to.
+   *
+   * Still ordered by the role catalogue's tier and rank, so the Chairperson leads and the joint
+   * secretaries come last; it is the reporting STRUCTURE that is left to the deep page, not the
+   * ordering.
+   */
+  const everyone = useMemo(
+    () => groupByTier(council?.members ?? [], roleIndex).flatMap((level) => level.people),
     [council, roleIndex]
   );
+  const total = everyone.length;
 
-  if (members.length === 0 && !failed) return null;
+  if (total === 0 && !failed) return null;
 
   return (
     <section id="hierarchy" className="relative px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
@@ -103,49 +115,55 @@ export default function HierarchyOrbit() {
           </Link>
         </div>
 
-        {members.length > 0 && (
+        {total > 0 && (
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, amount: 0.1 }}
             variants={groupVariants}
-            className="mt-10 grid grid-cols-3 gap-x-4 gap-y-8 sm:mt-14 sm:grid-cols-4 sm:gap-y-10 md:grid-cols-6 lg:grid-cols-7"
+            className="mt-10 flex flex-wrap items-start justify-center gap-x-2 gap-y-8 sm:mt-14 sm:gap-x-5"
           >
-            {members.map((member, i) => {
-              const blurb = roleBlurb[member.roleSlug] ?? fallbackBlurb;
-              return (
-                <motion.div
-                  key={member.id}
-                  variants={cardVariants}
-                  data-cursor="link"
-                  className="group relative flex flex-col items-center gap-2 text-center"
-                >
-                  <div
-                    className="animate-float-y"
-                    style={{ animationDelay: `${(i % 6) * 0.4}s`, animationDuration: `${5 + (i % 4)}s` }}
-                  >
-                    <div className="relative">
-                      <img
-                        src={member.photo || PLACEHOLDER_PHOTO}
-                        alt={member.name}
-                        className="h-16 w-16 rounded-full border-2 border-white/15 object-cover shadow-md transition-all duration-300 group-hover:scale-110 group-hover:border-ieee-orange/60 sm:h-20 sm:w-20"
-                      />
-                      <span className="absolute inset-0 rounded-full opacity-0 shadow-[0_0_0_6px_rgba(255,108,12,0.12)] transition-opacity duration-300 group-hover:opacity-100" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-cream sm:text-sm">{member.name}</p>
-                    <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wide text-ieee-orange sm:text-[10px]">
-                      {titleForRole(roleIndex, member.roleSlug)}
-                    </p>
-                  </div>
+            {[{ tier: 'all', people: everyone }].map(({ tier, people }) => (
+              <Fragment key={tier}>
+                {people.map((member, i) => {
+                  const blurb = roleBlurb[member.roleSlug] ?? fallbackBlurb;
+                  return (
+                    <motion.div
+                      key={member.id}
+                      variants={cardVariants}
+                      data-cursor="link"
+                      className="group relative flex w-[4.25rem] flex-col items-center gap-2 text-center sm:w-24"
+                    >
+                      <div
+                        className="animate-float-y"
+                        style={{ animationDelay: `${(i % 6) * 0.4}s`, animationDuration: `${5 + (i % 4)}s` }}
+                      >
+                        <div className="relative">
+                          <img
+                            src={member.photo || PLACEHOLDER_PHOTO}
+                            alt={member.name}
+                            className="h-14 w-14 rounded-full border-2 border-white/15 object-cover shadow-md transition-all duration-300 group-hover:scale-110 group-hover:border-ieee-orange/60 sm:h-20 sm:w-20"
+                          />
+                          <span className="absolute inset-0 rounded-full opacity-0 shadow-[0_0_0_6px_rgba(255,108,12,0.12)] transition-opacity duration-300 group-hover:opacity-100" />
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[11px] leading-tight font-semibold text-cream sm:text-sm">
+                          {member.name}
+                        </p>
+                        <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wide text-ieee-orange sm:text-[10px]">
+                          {titleForRole(roleIndex, member.roleSlug)}
+                        </p>
+                      </div>
 
-                  <div className="glass-panel-dark pointer-events-none absolute -top-3 left-1/2 z-30 w-40 -translate-x-1/2 -translate-y-full rounded-xl border-white/10 p-2.5 text-center opacity-0 shadow-2xl transition-opacity duration-200 group-hover:opacity-100">
-                    <p className="text-[11px] leading-snug text-white/80">{blurb}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
+                      <div className="glass-panel-dark pointer-events-none absolute -top-3 left-1/2 z-30 w-40 -translate-x-1/2 -translate-y-full rounded-xl border-white/10 p-2.5 text-center opacity-0 shadow-2xl transition-opacity duration-200 group-hover:opacity-100">
+                        <p className="text-[11px] leading-snug text-white/80">{blurb}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </Fragment>
+            ))}
           </motion.div>
         )}
       </div>

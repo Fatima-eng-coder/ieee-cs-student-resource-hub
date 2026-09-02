@@ -4,9 +4,10 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SectionHeading from '@/components/layout/SectionHeading';
 import EmptyState from '@/components/ui/EmptyState';
+import OrgChart from '@/components/hierarchy/OrgChart';
+import { groupByTier } from '@/components/hierarchy/groupByTier';
 import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
 import {
-  UNFILED_TIER,
   hierarchyService,
   indexRoles,
   sortMembers,
@@ -15,65 +16,6 @@ import {
   type HierarchyTermRecord,
 } from '@/services/hierarchyService';
 import type { HierarchyRole } from '@/types';
-
-/**
- * Groups a roster into org-chart rows.
- *
- * The shape of the chart comes entirely from the role catalogue's `tier`/`rank`, never from
- * the member order — so adding a role, renaming one, or running seven Joint Secretaries
- * instead of three needs no change here. The catalogue is the one in the database, not the
- * static list in src/data/hierarchy.ts: an admin can change the former and only the former.
- * Roles missing from it land in a final row rather than disappearing, which keeps an ad-hoc
- * role visible until someone files it.
- */
-function buildTiers(members: HierarchyMemberRecord[], roleIndex: Map<string, HierarchyRole>) {
-  const rows = new Map<number, HierarchyMemberRecord[]>();
-
-  for (const member of sortMembers(members, roleIndex)) {
-    const tier = roleIndex.get(member.roleSlug)?.tier ?? UNFILED_TIER;
-    rows.set(tier, [...(rows.get(tier) ?? []), member]);
-  }
-
-  return [...rows.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([tier, people]) => ({ tier, people }));
-}
-
-function MemberCard({
-  member,
-  roleIndex,
-  prominence,
-}: {
-  member: HierarchyMemberRecord;
-  roleIndex: Map<string, HierarchyRole>;
-  prominence: 'lead' | 'exec' | 'core';
-}) {
-  const ring =
-    prominence === 'lead' ? 'ring-ieee-orange' : prominence === 'exec' ? 'ring-ieee-orange/45' : 'ring-white';
-  const size = prominence === 'lead' ? 'h-14 w-14' : prominence === 'exec' ? 'h-12 w-12' : 'h-11 w-11';
-
-  return (
-    <div className="flex min-w-[10.5rem] items-center gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <img
-        src={member.photo || PLACEHOLDER_PHOTO}
-        alt=""
-        loading="lazy"
-        className={`${size} shrink-0 rounded-full bg-cream object-cover ring-2 ${ring}`}
-      />
-      <div className="min-w-0">
-        <p className="truncate text-sm leading-tight font-semibold text-slate-900">{member.name}</p>
-        <p className="mt-0.5 font-mono text-[10px] tracking-wide text-ieee-orange uppercase">
-          {titleForRole(roleIndex, member.roleSlug)}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/** The stem joining one tier to the next. Purely decorative. */
-function Connector() {
-  return <div className="h-7 w-px bg-gradient-to-b from-ieee-orange/50 to-slate-300" aria-hidden="true" />;
-}
 
 export default function HierarchyPage() {
   const [roles, setRoles] = useState<HierarchyRole[]>([]);
@@ -146,7 +88,7 @@ export default function HierarchyPage() {
     };
   }, [selectedTermId, current?.id]);
 
-  const tiers = useMemo(() => buildTiers(currentMembers, roleIndex), [currentMembers, roleIndex]);
+  const tiers = useMemo(() => groupByTier(currentMembers, roleIndex), [currentMembers, roleIndex]);
   const shownMembers = useMemo(
     () => sortMembers(selectedTermId === current?.id ? currentMembers : archiveMembers, roleIndex),
     [selectedTermId, current?.id, currentMembers, archiveMembers, roleIndex]
@@ -209,22 +151,8 @@ export default function HierarchyPage() {
             This council's roster is still being filled in.
           </p>
         ) : (
-          <div className="mt-12 flex flex-col items-center">
-            {tiers.map(({ tier, people }, index) => (
-              <div key={tier} className="flex flex-col items-center">
-                {index > 0 && <Connector />}
-                <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-                  {people.map((member) => (
-                    <MemberCard
-                      key={member.id}
-                      member={member}
-                      roleIndex={roleIndex}
-                      prominence={index === 0 ? 'lead' : index < 3 ? 'exec' : 'core'}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="mt-12">
+            <OrgChart tiers={tiers} roleIndex={roleIndex} />
           </div>
         )}
       </PageSection>

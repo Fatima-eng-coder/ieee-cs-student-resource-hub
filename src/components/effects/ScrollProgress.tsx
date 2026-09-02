@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { motion, useScroll, useSpring } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useSpring } from 'framer-motion';
+import { scrollBehavior } from './scrollBehavior';
 
 const sections = [
   { id: 'hero', label: 'Home' },
@@ -13,7 +14,14 @@ const sections = [
 /** Fixed vertical scroll-progress rail with per-section markers, gsap.com-style. */
 export default function ScrollProgress() {
   const { scrollYProgress } = useScroll();
-  const scaleY = useSpring(scrollYProgress, { stiffness: 220, damping: 40, mass: 0.4 });
+  const reduced = useReducedMotion();
+  // damping 40 against a critical value of ~18.8 was more than twice overdamped,
+  // so the rail crawled toward the real scroll position long after the wheel had
+  // stopped. ~1.07 tracks tightly without overshooting past the marker.
+  const smooth = useSpring(scrollYProgress, { stiffness: 300, damping: 22, mass: 0.35 });
+  // Reduced motion gets the raw value: still a progress bar, but with no motion
+  // of its own beyond the scroll the visitor is driving.
+  const scaleY = reduced ? scrollYProgress : smooth;
   const [active, setActive] = useState('hero');
 
   useEffect(() => {
@@ -44,7 +52,7 @@ export default function ScrollProgress() {
           <button
             key={s.id}
             type="button"
-            onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: scrollBehavior() })}
             data-cursor="link"
             className="group pointer-events-auto relative z-10 flex h-4 w-4 items-center justify-center"
             aria-label={`Jump to ${s.label}`}

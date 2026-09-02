@@ -6,8 +6,19 @@ import { AdminField, AdminInput } from '@/components/admin/AdminField';
 import { useNavLinks } from '@/hooks/useNavLinks';
 import { makeId } from '@/utils/storage';
 
+/**
+ * What the admin typed, as the router will actually read it. A bare "events" is a relative
+ * path React Router would resolve against whatever page the visitor is on, so anything that is
+ * not an absolute URL is anchored at the site root.
+ */
+const normalisePath = (raw: string) => {
+  const to = raw.trim();
+  if (!to) return '';
+  return /^https?:\/\//i.test(to) ? to : `/${to.replace(/^\/+/, '')}`;
+};
+
 export default function AdminNavbarPage() {
-  const { items, loaded, update, setAll, add, remove, error: loadError } = useNavLinks();
+  const { items, loaded, update, setAll, add, remove, error: navbarError } = useNavLinks();
   const [draft, setDraft] = useState({ label: '', to: '' });
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -23,15 +34,41 @@ export default function AdminNavbarPage() {
     setAll(next);
   };
 
-  const addLink = () => {
-    setFormError(null);
-    if (!loaded) return setFormError('The navbar has not been read yet, so it cannot be edited.');
+  /**
+   * Said here rather than left to the database, which has no CHECK on nav_links at all and
+   * would take "Home " twice or a path with a space in it without complaint — and then serve
+   * both to every visitor.
+   */
+  const validate = (): string | null => {
+    if (!loaded) return 'The navbar has not been read yet, so it cannot be edited.';
+
     const label = draft.label.trim();
-    let to = draft.to.trim();
-    if (!label) return setFormError('Give the link a label.');
-    if (!to) return setFormError('Add the path the link points to.');
-    if (!to.startsWith('/') && !to.startsWith('http')) to = `/${to}`;
-    add({ id: makeId('nl'), label, to, enabled: true });
+    const to = normalisePath(draft.to);
+
+    if (!label) return 'Give the link a label — it is the word visitors will see.';
+    if (!draft.to.trim()) return 'Add the path the link points to, such as /events.';
+    if (/\s/.test(to)) return 'A path cannot contain spaces. Try /projects-expo rather than /projects expo.';
+    if (to === '/') {
+      // The logo already goes home, so a second one is a link nobody needs and a duplicate
+      // the check below would not catch if the labels differ.
+      if (items.some((l) => l.to === '/')) return 'The navbar already has a link to the home page.';
+    }
+    if (items.some((l) => l.label.trim().toLowerCase() === label.toLowerCase())) {
+      return `The navbar already has a link labelled "${label}". Two identical labels give visitors no way to tell them apart.`;
+    }
+    if (items.some((l) => l.to === to)) {
+      const existing = items.find((l) => l.to === to);
+      return `"${existing?.label}" already points at ${to}.`;
+    }
+    return null;
+  };
+
+  const addLink = () => {
+    const problem = validate();
+    setFormError(problem);
+    if (problem) return;
+
+    add({ id: makeId('nl'), label: draft.label.trim(), to: normalisePath(draft.to), enabled: true });
     setDraft({ label: '', to: '' });
   };
 
@@ -39,15 +76,15 @@ export default function AdminNavbarPage() {
     <div>
       <AdminTopbar title="Navbar" subtitle="Choose which links show in the site navbar, and their order" />
       <div className="p-4 sm:p-6">
-        {loadError && (
+        {navbarError && (
           <p className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
-            {loadError}
+            {navbarError}
           </p>
         )}
 
         {/* Editing what was never read would save this page's idea of the navbar over the real
             one, so until a read succeeds there is nothing here to edit. */}
-        {!loaded && !loadError && (
+        {!loaded && !navbarError && (
           <p className="mb-4 rounded-xl border border-black/5 bg-white px-4 py-3 text-sm text-slate-500">
             Loading the navbar…
           </p>
@@ -136,15 +173,25 @@ export default function AdminNavbarPage() {
             <h3 className="font-display text-base font-bold text-slate-900">Add a Link</h3>
             <p className="mt-1 text-xs text-slate-500">Point it at any page on the site.</p>
             <div className="mt-4 flex flex-col gap-3">
-              <AdminField label="Label">
+              <AdminField label="Label" required>
                 <AdminInput
                   value={draft.label}
-                  onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+                  onChange={(e) => {
+                    setDraft({ ...draft, label: e.target.value });
+                    setFormError(null);
+                  }}
                   placeholder="Registrations"
                 />
               </AdminField>
-              <AdminField label="Path" hint="e.g. /events or /forms/123">
-                <AdminInput value={draft.to} onChange={(e) => setDraft({ ...draft, to: e.target.value })} placeholder="/events" />
+              <AdminField label="Path" required hint="A page on this site, e.g. /events or /forms/123. A full https:// address works too.">
+                <AdminInput
+                  value={draft.to}
+                  onChange={(e) => {
+                    setDraft({ ...draft, to: e.target.value });
+                    setFormError(null);
+                  }}
+                  placeholder="/events"
+                />
               </AdminField>
               {formError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600">{formError}</p>}
               <button

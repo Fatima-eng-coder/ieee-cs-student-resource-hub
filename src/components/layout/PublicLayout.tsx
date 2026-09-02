@@ -13,7 +13,20 @@ export default function PublicLayout() {
   const location = useLocation();
 
   return (
-    <div className="cursor-none-fine flex min-h-screen flex-col">
+    /*
+     * The native cursor is NOT hidden here any more.
+     *
+     * This div carried `cursor-none-fine` unconditionally while CursorField decided separately
+     * whether to draw a replacement. Two independent decisions about one cursor, and when they
+     * disagreed the page had no pointer at all — not the custom one, not the real one, visible
+     * only over links because those set `cursor: pointer` and win. That is exactly what
+     * happened, and it makes the site unusable rather than merely unstyled.
+     *
+     * Hiding the real cursor belongs to whatever is drawing the replacement, so it can only
+     * ever be hidden while something is actually there. Until CursorField owns that, the real
+     * cursor stays — a page with an ordinary pointer is fine; a page with none is not.
+     */
+    <div className="flex min-h-screen flex-col">
       {/* One persistent 3D field for the whole site — mounted once here so it
           never remounts (and stutters) between page navigations. */}
       <AnimatedBackground />

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type MouseEvent as ReactMouseEvent } from 'react';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 
 interface MagneticProps {
@@ -14,15 +14,30 @@ export default function Magnetic({ children, strength = 0.35, className }: Magne
   const y = useMotionValue(0);
   const springX = useSpring(x, { stiffness: 220, damping: 18, mass: 0.4 });
   const springY = useSpring(y, { stiffness: 220, damping: 18, mass: 0.4 });
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const q = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(q.matches);
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
+    q.addEventListener('change', onChange);
+    return () => q.removeEventListener('change', onChange);
+  }, []);
 
   function handleMouseMove(e: ReactMouseEvent<HTMLDivElement>) {
     const el = ref.current;
-    if (!el) return;
+    if (!el || reduced) return;
     const rect = el.getBoundingClientRect();
-    const offsetX = e.clientX - (rect.left + rect.width / 2);
-    const offsetY = e.clientY - (rect.top + rect.height / 2);
-    x.set(offsetX * strength);
-    y.set(offsetY * strength);
+    // getBoundingClientRect reports the *transformed* box, so the centre it
+    // gives has already been displaced by the pull we applied last frame.
+    // Subtracting the rendered offset measures against where the element rests,
+    // which stops the target from receding as the element chases it — that
+    // feedback both weakened the pull (0.35 behaved like 0.26) and left the
+    // spring settling against a moving goal, which is what read as lag.
+    const restCenterX = rect.left + rect.width / 2 - springX.get();
+    const restCenterY = rect.top + rect.height / 2 - springY.get();
+    x.set((e.clientX - restCenterX) * strength);
+    y.set((e.clientY - restCenterY) * strength);
   }
 
   function handleMouseLeave() {

@@ -6,7 +6,7 @@ import HeroSection from '@/components/layout/HeroSection';
 import QuickLinkGrid from '@/components/layout/QuickLinkGrid';
 import EventsShowcase from '@/components/home/EventsShowcase';
 import HierarchyOrbit from '@/components/home/HierarchyOrbit';
-import PromoSpotlight from '@/components/home/PromoSpotlight';
+import PromoBanners from '@/components/home/PromoBanners';
 import ScrollProgress from '@/components/effects/ScrollProgress';
 import Magnetic from '@/components/effects/Magnetic';
 import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
@@ -47,10 +47,13 @@ export default function HomePage() {
     <div className="relative">
       <ScrollProgress />
 
-      {/* Floats over the top of the hero rather than displacing it — see PromoSpotlight. */}
-      <PromoSpotlight />
-
       <HeroSection />
+
+      {/* Below the hero on purpose. The banners arrive after first paint, and the hero's
+          min-height keeps this insertion point past the fold, so nothing the reader can see at
+          scroll 0 moves when they land. Moving this above the hero reintroduces that shift. */}
+      <PromoBanners />
+
       <HierarchyOrbit />
       <QuickLinkGrid />
       <EventsShowcase events={flagship} />

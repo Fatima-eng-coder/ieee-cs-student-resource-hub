@@ -96,9 +96,16 @@ body {
   .cursor-none-fine { cursor: auto; }
 }
 
-html {
-  scroll-behavior: smooth;
-}
+/* No global `scroll-behavior: smooth` on <html>, deliberately.
+   A global rule animates EVERY scroll the browser performs on its own — find-in-page,
+   focus moves, back/forward restoration, and every scrollIntoView() that didn't ask
+   for it (the listbox keyboard navigation in SearchSelect and PlacePicker uses
+   `block: 'nearest'`, which must be instant or holding an arrow key glides instead of
+   tracking). It also gives every one of those a fixed duration regardless of distance,
+   so a long jump blurs past the page at whatever speed it takes to finish on time.
+   There are no in-page anchor links in this app, and every scroll that genuinely wants
+   smoothing already passes `behavior: 'smooth'` explicitly, so nothing intentional
+   loses anything here. */
 
 /* Never allow sideways scroll — decorative glows/rings extend past the
    viewport on small screens; clip them instead of creating a dead scroll gutter.

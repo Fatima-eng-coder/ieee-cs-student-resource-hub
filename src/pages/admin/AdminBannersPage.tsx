@@ -10,6 +10,7 @@ import { adminAuthService } from '@/services/adminAuthService';
 import {
   bannersService,
   BANNER_TYPES,
+  isOpenableBannerLink,
   type AdminBanner,
   type BannerSaveInput,
   type BannerType,
@@ -67,10 +68,21 @@ function BannerImageField({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="group flex aspect-[16/9] w-full overflow-hidden rounded-xl border border-black/10 bg-ieee-ink transition hover:border-ieee-orange/60"
+        className="group relative flex aspect-[16/9] w-full overflow-hidden rounded-xl border border-black/10 bg-ieee-ink transition hover:border-ieee-orange/60"
       >
         {hasFile(displayUrl) ? (
-          <img src={displayUrl} alt="Banner preview" className="h-full w-full object-cover" />
+          // The same treatment the homepage banner gives it: the whole image over a blurred
+          // copy of itself. Previewing it as a cropped 16:9 fill here would show the admin a
+          // framing the site never produces, and a poster would lose its title to the crop.
+          <>
+            <img
+              src={displayUrl}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full scale-125 object-cover opacity-50 blur-2xl"
+            />
+            <img src={displayUrl} alt="Banner preview" className="relative m-auto max-h-full max-w-full object-contain" />
+          </>
         ) : (
           <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 border-2 border-dashed border-slate-300 bg-white text-slate-400 group-hover:border-ieee-orange/60 group-hover:text-ieee-orange">
             <ImagePlus className="h-5 w-5" />
@@ -141,7 +153,9 @@ export default function AdminBannersPage() {
     ? 'Add the link this button should open, or clear the label.'
     : ctaLink && !ctaLabel
       ? 'Add the button label for this link, or clear the link.'
-      : '';
+      : ctaLink && !isOpenableBannerLink(ctaLink)
+        ? 'The homepage will not open a link like this. Use a site path such as /events, or a full https:// address.'
+        : '';
 
   const save = async () => {
     if (!draft) return;
@@ -296,7 +310,7 @@ export default function AdminBannersPage() {
     <div>
       <AdminTopbar
         title="Banners"
-        subtitle="Promotional banners stored on the site database"
+        subtitle="Shown on the homepage below the hero, in rotation with promoted events and announcements"
         action={
           canManage ? (
             <button
@@ -340,7 +354,7 @@ export default function AdminBannersPage() {
       <AdminEditDrawer
         open={!!draft}
         title={isNew ? 'Add Banner' : 'Edit Banner'}
-        subtitle="Stored centrally, so every editor sees the same banners."
+        subtitle="Published banners appear on the homepage, one at a time, rotating every 18 seconds."
         onClose={closeDraft}
         footer={
           <button
@@ -355,7 +369,10 @@ export default function AdminBannersPage() {
       >
         {draft && (
           <div className="flex flex-col gap-4">
-            <AdminField label="Banner artwork" hint="PNG, JPG or WebP, up to 5 MB. Optional.">
+            <AdminField
+              label="Banner artwork"
+              hint="PNG, JPG or WebP, up to 5 MB. Optional — a banner with no artwork gets a text-only layout. Shown whole, so a tall poster and a wide photo both work."
+            >
               <BannerImageField
                 imageUrl={draft.image}
                 selectedFile={selectedImage}
@@ -404,24 +421,40 @@ export default function AdminBannersPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <AdminField label="Sort order" hint="Lower numbers show first.">
-                <AdminInput
-                  type="number"
-                  value={draft.sortOrder}
-                  onChange={(e) => setDraft({ ...draft, sortOrder: Number(e.target.value) })}
-                />
-              </AdminField>
-              <label className="flex items-end gap-2 pb-3 text-sm font-medium text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={draft.isPublished}
-                  onChange={(e) => setDraft({ ...draft, isPublished: e.target.checked })}
-                  className="accent-ieee-orange"
-                />
-                Published
-              </label>
-            </div>
+            <AdminField
+              label="Sort order"
+              hint="Lower numbers show first. The homepage rotates these together with promoted events and announcements, which bring their own order from their own screens; banners lead when the numbers tie."
+            >
+              <AdminInput
+                type="number"
+                value={draft.sortOrder}
+                onChange={(e) => setDraft({ ...draft, sortOrder: Number(e.target.value) })}
+              />
+            </AdminField>
+
+            {/* The consequence, not just the flag. A banner saved as a draft is invisible to
+                everyone but the team, and "I saved it and nothing happened" is the only
+                symptom that state has. */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                draft.isPublished ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={draft.isPublished}
+                onChange={(e) => setDraft({ ...draft, isPublished: e.target.checked })}
+                className="mt-0.5 accent-ieee-orange"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-slate-800">Published</span>
+                <span className="block text-xs text-slate-600">
+                  {draft.isPublished
+                    ? 'Visitors see this on the homepage as soon as it is saved.'
+                    : 'Kept as a draft. Nobody outside the team sees it until this is ticked.'}
+                </span>
+              </span>
+            </label>
           </div>
         )}
       </AdminEditDrawer>

@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { navLinksService } from '@/services/navLinksService';
 import type { NavLinkItem } from '@/types';
 
+/** How long a burst of toggles is collected before it becomes one whole-navbar upsert. */
+const SAVE_DEBOUNCE_MS = 350;
+
 const navLinksAreEqual = (a: NavLinkItem[], b: NavLinkItem[]) =>
   a.length === b.length &&
   a.every((item, index) => {
@@ -20,91 +23,213 @@ const navLinksAreEqual = (a: NavLinkItem[], b: NavLinkItem[]) =>
  * So it starts empty and only ever holds what was actually read. `loaded` is the guard: until a
  * read has succeeded there is nothing to edit, and every write path refuses, because a save
  * built on data this hook never read is a save that destroys data.
+ *
+ * The other half of the problem is time. Editing is optimistic and debounced, so for a few
+ * hundred milliseconds this page knows something the database does not; realtime meanwhile
+ * re-reads on every change to the table, including the echo of this client's own write. A read
+ * that started before the current state was reached is a photograph of a navbar that has since
+ * moved on, and painting it is what made the toggles appear to flip themselves back. So a read
+ * result is applied only when this client has nothing outstanding and nothing has changed under
+ * it since the read began; otherwise it is dropped and re-asked for once the writes settle,
+ * which is also how another admin's change arrives here.
  */
 export function useNavLinks() {
   const [items, setItems] = useState<NavLinkItem[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [writeError, setWriteError] = useState<string | null>(null);
+
+  /**
+   * `items` mirrored, because every edit is composed from the current list and React only
+   * hands that to a state updater — and a state updater is no place to start a network write.
+   * React re-runs updaters (StrictMode does it on every render in development), so the delete
+   * that used to live inside one was issued twice, and the second call found the row already
+   * gone and reported the successful delete as a failure.
+   */
+  const itemsRef = useRef<NavLinkItem[]>([]);
   const loadedRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingItems = useRef<NavLinkItem[] | null>(null);
+  const writesInFlight = useRef(0);
+
+  /**
+   * Bumped by every local edit and by every write that finishes. A read that began at an
+   * earlier value cannot describe the navbar this client is now looking at, whichever of the
+   * two the server answered from.
+   */
+  const revision = useRef(0);
+
+  /** A read whose answer was dropped. One is taken as soon as there is nothing outstanding. */
+  const refreshQueued = useRef(false);
+
+  const hasOutstandingWrite = () =>
+    saveTimer.current !== null || pendingItems.current !== null || writesInFlight.current > 0;
 
   const applyItems = useCallback((next: NavLinkItem[]) => {
-    setItems((current) => (navLinksAreEqual(current, next) ? current : next));
+    if (navLinksAreEqual(itemsRef.current, next)) return;
+    itemsRef.current = next;
+    setItems(next);
   }, []);
 
   const load = useCallback(async () => {
+    const startedAt = revision.current;
+
     try {
-      applyItems(await navLinksService.list());
+      const fresh = await navLinksService.list();
+      setReadError(null);
+
+      // The read succeeded, so the error is cleared either way — but its answer is only the
+      // truth about the navbar if nothing of this client's has happened since it was asked.
+      if (revision.current !== startedAt || hasOutstandingWrite()) {
+        refreshQueued.current = true;
+        return;
+      }
+
+      applyItems(fresh);
       loadedRef.current = true;
       setLoaded(true);
-      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load navbar links.');
+      setReadError(err instanceof Error ? err.message : 'Failed to load navbar links.');
     }
   }, [applyItems]);
 
-  const scheduleSave = useCallback((next: NavLinkItem[]) => {
-    // Read as a ref, not as state: a stale closure here would be the difference between
-    // refusing a destructive save and performing one.
-    if (!loadedRef.current) {
-      setError('The navbar could not be read, so it cannot be saved. Reload before editing.');
-      return;
-    }
-    pendingItems.current = next;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      saveTimer.current = null;
-      pendingItems.current = null;
-      void navLinksService.saveAll(next).then(
-        () => setError(null),
-        (err) => setError(err instanceof Error ? err.message : 'Failed to save navbar links.')
-      );
-    }, 350);
-  }, []);
+  /**
+   * The read that was put off while this client was mid-write. It is how a change another
+   * admin made during the edit reaches this page, and how a refused write gets the truth back
+   * onto it — so it runs on failure as much as on success.
+   */
+  const settle = useCallback(() => {
+    if (hasOutstandingWrite() || !refreshQueued.current) return;
+    refreshQueued.current = false;
+    void load();
+  }, [load]);
 
-  const persist = useCallback((next: NavLinkItem[]) => {
-    setItems(next);
-    scheduleSave(next);
-  }, [scheduleSave]);
+  const runSave = useCallback(
+    (next: NavLinkItem[]) => {
+      writesInFlight.current += 1;
 
-  const add = useCallback((item: NavLinkItem) => {
-    setItems((current) => {
-      const next = [item, ...current];
-      scheduleSave(next);
-      return next;
-    });
-  }, [scheduleSave]);
-
-  const update = useCallback(
-    (id: string, patch: Partial<NavLinkItem>) => {
-      setItems((current) => {
-        const next = current.map((item) => (item.id === id ? { ...item, ...patch } : item));
-        scheduleSave(next);
-        return next;
-      });
+      void navLinksService
+        .saveAll(next)
+        .then(() => setWriteError(null))
+        .catch((err: unknown) => {
+          setWriteError(err instanceof Error ? err.message : 'Failed to save navbar links.');
+          // The page is showing an edit the database refused. Take the server's copy back so
+          // it stops claiming a change that never happened.
+          refreshQueued.current = true;
+        })
+        .finally(() => {
+          writesInFlight.current -= 1;
+          revision.current += 1;
+          settle();
+        });
     },
-    [scheduleSave]
+    [settle]
   );
 
-  const remove = useCallback((id: string) => {
-    if (!loadedRef.current) {
-      setError('The navbar could not be read, so it cannot be edited. Reload before editing.');
-      return;
-    }
-    setItems((current) => {
-      const next = current.filter((item) => item.id !== id);
-      scheduleSave(next);
-      void navLinksService.remove(id).catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to remove navbar link.');
-      });
-      return next;
-    });
-  }, [scheduleSave]);
+  /** False when the edit was refused, so the caller knows not to show it either. */
+  const scheduleSave = useCallback(
+    (next: NavLinkItem[]) => {
+      // Read as a ref, not as state: a stale closure here would be the difference between
+      // refusing a destructive save and performing one.
+      if (!loadedRef.current) {
+        setWriteError('The navbar could not be read, so it cannot be saved. Reload before editing.');
+        return false;
+      }
+
+      revision.current += 1;
+      pendingItems.current = next;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        saveTimer.current = null;
+        pendingItems.current = null;
+        runSave(next);
+      }, SAVE_DEBOUNCE_MS);
+
+      return true;
+    },
+    [runSave]
+  );
+
+  /**
+   * An edit reaches the screen only once it has been accepted for saving. A page that shows a
+   * change it was never allowed to write is a page that lies about the state of the site.
+   */
+  const commit = useCallback(
+    (next: NavLinkItem[]) => {
+      if (!scheduleSave(next)) return;
+      applyItems(next);
+    },
+    [applyItems, scheduleSave]
+  );
+
+  const add = useCallback((item: NavLinkItem) => commit([item, ...itemsRef.current]), [commit]);
+
+  const update = useCallback(
+    (id: string, patch: Partial<NavLinkItem>) =>
+      commit(itemsRef.current.map((item) => (item.id === id ? { ...item, ...patch } : item))),
+    [commit]
+  );
+
+  /**
+   * The delete goes first, and the upsert that renumbers what is left only follows a delete
+   * that actually happened.
+   *
+   * Run side by side, as they were, the two writes race: nothing sequences them, and the
+   * moment a read lands between the delete being issued and the upsert being sent — which the
+   * realtime subscription makes routine — the server's copy still holds the deleted row, puts
+   * it back into this page's list, and the next edit sweeps it into the upsert payload, which
+   * re-inserts it. The link reappears in the navbar with no one having asked for it.
+   *
+   * Sequencing also makes a refusal legible: a delete the row-level policy filtered out no
+   * longer leaves the page renumbering rows around a link that is still live on the site.
+   */
+  const remove = useCallback(
+    (id: string) => {
+      if (!loadedRef.current) {
+        setWriteError('The navbar could not be read, so it cannot be edited. Reload before editing.');
+        return;
+      }
+
+      const next = itemsRef.current.filter((item) => item.id !== id);
+      if (next.length === itemsRef.current.length) return;
+
+      // Whatever the debounce is still holding was composed before this delete and still names
+      // the row, so it is dropped rather than sent. Nothing is lost with it: every edit it
+      // carried is already in `next`, which is built from the list on screen.
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      pendingItems.current = null;
+
+      applyItems(next);
+      revision.current += 1;
+      writesInFlight.current += 1;
+
+      void navLinksService
+        .remove(id)
+        .then(() => {
+          setWriteError(null);
+          // sort_order is a link's position in this array, so everything past the gap moved.
+          runSave(next);
+        })
+        .catch((err: unknown) => {
+          setWriteError(err instanceof Error ? err.message : 'Failed to remove navbar link.');
+          refreshQueued.current = true;
+        })
+        .finally(() => {
+          writesInFlight.current -= 1;
+          revision.current += 1;
+          settle();
+        });
+    },
+    [applyItems, runSave, settle]
+  );
 
   useEffect(() => {
     void load();
     const unsubscribeRealtime = navLinksService.subscribe(() => void load());
+
     return () => {
       if (saveTimer.current) {
         clearTimeout(saveTimer.current);
@@ -119,5 +244,15 @@ export function useNavLinks() {
     };
   }, [load]);
 
-  return { items, loaded, error, add, update, remove, setAll: persist, reload: load };
+  return {
+    items,
+    loaded,
+    /** A refused write is the more urgent of the two: the admin just did something, and it did not take. */
+    error: writeError ?? readError,
+    add,
+    update,
+    remove,
+    setAll: commit,
+    reload: load,
+  };
 }

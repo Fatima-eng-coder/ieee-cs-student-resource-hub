@@ -1,4 +1,4 @@
-import { motion, useScroll, useSpring } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useSpring } from 'framer-motion';
 
 /**
  * Thin curved progress indicator that sits right at the top edge of the
@@ -7,7 +7,11 @@ import { motion, useScroll, useSpring } from 'framer-motion';
  */
 export default function CurvedScrollBar() {
   const { scrollYProgress } = useScroll();
-  const progress = useSpring(scrollYProgress, { stiffness: 220, damping: 40, mass: 0.4 });
+  const reduced = useReducedMotion();
+  // Matches ScrollProgress: near-critical rather than twice-overdamped, so the
+  // stroke keeps up with the wheel instead of easing in behind it.
+  const smooth = useSpring(scrollYProgress, { stiffness: 300, damping: 22, mass: 0.35 });
+  const progress = reduced ? scrollYProgress : smooth;
 
   return (
     <div className="pointer-events-none fixed left-0 right-0 top-0 z-40 h-4">

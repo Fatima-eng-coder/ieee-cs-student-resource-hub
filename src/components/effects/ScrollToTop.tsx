@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { scrollBehavior } from './scrollBehavior';
 
 /**
  * Resets scroll position to the top on every route change so navigating via a
@@ -17,7 +18,7 @@ export default function ScrollToTop() {
       // Let the target section win over a hard top-scroll.
       const el = document.getElementById(hash.slice(1));
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
         return;
       }
     }

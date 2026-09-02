@@ -157,6 +157,16 @@ function readError(error: { code?: string | null; message: string }): Error {
 
 function memberError(error: { code?: string | null; message: string }, action: string): Error {
   if (error.code === '42501') return new Error(`Only content managers can ${action}.`);
+  // A row-level-security refusal on UPDATE is not an error: Postgres filters the row out of
+  // the statement, so PostgREST returns no rows and `.single()` fails with PGRST116 instead of
+  // 42501. Reported raw — "JSON object requested, multiple (or no) rows returned" — it reads
+  // as a bug in the page rather than as a save that did not happen, which is how an edit that
+  // silently changed nothing gets mistaken for one that worked.
+  if (error.code === 'PGRST116') {
+    return new Error(
+      `Nothing was saved. Only content managers can ${action}, and this member may also have been removed by someone else. Reload to see what is stored.`
+    );
+  }
   if (error.code === '23505') {
     return new Error('That seat is already filled. Give this person a different seat, or edit the one already there.');
   }
@@ -165,6 +175,26 @@ function memberError(error: { code?: string | null; message: string }, action: s
   }
   if (error.code === '23514') return new Error('Please enter a name, and a seat number of 1 or more.');
   return new Error(error.message);
+}
+
+/**
+ * Both term RPCs raise the same two SQLSTATEs deliberately, so they map the same way.
+ *
+ * 42501 is the function's own permission check rather than a policy: both are SECURITY
+ * DEFINER, so a refusal arrives as a raised exception with a message, not as the silent
+ * zero-row filtering a plain table write would produce.
+ *
+ * `PGRST202` is worth naming: it is PostgREST reporting that the function does not exist,
+ * which is what a project restored without 20260902001000_hierarchy_tiers_and_archive_terms
+ * looks like. Left generic it reads as a broken button rather than as a missing migration.
+ */
+function termError(error: { code?: string | null; message: string }, action: string): Error {
+  if (error.code === '42501') return new Error(`Only content managers can ${action}.`);
+  if (error.code === '22023') return new Error('A term code and a label are both required.');
+  if (error.code === 'PGRST202') {
+    return new Error('This project is missing the database function that does that. Its migrations need applying.');
+  }
+  return new Error(error.message || 'That term could not be saved. Please try again.');
 }
 
 /**
@@ -357,10 +387,32 @@ export const hierarchyService = {
     return toMember(data as HierarchyMemberRow);
   },
 
+  /**
+   * Removes the row first, then the portrait behind it — and only if the row really went.
+   *
+   * A refused DELETE is not an error here either: the policy filters the row out and PostgREST
+   * answers 204 with nothing to complain about, so the caller would drop the card from the
+   * page and sweep the photograph out of the bucket for a member who is still published. The
+   * count is the only evidence, and only an explicit zero counts — a null count means the
+   * server did not send the header, which is not the same as "no rows matched".
+   *
+   * Reachable without anyone doing anything strange: canManageContent() reads a profile cached
+   * at login, so an admin demoted mid-session still passes the client-side gate.
+   */
   async removeMember(member: HierarchyMemberRecord): Promise<void> {
     await refreshAuthSession();
-    const { error } = await supabase.from('hierarchy_members').delete().eq('id', member.id);
+    const { error, count } = await supabase
+      .from('hierarchy_members')
+      .delete({ count: 'exact' })
+      .eq('id', member.id);
+
     if (error) throw memberError(error, 'remove someone from the council');
+    if (count === 0) {
+      throw new Error(
+        'Nothing was removed. Only content managers can remove someone from the council, and this member may already be gone. Reload to see what is stored.'
+      );
+    }
+
     await discardOrphanedPhoto(member.photoPath);
   },
 
@@ -384,12 +436,31 @@ export const hierarchyService = {
     await refreshAuthSession();
     const { data, error } = await supabase.rpc('start_hierarchy_term', { new_term: code, new_label: name });
 
-    if (error) {
-      if (error.code === '42501') throw new Error('Only content managers can start a new term.');
-      if (error.code === '22023') throw new Error('A term code and a label are both required.');
-      throw new Error(error.message || 'That term could not be started. Please try again.');
-    }
+    if (error) throw termError(error, 'start a new term');
+    return toTerm(data as HierarchyTermRow);
+  },
 
+  /**
+   * Files a term without giving it the site.
+   *
+   * The counterpart to startTerm, and the only way to enter a council that has already
+   * finished. start_hierarchy_term promotes whatever it creates, so using it for a 2024
+   * archive would hand the homepage, the About page and the Hierarchy page to a term from two
+   * years ago; add_hierarchy_term never touches is_current on any row.
+   *
+   * Adding a code that already exists corrects its public name and leaves everything else
+   * alone — including which term is serving, so this can never be the thing that archives the
+   * current council by accident.
+   */
+  async addTerm(term: string, label: string): Promise<HierarchyTermRecord> {
+    const code = term.trim();
+    const name = label.trim();
+    if (!code || !name) throw new Error('A term code and a label are both required.');
+
+    await refreshAuthSession();
+    const { data, error } = await supabase.rpc('add_hierarchy_term', { new_term: code, new_label: name });
+
+    if (error) throw termError(error, 'add a term to the archive');
     return toTerm(data as HierarchyTermRow);
   },
 
