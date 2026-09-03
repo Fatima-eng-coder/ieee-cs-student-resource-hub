@@ -64,16 +64,35 @@ const FLOOR_DISPLAY_NAMES: Record<string, string> = {
 export interface Floor extends BuildingFloor {
   /** Normalised display name. */
   label: string;
-  /** One or two characters for the floor rail: G, 1, 2, 3. */
+  /** Two characters for the floor rail: GF, F1, F2, F3. */
   badge: string;
 }
+
+/**
+ * The label on a floor button.
+ *
+ * `shortName` in the dataset reads "G", "1", "2", "3", and a bare digit on a button does not
+ * say "floor" -- least of all in the floor rail, where the route's leg number is also a bare
+ * digit in a badge pinned to the same button. Two numbers on one control, meaning different
+ * things.
+ *
+ * Derived here rather than corrected in building.json, for the same reason FLOOR_DISPLAY_NAMES
+ * above is: that file is surveyed building data shared with the separate 3D navigator, and how
+ * this site abbreviates a floor is not a fact about the building. Falls back to `shortName` for
+ * any floor the rule does not describe, so a basement would still render something.
+ */
+const floorBadge = (floor: BuildingFloor): string => {
+  if (floor.level === 0) return 'GF';
+  if (floor.level > 0) return `F${floor.level}`;
+  return floor.shortName;
+};
 
 export const floors: Floor[] = [...dataset.floors]
   .sort((a, b) => a.level - b.level)
   .map((f) => ({
     ...f,
     label: FLOOR_DISPLAY_NAMES[f.id] ?? f.name,
-    badge: f.shortName,
+    badge: floorBadge(f),
   }));
 
 /** Floors top-down, which is how a vertical floor rail should read. */

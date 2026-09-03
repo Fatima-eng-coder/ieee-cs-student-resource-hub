@@ -147,7 +147,7 @@ src/
 | `pathfinding.ts` | Dijkstra over the graph, returning the path split into **one leg per floor** plus the stair/lift transition joining them. Two travel modes: `stairs` (default) and `lift` (step-free) |
 | `directions.ts` | Turns a route into turn-by-turn steps. Simplifies the raw polyline (Douglas–Peucker → gentle-bend merge → short-segment merge) so half-metre corridor jogs don't each become a step, while distances stay summed along the *real* path |
 | `search.ts` | Fuzzy place search — `cl11`, `CL 11` and `cl-11` all find CL-11; `washroom` lists every washroom grouped by floor. Also feeds the site-wide search box via `utils/navigationSearch.ts` |
-| `labels.ts` | Fits room names into room boxes: longest form that fits, wrapped to two lines before abbreviating ("Female Washrooms" → "Female WC" → "F. WC" → "FW") |
+| `labels.ts` | Fits room names into room boxes: longest form that fits, wrapped to two lines before abbreviating ("Female Washrooms" → "Female WR" → "F. WR" → "FW") |
 | `geometry.ts` | World (x east / z north) → SVG (y down) conversion, rounded route paths, view fitting |
 
 **The interface** (`src/components/navigation`)

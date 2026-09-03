@@ -43,7 +43,7 @@ export default function ThreeDNavigatorCard() {
     <section className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
       <div className="grid lg:grid-cols-[1.05fr_1fr]">
         {/* ---- Preview -------------------------------------------- */}
-        <div className="relative flex min-h-[17rem] flex-col justify-center overflow-hidden bg-[#EFE9DC] p-3 sm:p-5">
+        <div className="relative flex min-h-[12rem] flex-col justify-center overflow-hidden bg-[#EFE9DC] p-3 sm:min-h-[17rem] sm:p-5">
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.45]"
             style={{
@@ -65,29 +65,23 @@ export default function ThreeDNavigatorCard() {
           <p className="font-mono text-[11px] font-semibold tracking-widest text-ieee-orange uppercase">
             Companion app
           </p>
-          <h2 className="mt-3 font-display text-2xl leading-tight font-bold text-slate-900 sm:text-3xl">
+          <h2 className="mt-3 font-display text-xl leading-tight font-bold text-slate-900 sm:text-2xl lg:text-3xl">
             Don't know the lab? Install the model and find it whenever you're stuck.
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            The same building, walked in 3D. Because the model is heavy it runs as its own installable app — so it
-            never slows this site down, and it keeps working after you've lost signal three floors up.
-          </p>
 
-          <ul className="mt-6 grid gap-4 sm:grid-cols-2">
-            {FEATURES.map(({ icon: Icon, title, body }) => (
-              <li key={title} className="flex gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ieee-orange/10 text-ieee-orange">
-                  <Icon className="h-4 w-4" strokeWidth={2} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-slate-800">{title}</span>
-                  <span className="mt-0.5 block text-xs leading-snug text-slate-500">{body}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          {/*
+            The link sits directly under the headline -- above the explanation and above the
+            feature list, not at the bottom of the column where it was.
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+            Where it was, it was the last thing in the last column: on a 375px phone that is
+            about 740px down, four feature rows past the fold, so the only people who reached it
+            were the ones already sold. Everything below it now argues the case; the button
+            itself does not need the argument to have been read first.
+
+            Moved in the DOM rather than with a responsive `order`, so the reading order a
+            keyboard and a screen reader follow is the order on screen -- on both layouts.
+          */}
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <a
               href={NAVIGATOR_3D_URL}
               target="_blank"
@@ -102,6 +96,25 @@ export default function ThreeDNavigatorCard() {
               Opens in a new tab · then use your browser's <span className="font-medium text-slate-500">Install app</span> option
             </p>
           </div>
+
+          <p className="mt-4 text-sm leading-relaxed text-slate-600">
+            The same building, walked in 3D. Because the model is heavy it runs as its own installable app — so it
+            never slows this site down, and it keeps working after you've lost signal three floors up.
+          </p>
+          <ul className="mt-7 grid gap-4 sm:grid-cols-2">
+            {FEATURES.map(({ icon: Icon, title, body }) => (
+              <li key={title} className="flex gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ieee-orange/10 text-ieee-orange">
+                  <Icon className="h-4 w-4" strokeWidth={2} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-800">{title}</span>
+                  <span className="mt-0.5 block text-xs leading-snug text-slate-500">{body}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
         </div>
       </div>
     </section>

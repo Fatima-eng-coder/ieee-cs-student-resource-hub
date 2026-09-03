@@ -13,10 +13,14 @@
  * Ordered longest → shortest; the renderer walks down until something fits.
  */
 const SHORT_FORMS: Record<string, string[]> = {
-  'female washrooms': ['Female WC', 'F. WC'],
-  'female washroom': ['Female WC', 'F. WC'],
-  'male washrooms': ['Male WC', 'M. WC'],
-  'male washroom': ['Male WC', 'M. WC'],
+  // WR, not WC. Both are read here as "washroom", which is the word on the signage and the
+  // word people use for these rooms; "WC" is a plumbing fixture and reads as foreign. The keys
+  // are lookup keys matching the surveyed names in building.json and must not change -- only
+  // the forms on the right are ever drawn.
+  'female washrooms': ['Female WR', 'F. WR'],
+  'female washroom': ['Female WR', 'F. WR'],
+  'male washrooms': ['Male WR', 'M. WR'],
+  'male washroom': ['Male WR', 'M. WR'],
   'female prayer room': ['Prayer Room', 'Prayer', 'F. Prayer'],
   administration: ['Admin'],
   'fyp lab': ['FYP'],

@@ -40,6 +40,11 @@ body {
   50% { transform: translateY(-14px); }
 }
 
+@keyframes nudge-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
 @keyframes breathe {
   0%, 100% { transform: scale(1); opacity: 0.9; }
   50% { transform: scale(1.05); opacity: 1; }
@@ -58,6 +63,7 @@ body {
 .animate-spin-slow { animation: spin-slow 60s linear infinite; }
 .animate-spin-slow-reverse { animation: spin-slow-reverse 60s linear infinite; }
 .animate-float-y { animation: float-y 6s ease-in-out infinite; }
+.animate-nudge-y { animation: nudge-y 1.8s ease-in-out infinite; }
 .animate-breathe { animation: breathe 4s ease-in-out infinite; }
 .animate-marquee { animation: marquee 32s linear infinite; }
 .animate-marquee:hover { animation-play-state: paused; }
