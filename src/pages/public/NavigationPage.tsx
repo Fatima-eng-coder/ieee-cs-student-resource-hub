@@ -16,14 +16,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, ChevronDown, CircleDot, MapPin, Navigation as NavigationIcon, TriangleAlert, X } from 'lucide-react';
-import { scrollBehavior } from '@/components/effects/scrollBehavior';
+import { ArrowRight, CircleDot, MapPin, Navigation as NavigationIcon, TriangleAlert, X } from 'lucide-react';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import FloorPlan from '@/components/navigation/FloorPlan';
 import FloorRail from '@/components/navigation/FloorRail';
 import PlacePicker, { type PickerTarget } from '@/components/navigation/PlacePicker';
 import RoutePanel from '@/components/navigation/RoutePanel';
+import NavigationModePicker from '@/components/navigation/NavigationModePicker';
 import ThreeDNavigatorCard from '@/components/navigation/ThreeDNavigatorCard';
 import CategoryGlyph from '@/components/navigation/CategoryGlyph';
 import ChipScroller from '@/components/navigation/ChipScroller';
@@ -44,26 +44,14 @@ import type { Place } from '@/lib/navigation/types';
 
 const ROOM_COUNT = dataset.rooms.length;
 
-/** Anchor for the 3D section, so the map can point down at it and a link can address it. */
+/**
+ * Anchor for the 3D section. Nothing on this page points at it any more -- the choice moved to
+ * the top -- but /navigation#explore-in-3d stays a valid place to send somebody.
+ */
 const THREE_D_SECTION_ID = 'explore-in-3d';
 
 export default function NavigationPage() {
   const [params, setParams] = useSearchParams();
-
-  /**
-   * Smooth-scrolls to the 3D section instead of jumping.
-   *
-   * preventDefault only after the element is found: if it is not there, letting the browser
-   * handle the href is better than doing nothing. `scrollBehavior()` reads the visitor's motion
-   * preference at call time -- a `behavior: 'smooth'` argument beats the CSS property, so the
-   * reduced-motion block in index.css cannot switch this off on its own.
-   */
-  const scrollToThreeD = (event: React.MouseEvent<HTMLAnchorElement>) => {
-    const target = document.getElementById(THREE_D_SECTION_ID);
-    if (!target) return;
-    event.preventDefault();
-    target.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
-  };
 
   const originId = params.get('from');
   const destinationId = params.get('to');
@@ -226,6 +214,9 @@ export default function NavigationPage() {
             .
           </p>
         </div>
+
+        {/* ---- 2D or 3D --------------------------------------------- */}
+        <NavigationModePicker />
 
         {/* ---- From / To -------------------------------------------- */}
         <div className="mt-8">
@@ -409,37 +400,6 @@ export default function NavigationPage() {
           Drag to pan · scroll or pinch to zoom · tap any room for directions · {BUILDING_NAME}
         </p>
 
-        {/*
-          The way down to the 3D app.
-
-          Without this the flat map is the end of the page as far as most people are concerned:
-          it answers the question they arrived with, so they stop, and the 3D navigator below
-          goes unfound. So the map now ends by saying there is more, and says what it is --
-          "Explore the campus in 3D" rather than a bare arrow, because an arrow alone only
-          promises "more page".
-
-          An anchor rather than a button: it works with the keyboard, it can be opened in a new
-          tab, and it still points somewhere real if the click handler never runs. The handler
-          only upgrades the jump to a smooth one, at the motion setting the visitor asked for.
-        */}
-        <div className="mt-8 flex justify-center sm:mt-10">
-          <a
-            href={`#${THREE_D_SECTION_ID}`}
-            onClick={scrollToThreeD}
-            data-cursor="link"
-            className="group flex flex-col items-center gap-2 rounded-2xl px-5 py-3 text-center transition hover:bg-white/60"
-          >
-            <span className="font-mono text-[10px] font-semibold tracking-widest text-slate-400 uppercase">
-              There is more
-            </span>
-            <span className="font-display text-lg font-bold text-slate-900 sm:text-xl">
-              Explore the campus in 3D
-            </span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ieee-orange text-white shadow-sm transition group-hover:bg-ieee-orange-dark">
-              <ChevronDown className="h-5 w-5 animate-nudge-y" strokeWidth={2.4} />
-            </span>
-          </a>
-        </div>
       </PageSection>
 
       {/* ---- 3D companion ------------------------------------------- */}
