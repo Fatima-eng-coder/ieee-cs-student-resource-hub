@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, type Variants } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { groupByTier } from '@/components/hierarchy/groupByTier';
-import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
+import { MemberAvatar } from '@/components/hierarchy/MemberAvatar';
 import {
   hierarchyService,
   indexRoles,
@@ -132,17 +132,18 @@ export default function HierarchyOrbit() {
                       key={member.id}
                       variants={cardVariants}
                       data-cursor="link"
-                      className="group relative flex w-[4.25rem] flex-col items-center gap-2 text-center sm:w-24"
+                      className="group relative flex w-20 shrink-0 flex-col items-center gap-2 text-center sm:w-28"
                     >
                       <div
                         className="animate-float-y"
                         style={{ animationDelay: `${(i % 6) * 0.4}s`, animationDuration: `${5 + (i % 4)}s` }}
                       >
                         <div className="relative">
-                          <img
-                            src={member.photo || PLACEHOLDER_PHOTO}
+                          <MemberAvatar
+                            src={member.photo}
                             alt={member.name}
-                            className="h-14 w-14 rounded-full border-2 border-white/15 object-cover shadow-md transition-all duration-300 group-hover:scale-110 group-hover:border-ieee-orange/60 sm:h-20 sm:w-20"
+                            size="h-20 w-20 sm:h-28 sm:w-28"
+                            className="border-2 border-ieee-orange/55 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:border-ieee-orange"
                           />
                           <span className="absolute inset-0 rounded-full opacity-0 shadow-[0_0_0_6px_rgba(255,108,12,0.12)] transition-opacity duration-300 group-hover:opacity-100" />
                         </div>

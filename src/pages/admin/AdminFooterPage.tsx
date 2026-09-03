@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, ArrowUp, ArrowDown, Trash2, GripVertical, Info, Loader2, Check, Lock } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import FooterPreview from '@/components/admin/FooterPreview';
+import SocialLinksManager from '@/components/admin/SocialLinksManager';
 import { AdminField, AdminInput } from '@/components/admin/AdminField';
 import EmptyState from '@/components/ui/EmptyState';
 import { adminAuthService } from '@/services/adminAuthService';
@@ -166,6 +167,19 @@ export default function AdminFooterPage() {
 
         {loading ? (
           <EmptyState title="Loading footer links" description="Fetching the links the public footer renders." />
+        ) : error && links.length === 0 ? (
+          <EmptyState
+            title="The footer links could not be loaded"
+            description="Nothing has been changed. This is a failed read, not an empty footer — adding links here would duplicate whatever is already in the table."
+            action={
+              <button
+                onClick={() => void load()}
+                className="rounded-xl bg-ieee-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark"
+              >
+                Try again
+              </button>
+            }
+          />
         ) : (
           <>
             {/* Live replica */}
@@ -362,6 +376,8 @@ export default function AdminFooterPage() {
                 </div>
               )}
             </div>
+
+            <SocialLinksManager canManage={canManage} />
           </>
         )}
       </div>

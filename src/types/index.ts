@@ -352,6 +352,28 @@ export interface HierarchyRole {
   multiple: boolean;
 }
 
+/** The platforms a member's link can be tagged with, so a surface can pick an icon. */
+export const MEMBER_LINK_TYPES = [
+  'portfolio',
+  'github',
+  'linkedin',
+  'instagram',
+  'facebook',
+  'x',
+  'youtube',
+  'email',
+  'other',
+] as const;
+
+export type MemberLinkType = (typeof MEMBER_LINK_TYPES)[number];
+
+export interface MemberLink {
+  type: MemberLinkType;
+  /** Empty means "use the platform's own name". */
+  label: string;
+  url: string;
+}
+
 export interface HierarchyMember {
   id: string;
   name: string;
@@ -360,6 +382,14 @@ export interface HierarchyMember {
   /** Order among people sharing a role; ignored unless the role allows several. */
   seat?: number;
   photo: string;
+  /** Several typed links per person. Supersedes `email` and `linkedin` below. */
+  links: MemberLink[];
+  /**
+   * Kept because they are a published shape and rows may still carry values; every surface
+   * reads `links`, into which the migration folded whatever these held.
+   *
+   * @deprecated Use `links`.
+   */
   email?: string;
   linkedin?: string;
 }

@@ -31,7 +31,7 @@ const DISMISSED_KEY = 'ieeecs_promo_dismissed';
 const DISMISSED_LIMIT = 60;
 
 /** How long one promotion holds the floor before the next slides in. */
-const ROTATE_MS = 16_000;
+const ROTATE_MS = 10_000;
 
 const readDismissed = (): string[] => {
   const stored = readJSON<unknown>(DISMISSED_KEY, []);

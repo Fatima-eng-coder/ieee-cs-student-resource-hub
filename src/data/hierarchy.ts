@@ -17,7 +17,7 @@ export const hierarchyRoles: HierarchyRole[] = [
   { slug: 'faculty-advisor', title: 'Faculty Advisor', tier: 0, rank: 10, multiple: false },
   { slug: 'chairperson', title: 'Chairperson', tier: 1, rank: 10, multiple: false },
   { slug: 'vice-chairperson', title: 'Vice Chairperson', tier: 2, rank: 10, multiple: false },
-  { slug: 'general-secretary', title: 'General Secretary', tier: 3, rank: 10, multiple: false },
+  { slug: 'general-secretary', title: 'General Secretary', tier: 2, rank: 20, multiple: false },
   { slug: 'operations-manager', title: 'Operations Manager', tier: 4, rank: 10, multiple: false },
   { slug: 'web-master', title: 'Web Master', tier: 4, rank: 20, multiple: false },
   { slug: 'treasurer', title: 'Treasurer', tier: 4, rank: 30, multiple: false },
@@ -35,6 +35,7 @@ const member = (id: string, name: string, roleSlug: string, seat?: number) => ({
   name,
   roleSlug,
   seat,
+  links: [],
   photo: PLACEHOLDER_PHOTO,
 });
 

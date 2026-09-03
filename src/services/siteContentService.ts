@@ -21,11 +21,13 @@ const ORDER_STEP = 10;
 const faqColumns = 'id,question,answer,category,sort_order';
 const quickLinkColumns = 'id,label,url,category,icon,sort_order';
 const footerLinkColumns = 'id,label,path,footer_column,enabled,sort_order';
+const socialLinkColumns = 'id,platform,url,label,is_published,sort_order';
 
 /** Everything a reorder has to send back untouched — see writeOrder for why it sends it at all. */
 const faqContentColumns = 'id,question,answer,category';
 const quickLinkContentColumns = 'id,label,url,category,icon';
 const footerLinkContentColumns = 'id,label,path,footer_column,enabled';
+const socialLinkContentColumns = 'id,platform,url,label,is_published';
 
 /** sort_order is the admin's business, not the public site's, so only these carry it. */
 export interface AdminFaq extends FAQ {
@@ -607,5 +609,179 @@ export const footerLinksService = {
 
     const reordered = new Map(arranged.map((item) => [item.id, item]));
     return sortFooterLinks(links.map((item) => reordered.get(item.id) ?? item));
+  },
+};
+
+
+// ---------------------------------------------------------------------------------------
+// The chapter's own social accounts
+// ---------------------------------------------------------------------------------------
+//
+// The footer's social icons pointed at https://instagram.com and https://linkedin.com -- the
+// platforms' front pages, not this chapter's profiles. Nobody could correct that without a
+// deploy, so it sat wrong. These rows are what the footer reads now.
+
+/** The platforms the table's CHECK accepts. Keep in step with social_links_platform_check. */
+export const SOCIAL_PLATFORMS = [
+  'instagram',
+  'linkedin',
+  'facebook',
+  'x',
+  'youtube',
+  'github',
+  'website',
+  'email',
+] as const;
+
+export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+
+export interface SocialLink {
+  id: string;
+  platform: SocialPlatform;
+  url: string;
+  /** Empty means "use the platform's own name" — the accessible label falls back to it. */
+  label: string;
+  isPublished: boolean;
+  sortOrder: number;
+}
+
+export type SocialLinkInput = Omit<SocialLink, 'id' | 'sortOrder'>;
+
+interface SocialLinkRow {
+  id: string;
+  platform: string;
+  url: string;
+  label: string | null;
+  is_published: boolean;
+  sort_order: number | null;
+}
+
+const toSocialLink = (row: SocialLinkRow): SocialLink => ({
+  id: row.id,
+  platform: row.platform as SocialPlatform,
+  url: row.url,
+  label: row.label ?? '',
+  isPublished: row.is_published,
+  sortOrder: row.sort_order ?? 0,
+});
+
+const toSocialLinkPayload = (input: SocialLinkInput) => ({
+  platform: input.platform,
+  url: input.url.trim(),
+  label: input.label.trim(),
+  is_published: input.isPublished,
+});
+
+function assertSocialLink(input: SocialLinkInput): void {
+  if (!input.url.trim()) throw new Error('Please enter the profile URL.');
+  if (input.url.trim().length > 500) throw new Error('That URL is too long. Please shorten it.');
+  if (!(SOCIAL_PLATFORMS as readonly string[]).includes(input.platform)) {
+    throw new Error('Please choose a platform from the list.');
+  }
+}
+
+/**
+ * 23505 here means the platform is already taken, and the table is deliberately built that way:
+ * two Instagram rows is a mistake every time, and the footer has no way to say which is real.
+ * Named precisely, because "Could not add a social link" gives an admin nothing to do about it.
+ */
+function toSocialLinkWriteError(error: { code?: string; message?: string }, action: string): Error {
+  if (error.code === '23505') {
+    return new Error('There is already a link for that platform. Edit the existing one instead.');
+  }
+  if (error.code === '23514') {
+    return new Error('That link was rejected. Check the URL is filled in and under 500 characters.');
+  }
+  return toFriendlyError(error, action);
+}
+
+export const socialLinksService = {
+  /** The published ones, in order — what the footer draws. */
+  async listPublished(): Promise<SocialLink[]> {
+    const { data, error } = await supabase
+      .from('social_links')
+      .select(socialLinkColumns)
+      .eq('is_published', true)
+      .order('sort_order', { ascending: true })
+      .order('platform', { ascending: true });
+
+    if (error) throw toFriendlyReadError(error, 'the social links');
+    return (data ?? []).map((row) => toSocialLink(row as SocialLinkRow));
+  },
+
+  /**
+   * Every row, published or not. The read policy only exposes published rows, so an admin
+   * calling this without a content-manager session gets a short list rather than an error --
+   * which is why the admin page gates on the role rather than on this failing.
+   */
+  async list(): Promise<SocialLink[]> {
+    const { data, error } = await supabase
+      .from('social_links')
+      .select(socialLinkColumns)
+      .order('sort_order', { ascending: true })
+      .order('platform', { ascending: true });
+
+    if (error) throw toFriendlyReadError(error, 'the social links');
+    return (data ?? []).map((row) => toSocialLink(row as SocialLinkRow));
+  },
+
+  async create(input: SocialLinkInput): Promise<SocialLink> {
+    assertSocialLink(input);
+    await refreshAuthSession();
+
+    const { data, error } = await supabase
+      .from('social_links')
+      .insert({
+        ...toSocialLinkPayload(input),
+        sort_order: await nextSortOrder('social_links', 'add a social link'),
+      })
+      .select(socialLinkColumns)
+      .single();
+
+    if (error) throw toSocialLinkWriteError(error, 'add a social link');
+    return toSocialLink(data as SocialLinkRow);
+  },
+
+  async update(id: string, input: SocialLinkInput): Promise<SocialLink> {
+    assertSocialLink(input);
+    await refreshAuthSession();
+
+    const { data, error } = await supabase
+      .from('social_links')
+      .update(toSocialLinkPayload(input))
+      .eq('id', id)
+      .select(socialLinkColumns)
+      .single();
+
+    if (error) throw toSocialLinkWriteError(error, 'edit social links');
+    return toSocialLink(data as SocialLinkRow);
+  },
+
+  /** Counted, for the same reason every other delete here is — see footerLinksService.remove. */
+  async remove(id: string): Promise<void> {
+    await refreshAuthSession();
+
+    const { error, count } = await supabase
+      .from('social_links')
+      .delete({ count: 'exact' })
+      .eq('id', id);
+
+    if (error) throw toFriendlyError(error, 'delete a social link');
+    if (count === 0) {
+      throw new Error('That link was not removed. It may already be gone, or you may not have permission.');
+    }
+  },
+
+  async move(links: SocialLink[], id: string, direction: -1 | 1): Promise<SocialLink[]> {
+    const arranged = nudge(links, id, direction);
+    if (!arranged) return links;
+
+    await writeOrder(
+      'social_links',
+      socialLinkContentColumns,
+      movedRows(links, arranged),
+      'reorder the social links'
+    );
+    return arranged;
   },
 };

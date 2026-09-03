@@ -1,8 +1,8 @@
 import { Fragment, useLayoutEffect, useRef, useState } from 'react';
-import { Mail } from 'lucide-react';
 // lucide has no LinkedIn glyph in this version; the site already ships its own.
-import { LinkedInIcon } from '@/components/ui/SocialIcons';
-import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
+import { MemberAvatar } from './MemberAvatar';
+import { memberLinks } from '@/lib/memberLinks';
+import { hrefForLink, platformMeta } from '@/lib/socialPlatforms';
 import { titleForRole, type HierarchyMemberRecord } from '@/services/hierarchyService';
 import type { HierarchyRole } from '@/types';
 import type { HierarchyTierGroup } from './groupByTier';
@@ -22,7 +22,7 @@ import type { HierarchyTierGroup } from './groupByTier';
 /** Horizontal gap between cards on one level of the tree. */
 const GAP = 14;
 /** Narrowest a tree card may be squeezed to before the chart gives up and stacks. */
-const MIN_CARD = 112;
+const MIN_CARD = 128;
 const MAX_CARD = 168;
 
 /** Branch bands: card bottom → the level's bus, bus → bus, bus → card top. */
@@ -40,8 +40,20 @@ const RAIL_ROW_GAP = 10;
 
 type Prominence = 'lead' | 'exec' | 'core';
 
+/**
+ * The ring around a portrait. Emphasis fades down the chart, but every card keeps one.
+ *
+ * `core` used to be `ring-white`, on a white card — no ring at all, so everything below the
+ * general secretary looked unfinished next to the tiers above it, whether the member had a
+ * photograph or the logo. A tint of the same orange keeps the three tiers distinguishable while
+ * giving the bottom one an edge you can actually see.
+ */
 const ringFor = (prominence: Prominence) =>
-  prominence === 'lead' ? 'ring-ieee-orange' : prominence === 'exec' ? 'ring-ieee-orange/45' : 'ring-white';
+  prominence === 'lead'
+    ? 'ring-ieee-orange'
+    : prominence === 'exec'
+      ? 'ring-ieee-orange/45'
+      : 'ring-ieee-orange/25';
 
 /** Depth in the chart, used only for emphasis — never for layout or for the connectors. */
 const prominenceFor = (index: number): Prominence => (index === 0 ? 'lead' : index < 3 ? 'exec' : 'core');
@@ -155,48 +167,45 @@ function Branch({
 }
 
 /**
- * The contact links a member actually has.
+ * A member's contact links.
  *
- * hierarchy_members has carried `email` and `linkedin` since it was created, the admin editor
- * collects both, and nothing on the public side has ever rendered either — so anything typed in
- * went into the database and was seen by nobody. Each renders only when it has a value, so a
- * member without one gets no empty icon rather than a link to nowhere.
+ * Was two hardcoded icons reading `email` and `linkedin`; now reads the `links` array, so a
+ * member can carry a portfolio, a GitHub and an Instagram as easily as an email. memberLinks()
+ * keeps the two old columns working for any row written before the array existed.
  *
  * stopPropagation because these sit inside cards that may become clickable later; a contact
  * link should never also trigger whatever the card does.
  */
 function MemberContacts({ member, compact = false }: { member: HierarchyMemberRecord; compact?: boolean }) {
-  const email = member.email?.trim();
-  const linkedin = member.linkedin?.trim();
-  if (!email && !linkedin) return null;
+  const links = memberLinks(member);
+  if (links.length === 0) return null;
 
   const size = compact ? 'h-6 w-6' : 'h-7 w-7';
 
   return (
-    <div className={`flex items-center gap-1.5 ${compact ? '' : 'mt-0.5'}`}>
-      {email && (
-        <a
-          href={`mailto:${email}`}
-          onClick={(event) => event.stopPropagation()}
-          aria-label={`Email ${member.name}`}
-          title={email}
-          className={`${size} flex items-center justify-center rounded-full border border-black/10 text-slate-500 transition hover:border-ieee-orange/50 hover:text-ieee-orange`}
-        >
-          <Mail className="h-3.5 w-3.5" />
-        </a>
-      )}
-      {linkedin && (
-        <a
-          href={linkedin}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(event) => event.stopPropagation()}
-          aria-label={`${member.name} on LinkedIn`}
-          className={`${size} flex items-center justify-center rounded-full border border-black/10 text-slate-500 transition hover:border-ieee-orange/50 hover:text-ieee-orange`}
-        >
-          <LinkedInIcon className="h-3.5 w-3.5" />
-        </a>
-      )}
+    <div className={`flex flex-wrap items-center justify-center gap-1.5 ${compact ? '' : 'mt-0.5'}`}>
+      {links.map((link, index) => {
+        const { label, Icon } = platformMeta(link.type);
+        const name = link.label || label;
+        const href = hrefForLink(link.type, link.url);
+
+        return (
+          <a
+            key={`${link.type}-${link.url}-${index}`}
+            href={href}
+            // mailto: and tel: must not open a tab; an http link should not navigate the chart away.
+            target={href.startsWith('http') ? '_blank' : undefined}
+            rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`${member.name} on ${name}`}
+            title={name}
+            data-cursor="link"
+            className={`${size} flex items-center justify-center rounded-full border border-black/10 text-slate-500 transition hover:border-ieee-orange/50 hover:text-ieee-orange`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </a>
+        );
+      })}
     </div>
   );
 }
@@ -212,12 +221,7 @@ function TreeCard({
 }) {
   return (
     <div className="flex h-full flex-col items-center gap-2 rounded-2xl border border-black/5 bg-white px-2.5 py-3.5 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-ieee-orange/30 hover:shadow-md">
-      <img
-        src={member.photo || PLACEHOLDER_PHOTO}
-        alt=""
-        loading="lazy"
-        className={`h-12 w-12 shrink-0 rounded-full bg-cream object-cover ring-2 ${ringFor(prominence)}`}
-      />
+      <MemberAvatar src={member.photo} alt="" size="h-24 w-24" className={`ring-2 ${ringFor(prominence)}`} />
       <div className="min-w-0">
         <p className="text-[13px] leading-tight font-semibold break-words text-slate-900">{member.name}</p>
         <p className="mt-1 font-mono text-[10px] leading-tight tracking-wide break-words text-ieee-orange uppercase">
@@ -240,15 +244,11 @@ function RailCard({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-3 py-3 shadow-sm">
-      <img
-        src={member.photo || PLACEHOLDER_PHOTO}
-        alt=""
-        loading="lazy"
-        className={`h-11 w-11 shrink-0 rounded-full bg-cream object-cover ring-2 ${ringFor(prominence)}`}
-      />
-      {/* min-h matches the avatar so a one-line name still reads as vertically centred, while
-          the avatar itself stays pinned to the top — which is what fixes the elbow's y. */}
-      <div className="flex min-h-11 min-w-0 flex-col justify-center">
+      <MemberAvatar src={member.photo} alt="" size="h-20 w-20" className={`ring-2 ${ringFor(prominence)}`} />
+      {/* min-h tracks the avatar height (h-20) so a one-line name still reads as vertically
+          centred while the avatar stays pinned to the top — which is what fixes the elbow's y.
+          Change one and change the other, or the connector stops meeting the card. */}
+      <div className="flex min-h-20 min-w-0 flex-col justify-center">
         <p className="text-sm leading-tight font-semibold text-slate-900">{member.name}</p>
         <p className="mt-0.5 font-mono text-[10px] tracking-wide text-ieee-orange uppercase">
           {titleForRole(roleIndex, member.roleSlug)}

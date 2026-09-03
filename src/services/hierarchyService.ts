@@ -1,11 +1,12 @@
 import { supabase } from '@/lib/supabase';
-import type { HierarchyMember, HierarchyRole } from '@/types';
+import type { HierarchyMember, HierarchyRole, MemberLink, MemberLinkType } from '@/types';
+import { MEMBER_LINK_TYPES } from '@/types';
 
 const MEMBER_PHOTOS_BUCKET = 'member-photos';
 
 const roleColumns = 'slug,title,tier,rank,allows_multiple';
 const termColumns = 'id,term,label,is_current,created_at';
-const memberColumns = 'id,term_id,role_slug,name,seat,photo_url,photo_path,email,linkedin';
+const memberColumns = 'id,term_id,role_slug,name,seat,photo_url,photo_path,email,linkedin,links';
 
 /** Where a member whose role is not in the catalogue sorts: last, but still on the page. */
 export const UNFILED_TIER = 99;
@@ -43,6 +44,7 @@ export interface HierarchyMemberInput {
   photoPath: string | null;
   email: string | null;
   linkedin: string | null;
+  links: MemberLink[];
 }
 
 /** Everything a page needs to draw the serving council, resolved together. */
@@ -78,7 +80,34 @@ interface HierarchyMemberRow {
   photo_path: string | null;
   email: string | null;
   linkedin: string | null;
+  links: unknown;
 }
+
+/**
+ * The column is jsonb, so PostgREST hands back whatever is stored -- and the CHECK that keeps it
+ * well formed was added after the column, so a row written in between could hold anything. Every
+ * entry is validated here rather than trusted, because the alternative is a render crash on a
+ * page nobody can then edit to fix.
+ */
+const toMemberLinks = (value: unknown): MemberLink[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((entry): MemberLink[] => {
+    if (!entry || typeof entry !== 'object') return [];
+    const raw = entry as Record<string, unknown>;
+    const url = typeof raw.url === 'string' ? raw.url.trim() : '';
+    if (!url) return [];
+
+    const type = typeof raw.type === 'string' ? raw.type : '';
+    return [{
+      type: (MEMBER_LINK_TYPES as readonly string[]).includes(type)
+        ? (type as MemberLinkType)
+        : 'other',
+      label: typeof raw.label === 'string' ? raw.label.trim() : '',
+      url,
+    }];
+  });
+};
 
 const toRole = (row: HierarchyRoleRow): HierarchyRole => ({
   slug: row.slug,
@@ -110,6 +139,7 @@ const toMember = (row: HierarchyMemberRow): HierarchyMemberRecord => ({
   photoPath: row.photo_path,
   email: row.email ?? undefined,
   linkedin: row.linkedin ?? undefined,
+  links: toMemberLinks(row.links),
 });
 
 /** Empty strings become NULL, so "cleared" and "never set" are one fact in the database. */
@@ -117,6 +147,17 @@ const blankToNull = (value: string | null | undefined) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 };
+
+/**
+ * Drops entries with no url and trims the rest, so the editor's blank row never reaches the
+ * database. The CHECK rejects an empty url outright -- with a message about a constraint, which
+ * is not a thing to show somebody who simply has not filled the row in yet.
+ */
+const toLinksPayload = (links: MemberLink[]) =>
+  links
+    .map((link) => ({ type: link.type, label: link.label.trim(), url: link.url.trim() }))
+    .filter((link) => link.url !== '')
+    .slice(0, 8);
 
 const toMemberPayload = (input: HierarchyMemberInput) => ({
   term_id: input.termId,
@@ -127,6 +168,7 @@ const toMemberPayload = (input: HierarchyMemberInput) => ({
   photo_path: blankToNull(input.photoPath),
   email: blankToNull(input.email),
   linkedin: blankToNull(input.linkedin),
+  links: toLinksPayload(input.links),
 });
 
 /**
@@ -493,6 +535,7 @@ export const hierarchyService = {
           photo_path: member.photoPath,
           email: blankToNull(member.email),
           linkedin: blankToNull(member.linkedin),
+          links: toLinksPayload(member.links),
         }))
       )
       .select(memberColumns);

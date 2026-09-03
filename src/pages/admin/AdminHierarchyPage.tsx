@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarPlus, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
+import MemberLinksEditor from '@/components/admin/MemberLinksEditor';
+import { memberLinks } from '@/lib/memberLinks';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import { AdminField, AdminInput } from '@/components/admin/AdminField';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -238,6 +240,7 @@ export default function AdminHierarchyPage() {
       photoPath: null,
       email: null,
       linkedin: null,
+      links: [],
     });
     setIsNew(true);
     // Not straight into the cropper. A new member opens showing the society logo, so using it
@@ -261,6 +264,7 @@ export default function AdminHierarchyPage() {
       photoPath: member.photoPath,
       email: member.email ?? null,
       linkedin: member.linkedin ?? null,
+      links: memberLinks(member),
     });
     setIsNew(false);
     setPhotoEditing(false);
@@ -335,6 +339,7 @@ export default function AdminHierarchyPage() {
         photoPath,
         email: draft.email,
         linkedin: draft.linkedin,
+        links: draft.links,
       };
 
       let savedMember: HierarchyMemberRecord;
@@ -803,19 +808,7 @@ export default function AdminHierarchyPage() {
                 />
               </AdminField>
             )}
-            <AdminField label="Email" hint="Optional. Shown to nobody yet; kept for future contact cards.">
-              <AdminInput
-                type="email"
-                value={draft.email ?? ''}
-                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              />
-            </AdminField>
-            <AdminField label="LinkedIn" hint="Optional profile URL.">
-              <AdminInput
-                value={draft.linkedin ?? ''}
-                onChange={(e) => setDraft({ ...draft, linkedin: e.target.value })}
-              />
-            </AdminField>
+            <MemberLinksEditor links={draft.links} onChange={(links) => setDraft({ ...draft, links })} />
           </div>
         )}
       </AdminEditDrawer>

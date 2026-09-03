@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail } from 'lucide-react';
-import { InstagramIcon, LinkedInIcon } from '@/components/ui/SocialIcons';
 import BrandLogo from '@/components/ui/BrandLogo';
-import { footerLinksService } from '@/services/siteContentService';
+import { hrefForLink, platformMeta } from '@/lib/socialPlatforms';
+import { footerLinksService, socialLinksService, type SocialLink } from '@/services/siteContentService';
 import { footerColumns, footerLinks } from '@/data/footerLinks';
 import type { FooterLinkItem } from '@/types';
 
 export default function Footer() {
   const [allFooterLinks, setAllFooterLinks] = useState<FooterLinkItem[]>([]);
+  const [socials, setSocials] = useState<SocialLink[]>([]);
 
   /**
    * The footer is on every page, so the read is deliberately not awaited by anything: the rest
@@ -44,6 +45,29 @@ export default function Footer() {
     };
   }, []);
 
+  /**
+   * The social accounts, read the same way and for the same reasons — except that a failure
+   * here falls back to nothing rather than to a built-in list. There is no honest default: the
+   * icons used to point at instagram.com and linkedin.com, the platforms' own front pages, and
+   * an icon that goes somewhere wrong is worse than an icon that is not there.
+   */
+  useEffect(() => {
+    let ignore = false;
+
+    socialLinksService
+      .listPublished()
+      .then((links) => {
+        if (!ignore) setSocials(links);
+      })
+      .catch((err) => {
+        console.warn('Could not load the social links', err);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   const columns = footerColumns
     .map((title) => ({ title, links: allFooterLinks.filter((l) => l.column === title && l.enabled) }))
     .filter((col) => col.links.length > 0);
@@ -64,24 +88,26 @@ export default function Footer() {
               showcases at COMSATS.
             </p>
             <div className="mt-5 flex gap-2.5">
-              <a
-                href="https://instagram.com"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Instagram"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-ieee-orange hover:text-ieee-orange"
-              >
-                <InstagramIcon className="h-[18px] w-[18px]" />
-              </a>
-              <a
-                href="https://linkedin.com"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="LinkedIn"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-ieee-orange hover:text-ieee-orange"
-              >
-                <LinkedInIcon className="h-[18px] w-[18px]" />
-              </a>
+              {socials.map((social) => {
+                const { label, Icon } = platformMeta(social.platform);
+                const name = social.label || label;
+                const href = hrefForLink(social.platform, social.url);
+
+                return (
+                  <a
+                    key={social.id}
+                    href={href}
+                    target={href.startsWith('http') ? '_blank' : undefined}
+                    rel={href.startsWith('http') ? 'noreferrer' : undefined}
+                    aria-label={name}
+                    title={name}
+                    data-cursor="link"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-ieee-orange hover:text-ieee-orange"
+                  >
+                    <Icon className="h-[18px] w-[18px]" />
+                  </a>
+                );
+              })}
               {/* Was mailto:...@example.edu — a reserved domain that can never receive mail, so
                   the icon opened a mail client addressed to nowhere. The contact form does
                   reach the committee, and its messages land in the portal inbox. */}
