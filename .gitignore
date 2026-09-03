@@ -33,3 +33,9 @@ dist-ssr
 .env.*
 # The template is team documentation, not a secret — keep it tracked.
 !.env.example
+
+# Supabase CLI scratch state. These were tracked by mistake: .temp/project-ref and
+# .temp/pooler-url name a live project, so every clone arrived silently linked to it and a
+# stray `supabase db push` would have gone straight at production.
+supabase/.temp/
+supabase/.branches/

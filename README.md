@@ -39,6 +39,13 @@ The database schema lives in `supabase/migrations/` and is applied with the Supa
 are joining an already-provisioned project, everything is applied already and you need only the
 two environment values above; run this to confirm you are in step:
 
+The CLI needs a `supabase/config.toml`, which is not committed, so generate one first — answer the
+prompts however you like, it only configures the local stack:
+
+```bash
+npx supabase init
+```
+
 ```bash
 npx supabase link --project-ref <your-project-ref>
 ```
@@ -59,8 +66,20 @@ npx supabase db push
 npm run dev
 ```
 
-The app runs at `http://localhost:5180` (pinned in `vite.config.ts` with `strictPort`, so it never silently drifts onto a neighbouring port when another Vite project is running). Without the Supabase variables the app
-still boots and the wayfinding map works, but Supabase-backed pages show empty states.
+The app runs at `http://localhost:5180` (pinned in `vite.config.ts` with `strictPort`, so it never
+silently drifts onto a neighbouring port when another Vite project is running).
+
+**Both environment values are required to start.** `src/lib/supabase.ts` throws while the module is
+being evaluated, and it is reached eagerly — `main.tsx` → `App.tsx` → `AuthContext` → `authService`
+→ `supabase.ts`, every link a static import. So a missing or unedited `.env.local` is not a
+degraded site with empty lists: it is a blank white page with
+`Missing Supabase environment variables.` in the console, and nothing renders at all, wayfinding
+included. Copying `.env.example` without filling it in fails the same way with a different message
+(`Invalid supabaseUrl`), because the placeholders are non-empty and get as far as `createClient`.
+
+Vite inlines `VITE_` values at build time, so restart the dev server after editing `.env.local` —
+and set the same two values in the Vercel project settings, or a deployed build white-screens for
+the same reason.
 
 Other scripts:
 
