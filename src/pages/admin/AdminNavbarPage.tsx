@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, ArrowUp, ArrowDown, Trash2, GripVertical, Info } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, Trash2, GripVertical, Info, Check, Loader2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import NavbarPreview from '@/components/admin/NavbarPreview';
 import { AdminField, AdminInput } from '@/components/admin/AdminField';
@@ -18,7 +18,8 @@ const normalisePath = (raw: string) => {
 };
 
 export default function AdminNavbarPage() {
-  const { items, loaded, update, setAll, add, remove, error: navbarError } = useNavLinks(true);
+  const { items, loaded, update, setAll, add, remove, error: navbarError, saving, dirty, saveChanges, reload } =
+    useNavLinks(true);
   const [draft, setDraft] = useState({ label: '', to: '' });
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -102,9 +103,46 @@ export default function AdminNavbarPage() {
             </div>
             <p className="mb-4 flex items-start gap-2 rounded-xl bg-cream/70 px-3 py-2 text-xs text-slate-500">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ieee-orange" />
-              Toggle links on/off and drag order with the arrows. Changes show on the live navbar
-              instantly — enable "Date Sheets" near exams, or a registration link during an event.
+              Toggle links on and off and reorder them with the arrows, then press Save. Nothing
+              reaches the live navbar until you do — enable "Date Sheets" near exams, or a
+              registration link during an event.
             </p>
+
+            {/*
+              An explicit save, rather than a write behind every click.
+              
+              Edits used to save themselves on a short debounce, which made "has this actually
+              landed" impossible to answer from the screen -- and when a bug stopped the writes
+              going out, the only symptom was a toggle flipping back seconds later, long after
+              the click. A bar that appears when there is something to save, and goes when there
+              is not, makes the state something you can read.
+            */}
+            {dirty && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ieee-orange/30 bg-ieee-orange/[0.06] px-3 py-2.5">
+                <span className="text-xs font-medium text-slate-700">
+                  Unsaved changes — the live navbar still shows the previous version.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void reload()}
+                    disabled={saving}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 disabled:opacity-50"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveChanges()}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 rounded-lg bg-ieee-orange px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark disabled:opacity-70"
+                  >
+                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    {saving ? 'Saving…' : 'Save changes'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <ul className="flex flex-col gap-2">
               {items.map((l, i) => (

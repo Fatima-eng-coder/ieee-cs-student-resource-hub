@@ -2,8 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { navLinksService } from '@/services/navLinksService';
 import type { NavLinkItem } from '@/types';
 
-/** How long a burst of toggles is collected before it becomes one whole-navbar upsert. */
-const SAVE_DEBOUNCE_MS = 350;
+/**
+ * Edits are held locally until the admin presses Save.
+ *
+ * They used to save themselves on a 350ms debounce. That put a network write behind every
+ * click, made "has my change landed" unanswerable from the screen, and meant a half-finished
+ * reorder was already live. Worse, it hid a bug for a while: when the diffing baseline was
+ * wrong the writes silently did nothing, and the only symptom was a toggle flipping back
+ * some seconds later, long after the click that was supposed to have changed it.
+ *
+ * An explicit save makes the state legible -- there are unsaved changes or there are not -- and
+ * a failure lands while the admin is still looking at what they did.
+ */
 
 const navLinksAreEqual = (a: NavLinkItem[], b: NavLinkItem[]) =>
   a.length === b.length &&
@@ -48,6 +58,7 @@ export function useNavLinks(live = false) {
   const [loaded, setLoaded] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   /**
    * `items` mirrored, because every edit is composed from the current list and React only
@@ -64,9 +75,13 @@ export function useNavLinks(live = false) {
    * already see, and diffing against it would find nothing to write.
    */
   const serverRef = useRef<NavLinkItem[]>([]);
+
+  /**
+   * Whether the screen holds edits the database has not been told about. Read by the load guard
+   * as a ref, because a read landing on top of unsaved work would silently discard it.
+   */
+  const isDirtyRef = useRef(false);
   const loadedRef = useRef(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingItems = useRef<NavLinkItem[] | null>(null);
   const writesInFlight = useRef(0);
 
   /**
@@ -79,13 +94,13 @@ export function useNavLinks(live = false) {
   /** A read whose answer was dropped. One is taken as soon as there is nothing outstanding. */
   const refreshQueued = useRef(false);
 
-  const hasOutstandingWrite = () =>
-    saveTimer.current !== null || pendingItems.current !== null || writesInFlight.current > 0;
+  const hasOutstandingWrite = () => writesInFlight.current > 0 || isDirtyRef.current;
 
   const applyItems = useCallback((next: NavLinkItem[]) => {
-    // Recorded before the equality bail-out: a read that matches what is on screen still tells
-    // us what the server holds, and skipping it there would leave the baseline behind for ever.
-    serverRef.current = next;
+    // Deliberately does NOT touch serverRef. This runs for optimistic local edits as well as
+    // for reads, and recording an unsaved edit as "what the server holds" was the bug that made
+    // toggles switch themselves back on: the diff was taken against the edit itself, found
+    // nothing to write, and the next read restored the old value. Only load() may set it.
     if (navLinksAreEqual(itemsRef.current, next)) return;
     itemsRef.current = next;
     setItems(next);
@@ -105,6 +120,9 @@ export function useNavLinks(live = false) {
         return;
       }
 
+      // The one place the baseline is set: this is the only value that came from the server.
+      serverRef.current = fresh;
+      isDirtyRef.current = false;
       applyItems(fresh);
       loadedRef.current = true;
       setLoaded(true);
@@ -124,71 +142,21 @@ export function useNavLinks(live = false) {
     void load();
   }, [load]);
 
-  const runSave = useCallback(
-    (next: NavLinkItem[]) => {
-      writesInFlight.current += 1;
+  /** False when there is nothing safe to edit yet, so the caller knows not to show it either. */
+  const stageEdit = useCallback((next: NavLinkItem[]) => {
+    // Read as a ref, not as state: a stale closure here would be the difference between
+    // refusing a destructive save and performing one.
+    if (!loadedRef.current) {
+      setWriteError('The navbar could not be read, so it cannot be edited. Reload before editing.');
+      return false;
+    }
+    revision.current += 1;
+    isDirtyRef.current = true;
+    applyItems(next);
+    return true;
+  }, [applyItems]);
 
-      const baseline = serverRef.current;
-
-      void navLinksService
-        .save(next, baseline)
-        .then(() => {
-          setWriteError(null);
-          // Accepted, so this is now what the server holds — and the baseline the next edit is
-          // diffed against. Without this a second toggle would be diffed against the state
-          // before the first and would rewrite both.
-          serverRef.current = next;
-        })
-        .catch((err: unknown) => {
-          setWriteError(err instanceof Error ? err.message : 'Failed to save navbar links.');
-          // The page is showing an edit the database refused. Take the server's copy back so
-          // it stops claiming a change that never happened.
-          refreshQueued.current = true;
-        })
-        .finally(() => {
-          writesInFlight.current -= 1;
-          revision.current += 1;
-          settle();
-        });
-    },
-    [settle]
-  );
-
-  /** False when the edit was refused, so the caller knows not to show it either. */
-  const scheduleSave = useCallback(
-    (next: NavLinkItem[]) => {
-      // Read as a ref, not as state: a stale closure here would be the difference between
-      // refusing a destructive save and performing one.
-      if (!loadedRef.current) {
-        setWriteError('The navbar could not be read, so it cannot be saved. Reload before editing.');
-        return false;
-      }
-
-      revision.current += 1;
-      pendingItems.current = next;
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        saveTimer.current = null;
-        pendingItems.current = null;
-        runSave(next);
-      }, SAVE_DEBOUNCE_MS);
-
-      return true;
-    },
-    [runSave]
-  );
-
-  /**
-   * An edit reaches the screen only once it has been accepted for saving. A page that shows a
-   * change it was never allowed to write is a page that lies about the state of the site.
-   */
-  const commit = useCallback(
-    (next: NavLinkItem[]) => {
-      if (!scheduleSave(next)) return;
-      applyItems(next);
-    },
-    [applyItems, scheduleSave]
-  );
+  const commit = useCallback((next: NavLinkItem[]) => { stageEdit(next); }, [stageEdit]);
 
   const add = useCallback((item: NavLinkItem) => commit([item, ...itemsRef.current]), [commit]);
 
@@ -199,71 +167,63 @@ export function useNavLinks(live = false) {
   );
 
   /**
-   * The delete goes first, and the upsert that renumbers what is left only follows a delete
-   * that actually happened.
+   * Staged, like every other edit. The row is dropped from the list on screen and the DELETE is
+   * issued by saveChanges, which sequences it before the upsert that renumbers what is left.
    *
-   * Run side by side, as they were, the two writes race: nothing sequences them, and the
-   * moment a read lands between the delete being issued and the upsert being sent — which the
-   * realtime subscription makes routine — the server's copy still holds the deleted row, puts
-   * it back into this page's list, and the next edit sweeps it into the upsert payload, which
-   * re-inserts it. The link reappears in the navbar with no one having asked for it.
-   *
-   * Sequencing also makes a refusal legible: a delete the row-level policy filtered out no
-   * longer leaves the page renumbering rows around a link that is still live on the site.
+   * That ordering is what stops a deleted link coming back. Run side by side the two writes
+   * race: a read landing between them still sees the row, puts it back into this page's list,
+   * and the next upsert re-inserts it -- the link reappears in the navbar with nobody having
+   * asked for it.
    */
   const remove = useCallback(
     (id: string) => {
-      if (!loadedRef.current) {
-        setWriteError('The navbar could not be read, so it cannot be edited. Reload before editing.');
-        return;
-      }
-
       const next = itemsRef.current.filter((item) => item.id !== id);
-      if (next.length === itemsRef.current.length) return;
-
-      // Whatever the debounce is still holding was composed before this delete and still names
-      // the row, so it is dropped rather than sent. Nothing is lost with it: every edit it
-      // carried is already in `next`, which is built from the list on screen.
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current);
-        saveTimer.current = null;
-      }
-      pendingItems.current = null;
-
-      applyItems(next);
-      revision.current += 1;
-      writesInFlight.current += 1;
-
-      void navLinksService
-        .remove(id)
-        .then(() => {
-          setWriteError(null);
-          /*
-           * Renumber from what state holds NOW, not from `next`.
-           *
-           * `next` was computed before the delete was issued, so passing it here writes back a
-           * snapshot from before the round trip — any toggle, rename or reorder made while the
-           * delete was in flight is silently reverted by the very save meant to close the gap
-           * in sort_order. Reading through the setter is what makes the renumber operate on
-           * the list as it actually stands.
-           */
-          setItems((latest) => {
-            runSave(latest);
-            return latest;
-          });
-        })
-        .catch((err: unknown) => {
-          setWriteError(err instanceof Error ? err.message : 'Failed to remove navbar link.');
-          refreshQueued.current = true;
-        })
-        .finally(() => {
-          writesInFlight.current -= 1;
-          revision.current += 1;
-          settle();
-        });
+      if (next.length !== itemsRef.current.length) stageEdit(next);
     },
-    [applyItems, runSave, settle]
+    [stageEdit]
   );
+
+  /**
+   * Writes everything staged since the last successful save or read.
+   *
+   * Deletions first, then the upsert, for the ordering reason above. The upsert sends only rows
+   * that differ from the baseline, so a toggle writes one row and a reorder writes the two that
+   * swapped -- another admin working on a different link is not overwritten.
+   */
+  const saveChanges = useCallback(async () => {
+    if (!loadedRef.current) {
+      setWriteError('The navbar could not be read, so it cannot be saved. Reload before editing.');
+      return false;
+    }
+
+    const next = itemsRef.current;
+    const baseline = serverRef.current;
+    const removedIds = baseline.filter((b) => !next.some((n) => n.id === b.id)).map((b) => b.id);
+
+    setSaving(true);
+    writesInFlight.current += 1;
+    try {
+      for (const id of removedIds) await navLinksService.remove(id);
+      await navLinksService.save(next, baseline);
+
+      // Only now is this what the server holds, and only now may it become the baseline.
+      serverRef.current = next;
+      isDirtyRef.current = false;
+      setWriteError(null);
+      return true;
+    } catch (err) {
+      setWriteError(err instanceof Error ? err.message : 'Failed to save the navbar.');
+      // The page is showing edits the database refused. Take the server's copy back so it stops
+      // claiming a change that never happened.
+      refreshQueued.current = true;
+      return false;
+    } finally {
+      writesInFlight.current -= 1;
+      revision.current += 1;
+      setSaving(false);
+      settle();
+    }
+  }, [settle]);
 
   useEffect(() => {
     void load();
@@ -277,19 +237,6 @@ export function useNavLinks(live = false) {
     const unsubscribeRealtime = live ? navLinksService.subscribe(() => void load()) : () => undefined;
 
     return () => {
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current);
-        saveTimer.current = null;
-      }
-      // Flush an edit the debounce had not fired yet. Guarded for the same reason as above.
-      if (pendingItems.current && loadedRef.current) {
-        // Nothing is mounted to show this, but an uncaught rejection here surfaces as a page
-        // error in dev and as noise in production logs.
-        void navLinksService
-          .save(pendingItems.current, serverRef.current)
-          .catch((err: unknown) => console.warn('Navbar changes could not be saved on unmount', err));
-      }
-      pendingItems.current = null;
       document.removeEventListener('visibilitychange', refreshOnReturn);
       window.removeEventListener('focus', refreshOnReturn);
       unsubscribeRealtime();
@@ -301,6 +248,15 @@ export function useNavLinks(live = false) {
     loaded,
     /** A refused write is the more urgent of the two: the admin just did something, and it did not take. */
     error: writeError ?? readError,
+    saving,
+    /** True when the screen holds edits the database has not been told about. */
+    dirty: items.length !== serverRef.current.length
+      || items.some((item, i) => {
+        const other = serverRef.current[i];
+        return !other || other.id !== item.id || other.label !== item.label
+          || other.to !== item.to || other.enabled !== item.enabled;
+      }),
+    saveChanges,
     add,
     update,
     remove,
