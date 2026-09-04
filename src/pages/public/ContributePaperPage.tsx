@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Loader2, Search, X } from 'lucide-react';
+import { ArrowUpRight, AlertTriangle, CheckCircle2, Loader2, Search, X } from 'lucide-react';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import FormShell from '@/components/ui/FormShell';
@@ -164,6 +164,19 @@ function InstructorPicker({
     </div>
   );
 }
+
+/** Papers are stored as PDFs or as photographs of a paper; each needs a different element. */
+const isImagePaper = (url: string) => /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url);
+
+/**
+ * The teacher, or null. `instructor` is NOT NULL with a default of 'Not specified', so an
+ * unrecorded teacher arrives as a plausible-looking string rather than an empty one.
+ */
+const NOT_A_TEACHER = new Set(['', 'not specified', 'unknown', 'n/a', '-']);
+const teacherOfPaper = (paper: { instructor?: string }): string | null => {
+  const name = paper.instructor?.trim() ?? '';
+  return NOT_A_TEACHER.has(name.toLowerCase()) ? null : name;
+};
 
 export default function ContributePaperPage() {
   const { user, ensureAuth } = useAuth();
@@ -449,7 +462,55 @@ export default function ContributePaperPage() {
                 <p className="mt-1 text-sm text-slate-500">
                   {duplicateReview.duplicate.examType} - {duplicateReview.duplicate.session}{' '}
                   {duplicateReview.duplicate.year}
+                  {teacherOfPaper(duplicateReview.duplicate)
+                    ? ` - ${teacherOfPaper(duplicateReview.duplicate)}`
+                    : ''}
                 </p>
+
+                {/*
+                  The document itself, not just its metadata. Being told "a Final for CSC241
+                  from Fall 2025 already exists" does not answer the only question the student
+                  actually has, which is whether it is the same paper as the one in their hand.
+                  Two sittings of one course can share every field here and still be different
+                  documents, and the scan they are holding may be the more legible of the two.
+
+                  Only shown for a verified paper: RLS lets anyone read those, so the preview
+                  cannot leak anything a visitor could not already open from the papers page. A
+                  pending submission stays private, and the branch below says so.
+                */}
+                {duplicateReview.duplicate.verification === 'verified' && duplicateReview.duplicate.fileUrl ? (
+                  <div className="mt-3">
+                    <div className="h-56 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      {isImagePaper(duplicateReview.duplicate.fileUrl) ? (
+                        <img
+                          src={duplicateReview.duplicate.fileUrl}
+                          alt={`Preview of ${duplicateReview.duplicate.title}`}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <iframe
+                          title={`Preview of ${duplicateReview.duplicate.title}`}
+                          src={duplicateReview.duplicate.fileUrl}
+                          className="h-full w-full"
+                        />
+                      )}
+                    </div>
+                    <a
+                      href={duplicateReview.duplicate.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-cursor="link"
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-ieee-orange hover:text-ieee-orange-dark"
+                    >
+                      Open the existing paper
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-slate-500">
+                    This one is still awaiting review, so it cannot be previewed yet.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">

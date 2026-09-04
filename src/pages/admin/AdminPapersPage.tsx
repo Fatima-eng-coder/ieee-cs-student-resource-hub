@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Download, FileCheck2, FileText, Loader2, Paperclip, Pencil, RotateCcw, SearchCheck, Trash2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
+import DuplicatePaperGroups from '@/components/admin/DuplicatePaperGroups';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import { AdminField, AdminInput, AdminSelect } from '@/components/admin/AdminField';
@@ -407,6 +408,17 @@ export default function AdminPapersPage() {
       />
 
       <div className="p-4 sm:p-6">
+        {/* Across every paper, not just the tab in view: a pending copy and an approved copy of
+            the same sitting is the commonest duplicate there is, and filtering to one tab would
+            hide exactly that pair. */}
+        <DuplicatePaperGroups
+          papers={papers}
+          canManage={canManage}
+          onEdit={openEdit}
+          onRemove={(paper) => setDeleting(paper)}
+          onView={(paper) => setViewing(paper)}
+        />
+
         {(error || coursesError) && (
           <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
             {error ?? coursesError}
