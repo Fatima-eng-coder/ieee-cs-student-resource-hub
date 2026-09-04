@@ -7,6 +7,14 @@ import { footerLinksService, socialLinksService, type SocialLink } from '@/servi
 import { footerColumns, footerLinks } from '@/data/footerLinks';
 import type { FooterLinkItem } from '@/types';
 
+/**
+ * The chapter's public address. Hardcoded because it is part of the society's identity, like
+ * the name and the logo beside it, rather than content that changes with a committee. If it
+ * ever needs to be editable without a deploy, `social_links` already has an `email` platform
+ * and the admin Footer page already manages that table.
+ */
+const CONTACT_EMAIL = 'ieeecscui@gmail.com';
+
 export default function Footer() {
   const [allFooterLinks, setAllFooterLinks] = useState<FooterLinkItem[]>([]);
   const [socials, setSocials] = useState<SocialLink[]>([]);
@@ -87,6 +95,34 @@ export default function Footer() {
               The central place for past papers, courses, events, navigation, and student project
               showcases at COMSATS.
             </p>
+
+            {/*
+              The chapter's address, written out rather than hidden behind an icon: somebody who
+              wants to email the society should be able to read the address, copy it, or send
+              from a phone without first guessing what a small envelope will do.
+
+              The link opens Gmail's compose window rather than firing a `mailto:`. A `mailto:`
+              is the more standards-correct thing and it is what the icon row does, but on a
+              desktop with no mail client configured it does nothing at all -- the click just
+              appears to fail, which is the worst outcome of the three. mail.google.com is a
+              plain https link, so it works on a shared lab machine, and on a phone it hands off
+              to the Gmail app when one is installed. The address stays visible as text, so
+              anyone who would rather use Outlook or anything else can simply copy it.
+            */}
+            <a
+              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${CONTACT_EMAIL}`}
+              target="_blank"
+              rel="noreferrer"
+              data-cursor="link"
+              title={`Email ${CONTACT_EMAIL}`}
+              className="mt-4 inline-flex items-center gap-2 text-sm text-slate-400 transition hover:text-ieee-orange"
+            >
+              <Mail className="h-4 w-4 shrink-0" />
+              <span className="underline decoration-white/20 underline-offset-4 transition group-hover:decoration-ieee-orange">
+                {CONTACT_EMAIL}
+              </span>
+            </a>
+
             <div className="mt-5 flex gap-2.5">
               {socials.map((social) => {
                 const { label, Icon } = platformMeta(social.platform);
