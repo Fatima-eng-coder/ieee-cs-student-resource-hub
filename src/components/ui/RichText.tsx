@@ -80,12 +80,24 @@ function toBlocks(text: string): Block[] {
   return blocks;
 }
 
-export default function RichText({ text, className = '' }: { text: string; className?: string }) {
+export default function RichText({
+  text,
+  className = '',
+  compact = false,
+}: {
+  text: string;
+  className?: string;
+  /** Tighter block spacing, for help text sitting under a field label. */
+  compact?: boolean;
+}) {
   const blocks = toBlocks(text ?? '');
   if (blocks.length === 0) return null;
 
   return (
-    <div className={`flex flex-col gap-3 ${className}`}>
+    // Spacing is a prop rather than something the caller passes in className: `gap-3` is
+    // already in this list, and a competing `gap-1.5` from outside would win or lose depending
+    // on stylesheet order rather than on intent.
+    <div className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-3'} ${className}`}>
       {blocks.map((block, blockIndex) =>
         block.kind === 'list' ? (
           <ul key={blockIndex} className="ml-1 flex list-none flex-col gap-1.5">

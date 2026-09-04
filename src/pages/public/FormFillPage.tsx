@@ -10,6 +10,7 @@ import PageSection from '@/components/layout/PageSection';
 import EmptyState from '@/components/ui/EmptyState';
 import SuccessState from '@/components/ui/SuccessState';
 import FormFieldInput from '@/components/forms/FormFieldInput';
+import RichText from '@/components/ui/RichText';
 
 function isEmpty(v: FormAnswer | undefined) {
   if (v == null) return true;
@@ -312,7 +313,12 @@ export default function FormFillPage() {
         eyebrow="Form"
         breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Forms', to: '/forms' }, { label: form.title }]}
         title={form.title}
-        subtitle={form.description}
+        // The description is not passed here on purpose. PageHero renders its subtitle inside a
+        // <p>, and structured text is a <div> of <p> and <ul> -- nesting those is invalid, and
+        // the browser's repair for it is to force the outer paragraph closed, which breaks both
+        // the layout and the entrance animation. It is rendered below instead, where it has room
+        // and reads as dark text on cream rather than white-on-dark at 60% opacity. A form
+        // description is usually instructions, and instructions want to be legible.
       />
 
       <PageSection tone="cream" top width="narrow">
@@ -328,6 +334,13 @@ export default function FormFillPage() {
           />
         ) : (
           <div className="rounded-3xl border border-black/5 bg-white p-6 shadow-[0_8px_30px_rgba(10,10,12,0.08)] sm:p-8">
+            {form.description && (
+              <RichText
+                text={form.description}
+                className="mb-6 border-b border-black/5 pb-5 text-sm leading-relaxed text-slate-600"
+              />
+            )}
+
             {/* seats left — only when the admin chose to publish the count */}
             {capacity?.remaining != null && capacity.maxResponses != null && (
               <div
@@ -411,7 +424,9 @@ export default function FormFillPage() {
                 transition={{ duration: 0.3 }}
               >
                 {current.title && <h2 className="font-display text-xl font-bold text-slate-900">{current.title}</h2>}
-                {current.description && <p className="mt-1 text-sm text-slate-600">{current.description}</p>}
+                {current.description && (
+                  <RichText text={current.description} className="mt-1 text-sm text-slate-600" />
+                )}
 
                 <div className={`flex flex-col gap-6 ${current.title || current.description ? 'mt-6' : ''}`}>
                   {current.fields.map((field) => (
@@ -420,7 +435,13 @@ export default function FormFillPage() {
                         {field.label}
                         {field.required && <span className="ml-0.5 text-ieee-orange">*</span>}
                       </label>
-                      {field.description && <p className="mb-2 mt-0.5 text-xs text-slate-500">{field.description}</p>}
+                      {field.description && (
+                        <RichText
+                          text={field.description}
+                          compact
+                          className="mb-2 mt-0.5 text-xs text-slate-500"
+                        />
+                      )}
                       <div className={field.description ? '' : 'mt-2'}>
                         <FormFieldInput field={field} value={answers[field.id]} onChange={set(field.id)} error={errors.has(field.id)} />
                       </div>
