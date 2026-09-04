@@ -5,8 +5,8 @@ import PageSection from '@/components/layout/PageSection';
 import SectionHeading from '@/components/layout/SectionHeading';
 import EmptyState from '@/components/ui/EmptyState';
 import OrgChart from '@/components/hierarchy/OrgChart';
+import { MemberAvatar } from '@/components/hierarchy/MemberAvatar';
 import { groupByTier } from '@/components/hierarchy/groupByTier';
-import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
 import {
   hierarchyService,
   indexRoles,
@@ -202,11 +202,14 @@ export default function HierarchyPage() {
                 key={member.id}
                 className="group flex flex-col items-center rounded-2xl border border-black/5 bg-cream p-5 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
               >
-                <img
-                  src={member.photo || PLACEHOLDER_PHOTO}
+                {/* Was a raw <img> defaulting to the society logo, which is why this grid kept
+                    showing logos after the tree had stopped. */}
+                <MemberAvatar
+                  src={member.photo}
                   alt=""
-                  loading="lazy"
-                  className="h-16 w-16 rounded-full bg-white object-cover ring-2 ring-white transition-transform duration-300 group-hover:scale-105"
+                  gender={member.gender}
+                  size="h-16 w-16"
+                  className="bg-white ring-2 ring-white transition-transform duration-300 group-hover:scale-105"
                 />
                 <p className="mt-3 text-sm font-semibold text-slate-900">{member.name}</p>
                 <p className="mt-0.5 font-mono text-[11px] tracking-wide text-ieee-orange uppercase">

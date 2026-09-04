@@ -8,9 +8,8 @@ import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import { AdminField, AdminInput } from '@/components/admin/AdminField';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import EmptyState from '@/components/ui/EmptyState';
-import Avatar from '@/components/ui/Avatar';
 import AvatarCropper from '@/components/ui/AvatarCropper';
-import { PLACEHOLDER_PHOTO } from '@/data/hierarchy';
+import { MemberAvatar } from '@/components/hierarchy/MemberAvatar';
 import { adminAuthService } from '@/services/adminAuthService';
 import {
   hierarchyService,
@@ -261,7 +260,7 @@ export default function AdminHierarchyPage() {
       // logo was a choice, and it means exactly what an empty photo means. Read as empty, the
       // drawer describes it honestly and saving the member normalises the row on the way out,
       // so the database stops holding a path into the front-end's public folder.
-      photo: member.photo === PLACEHOLDER_PHOTO ? '' : member.photo,
+      photo: member.photo === '/brand-logo.png' ? '' : member.photo,
       photoPath: member.photoPath,
       email: member.email ?? null,
       linkedin: member.linkedin ?? null,
@@ -653,7 +652,16 @@ export default function AdminHierarchyPage() {
                 transition={{ duration: 0.25, delay: i * 0.03 }}
                 className="flex flex-col items-center gap-2 rounded-2xl border border-black/5 bg-white p-4 text-center shadow-sm transition hover:shadow-md"
               >
-                <Avatar name={member.name} src={member.photo || PLACEHOLDER_PHOTO} size="lg" />
+                {/* The same component the public pages use, so what an admin sees here is what
+                    a visitor sees. The generic Avatar was falling back to the society logo,
+                    which is why this list kept showing logos after the public side had stopped. */}
+                <MemberAvatar
+                  src={member.photo}
+                  alt=""
+                  gender={member.gender}
+                  size="h-14 w-14"
+                  className="ring-2 ring-white"
+                />
                 <p className="text-sm font-semibold text-slate-900">{member.name}</p>
                 <p className="font-mono text-[11px] tracking-wide text-ieee-orange uppercase">
                   {titleForRole(roleIndex, member.roleSlug)}
@@ -741,10 +749,12 @@ export default function AdminHierarchyPage() {
                 />
               ) : (
                 <div className="flex items-center gap-4">
-                  <img
-                    src={draft.photo || PLACEHOLDER_PHOTO}
+                  <MemberAvatar
+                    src={draft.photo}
                     alt=""
-                    className="h-20 w-20 shrink-0 rounded-full border border-black/10 bg-white object-cover"
+                    gender={draft.gender}
+                    size="h-20 w-20"
+                    className="border border-black/10 bg-white"
                   />
                   <div className="flex flex-col items-start gap-1.5">
                     <button
@@ -754,10 +764,10 @@ export default function AdminHierarchyPage() {
                     >
                       {draft.photo ? 'Replace or reposition' : 'Upload a photo'}
                     </button>
-                    {/* The logo as a choice rather than as what you get by accident: for
-                        someone whose photograph nobody has, and for someone who would rather
-                        their face were not published. Nothing is stored for it — the row's
-                        photo is emptied and every surface falls back to the logo — so the
+                    {/* Clearing the photo is a choice, not an accident: for someone whose
+                        photograph nobody has, and for someone who would rather their face were
+                        not published. Nothing is stored for it — the row's photo is emptied and
+                        every surface falls back to the placeholder for their gender — so the
                         database never holds a path into the front-end's public folder. */}
                     <button
                       type="button"
@@ -765,10 +775,14 @@ export default function AdminHierarchyPage() {
                       disabled={!draft.photo}
                       className="text-left text-xs font-medium text-slate-500 transition hover:text-ieee-orange disabled:text-slate-300 disabled:hover:text-slate-300"
                     >
-                      Use the society logo instead
+                      Remove the photo
                     </button>
                     <span className="text-xs text-slate-400">
-                      {draft.photo ? 'A photo is attached.' : 'Showing the society logo.'}
+                      {draft.photo
+                        ? 'A photo is attached.'
+                        : draft.gender === 'unknown'
+                          ? 'No photo — set a gender above to show a portrait.'
+                          : 'No photo — showing the standard portrait.'}
                     </span>
                   </div>
                 </div>
