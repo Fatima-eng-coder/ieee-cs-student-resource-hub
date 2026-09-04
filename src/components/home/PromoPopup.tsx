@@ -17,26 +17,30 @@
  * user is worse than no popup.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react';
 import { bannersService, type PromoBanner } from '@/services/bannersService';
-import { readJSON, writeJSON } from '@/utils/storage';
-
-/** Shared with the older rail on purpose: a promotion dismissed there stays dismissed here. */
-const DISMISSED_KEY = 'ieeecs_promo_dismissed';
-
-/** Dismissals older than this fall off; the promotions behind them are long gone. */
-const DISMISSED_LIMIT = 60;
 
 /** How long one promotion holds the floor before the next slides in. */
 const ROTATE_MS = 10_000;
 
-const readDismissed = (): string[] => {
-  const stored = readJSON<unknown>(DISMISSED_KEY, []);
-  return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [];
-};
+/**
+ * Closing lasts for this page view only.
+ *
+ * It used to be written to localStorage, which meant the first close was the last time that
+ * visitor ever saw the promotion -- on any later visit, on any refresh, for as long as the key
+ * survived. That is right for a cookie notice and wrong for this: a notice board only works if
+ * it is still there tomorrow, and the committee posts things they need people to actually read.
+ *
+ * So there is no persistence at all now. `closed` is ordinary component state, it starts false
+ * on every mount, and a reload or a fresh tab is a fresh mount. Close it and it stays closed
+ * while you are on the page; come back and it is waiting for you.
+ *
+ * Nothing reads the old `ieeecs_promo_dismissed` key any more, so whatever is already sitting
+ * in a visitor's browser is inert -- it costs a few bytes and changes nothing.
+ */
 
 export default function PromoPopup() {
   const reduceMotion = useReducedMotion();
@@ -46,7 +50,6 @@ export default function PromoPopup() {
 
   const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [closed, setClosed] = useState(false);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -73,34 +76,12 @@ export default function PromoPopup() {
     };
   }, []);
 
-  const visible = useMemo(
-    () => banners.filter((banner) => !dismissed.includes(banner.id)),
-    [banners, dismissed],
-  );
+  const visible = banners;
 
   const open = visible.length > 0 && !closed;
   const current = visible[Math.min(index, visible.length - 1)];
 
-  /**
-   * Closing dismisses everything currently on screen, not just the slide showing.
-   *
-   * Anything else means closing the popup three times in a row, which reads as the site being
-   * broken. A promotion published later is not in this list, so it still gets its turn.
-   */
-  const close = useCallback(() => {
-    setClosed(true);
-    setDismissed((previous) => {
-      const ids = visible.map((banner) => banner.id);
-      const next = [...ids, ...previous.filter((id) => !ids.includes(id))].slice(0, DISMISSED_LIMIT);
-      try {
-        writeJSON(DISMISSED_KEY, next);
-      } catch (error) {
-        // A full quota costs a repeat sighting, not a broken page.
-        console.warn('Could not remember the dismissed promotions', error);
-      }
-      return next;
-    });
-  }, [visible]);
+  const close = useCallback(() => setClosed(true), []);
 
   // Escape closes, and focus is held inside while it is open. Both are what make this a dialog
   // rather than a div that happens to cover the screen.

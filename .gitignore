@@ -39,3 +39,4 @@ dist-ssr
 # stray `supabase db push` would have gone straight at production.
 supabase/.temp/
 supabase/.branches/
+.env*
