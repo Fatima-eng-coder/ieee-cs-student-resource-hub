@@ -23,7 +23,7 @@ import type { Paper } from '@/types';
  * later admin would have no way to revisit.
  */
 
-export interface PaperGroup {
+interface PaperGroup {
   key: string;
   courseName: string;
   courseId: string;
@@ -36,7 +36,7 @@ export interface PaperGroup {
 const groupKey = (paper: Paper) =>
   [paper.courseId, paper.session, paper.year, paper.examType].join('::');
 
-export function groupDuplicatePapers(papers: Paper[]): PaperGroup[] {
+function groupDuplicatePapers(papers: Paper[]): PaperGroup[] {
   const groups = new Map<string, PaperGroup>();
 
   for (const paper of papers) {
