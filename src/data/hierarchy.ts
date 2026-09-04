@@ -36,6 +36,7 @@ const member = (id: string, name: string, roleSlug: string, seat?: number) => ({
   roleSlug,
   seat,
   links: [],
+  gender: 'unknown' as const,
   photo: PLACEHOLDER_PHOTO,
 });
 

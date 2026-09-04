@@ -21,7 +21,7 @@ import {
   type HierarchyMemberRecord,
   type HierarchyTermRecord,
 } from '@/services/hierarchyService';
-import type { HierarchyRole } from '@/types';
+import type { HierarchyRole, MemberGender } from '@/types';
 
 /** A member being edited. `id` is empty until it has been saved for the first time. */
 interface MemberDraft extends HierarchyMemberInput {
@@ -241,6 +241,7 @@ export default function AdminHierarchyPage() {
       email: null,
       linkedin: null,
       links: [],
+      gender: 'unknown',
     });
     setIsNew(true);
     // Not straight into the cropper. A new member opens showing the society logo, so using it
@@ -265,6 +266,7 @@ export default function AdminHierarchyPage() {
       email: member.email ?? null,
       linkedin: member.linkedin ?? null,
       links: memberLinks(member),
+      gender: member.gender,
     });
     setIsNew(false);
     setPhotoEditing(false);
@@ -340,6 +342,7 @@ export default function AdminHierarchyPage() {
         email: draft.email,
         linkedin: draft.linkedin,
         links: draft.links,
+        gender: draft.gender,
       };
 
       let savedMember: HierarchyMemberRecord;
@@ -808,6 +811,27 @@ export default function AdminHierarchyPage() {
                 />
               </AdminField>
             )}
+            {/*
+              Only ever used to pick the placeholder drawing for somebody with no photograph,
+              which is why "Not specified" is a first-class option rather than a blank: it is
+              the honest answer for most of the roster, and it draws a neutral figure. Nothing
+              here is published as text -- a visitor sees a portrait, never a label.
+            */}
+            <AdminField
+              label="Gender"
+              hint="Only used to choose the placeholder portrait when no photo is uploaded. Never shown as text."
+            >
+              <select
+                value={draft.gender}
+                onChange={(e) => setDraft({ ...draft, gender: e.target.value as MemberGender })}
+                className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-ieee-orange/60"
+              >
+                <option value="unknown">Not specified</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+              </select>
+            </AdminField>
+
             <MemberLinksEditor links={draft.links} onChange={(links) => setDraft({ ...draft, links })} />
           </div>
         )}

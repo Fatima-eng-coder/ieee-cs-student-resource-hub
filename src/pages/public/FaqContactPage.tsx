@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mail, ArrowUpRight, MessageCircle } from 'lucide-react';
+import { Mail, ArrowUpRight } from 'lucide-react';
 import { faqsService } from '@/services/siteContentService';
 import FAQAccordion from '@/components/cards/FAQAccordion';
 import EmptyState from '@/components/ui/EmptyState';
@@ -20,6 +20,14 @@ const categories: FAQ['category'][] = [
   'Projects Expo',
   'Contributions',
   'Technical Issues',
+];
+
+/** The chapter's real contact points. See the note beside the list for why these are inline. */
+const CONTACT_EMAIL = 'ieeecscui@gmail.com';
+
+const SOCIALS = [
+  { label: 'Instagram', href: 'https://www.instagram.com/ieee.cs.cui/' },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/company/ieee-cs-cui/posts/?feedView=all' },
 ];
 
 export default function FaqContactPage() {
@@ -217,49 +225,44 @@ export default function FaqContactPage() {
 
           <div className="rounded-3xl border border-black/5 bg-cream p-6 shadow-sm sm:p-8">
             <h2 className="font-display text-xl font-bold text-slate-900">Reach Us Directly</h2>
+            {/*
+              Real destinations. Every one of these was a placeholder: the address was at
+              example.edu -- a domain reserved by the IETF precisely so it can never receive
+              mail -- and the two social links pointed at instagram.com and linkedin.com, the
+              platforms' own front pages rather than this chapter's profiles. A contact panel
+              that cannot be contacted is worse than no panel, because somebody trusts it.
+
+              Hardcoded, unlike the footer's icon row which reads social_links. That is a real
+              inconsistency and worth resolving later; hardcoding was asked for here, and these
+              three destinations are stable.
+            */}
             <ul className="mt-5 flex flex-col gap-3 text-sm">
-              <li className="flex items-center gap-3 rounded-xl border border-black/5 bg-white px-4 py-3">
-                <Mail className="h-4 w-4 shrink-0 text-ieee-orange" />
-                <span className="text-slate-700">ieeecs.studentbranch@example.edu</span>
-              </li>
               <li>
                 <a
-                  href="https://instagram.com"
+                  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${CONTACT_EMAIL}`}
                   target="_blank"
                   rel="noreferrer"
                   data-cursor="link"
-                  className="group flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-white px-4 py-3 text-slate-700 transition hover:border-ieee-orange/40 hover:text-ieee-orange"
+                  className="group flex items-center gap-3 rounded-xl border border-black/5 bg-white px-4 py-3 text-slate-700 transition hover:border-ieee-orange/40 hover:text-ieee-orange"
                 >
-                  Instagram
-                  <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-ieee-orange" />
+                  <Mail className="h-4 w-4 shrink-0 text-ieee-orange" />
+                  <span className="break-all">{CONTACT_EMAIL}</span>
                 </a>
               </li>
-              <li>
-                <a
-                  href="https://linkedin.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  data-cursor="link"
-                  className="group flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-white px-4 py-3 text-slate-700 transition hover:border-ieee-orange/40 hover:text-ieee-orange"
-                >
-                  LinkedIn
-                  <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-ieee-orange" />
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://whatsapp.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  data-cursor="link"
-                  className="group flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-white px-4 py-3 text-slate-700 transition hover:border-ieee-orange/40 hover:text-ieee-orange"
-                >
-                  <span className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-ieee-orange" /> WhatsApp Channel
-                  </span>
-                  <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-ieee-orange" />
-                </a>
-              </li>
+              {SOCIALS.map((social) => (
+                <li key={social.label}>
+                  <a
+                    href={social.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-cursor="link"
+                    className="group flex items-center justify-between gap-3 rounded-xl border border-black/5 bg-white px-4 py-3 text-slate-700 transition hover:border-ieee-orange/40 hover:text-ieee-orange"
+                  >
+                    {social.label}
+                    <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-ieee-orange" />
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

@@ -221,7 +221,7 @@ function TreeCard({
 }) {
   return (
     <div className="flex h-full flex-col items-center gap-2 rounded-2xl border border-black/5 bg-white px-2.5 py-3.5 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-ieee-orange/30 hover:shadow-md">
-      <MemberAvatar src={member.photo} alt="" size="h-24 w-24" className={`ring-2 ${ringFor(prominence)}`} />
+      <MemberAvatar src={member.photo} alt="" gender={member.gender} size="h-24 w-24" className={`ring-2 ${ringFor(prominence)}`} />
       <div className="min-w-0">
         <p className="text-[13px] leading-tight font-semibold break-words text-slate-900">{member.name}</p>
         <p className="mt-1 font-mono text-[10px] leading-tight tracking-wide break-words text-ieee-orange uppercase">
@@ -244,7 +244,7 @@ function RailCard({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-black/5 bg-white px-3 py-3 shadow-sm">
-      <MemberAvatar src={member.photo} alt="" size="h-20 w-20" className={`ring-2 ${ringFor(prominence)}`} />
+      <MemberAvatar src={member.photo} alt="" gender={member.gender} size="h-20 w-20" className={`ring-2 ${ringFor(prominence)}`} />
       {/* min-h tracks the avatar height (h-20) so a one-line name still reads as vertically
           centred while the avatar stays pinned to the top — which is what fixes the elbow's y.
           Change one and change the other, or the connector stops meeting the card. */}

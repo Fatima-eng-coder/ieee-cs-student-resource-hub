@@ -142,6 +142,7 @@ export default function HierarchyOrbit() {
                           <MemberAvatar
                             src={member.photo}
                             alt={member.name}
+                            gender={member.gender}
                             size="h-20 w-20 sm:h-28 sm:w-28"
                             className="border-2 border-ieee-orange/55 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:border-ieee-orange"
                           />

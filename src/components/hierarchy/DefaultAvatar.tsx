@@ -45,16 +45,22 @@ function MaleFigure() {
   );
 }
 
-/** Longer hair falling past the jaw, softer shoulder line. */
+/**
+ * Long hair falling past the jaw and over the shoulders.
+ *
+ * Drawn shoulders-first so the hair can fall IN FRONT of them, which is what makes it read as
+ * length rather than as a wide head. The face then goes on last and covers the middle of the
+ * hair mass, leaving a crown, a temple either side, and the two falls below the jaw.
+ */
 function FemaleFigure() {
   return (
     <>
+      <path d="M32 39.5c9.1 0 16.5 6.5 16.5 14.5V56h-33v-2c0-8 7.4-14.5 16.5-14.5z" fill={PALETTE.figure} />
       <path
-        d="M19.8 30c0-8.2 5.5-14 12.2-14s12.2 5.8 12.2 14c0 4-.7 7.4-1.9 9.9l-2.9-1.3c.7-2 1.1-4.7 1.1-7.6 0-1.4-.2-2.6-.6-3.6-2.3 1.6-6.2 2.4-11 2.4-1.6 0-3 .5-3.9 1.5-.5.6-.8 1.4-.8 2.4 0 2.5.3 4.9 1 6.9l-2.9 1.3c-1.1-2.6-1.5-6-1.5-9.9z"
+        d="M32 15c-6.8 0-12.3 5.5-12.3 12.3V40.5c0 1.7 1.4 3.1 3.1 3.1s3.1-1.4 3.1-3.1V28c0-1.5 1.2-2.7 2.7-2.7h6.8c1.5 0 2.7 1.2 2.7 2.7v12.5c0 1.7 1.4 3.1 3.1 3.1s3.1-1.4 3.1-3.1V27.3C44.3 20.5 38.8 15 32 15z"
         fill={PALETTE.figureDeep}
       />
-      <circle cx="32" cy="28" r="9" fill={PALETTE.figure} />
-      <path d="M32 39.5c9.1 0 16.5 6.5 16.5 14.5V56h-33v-2c0-8 7.4-14.5 16.5-14.5z" fill={PALETTE.figure} />
+      <circle cx="32" cy="28" r="9.5" fill={PALETTE.figure} />
     </>
   );
 }

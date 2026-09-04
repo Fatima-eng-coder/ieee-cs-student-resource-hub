@@ -367,6 +367,8 @@ export const MEMBER_LINK_TYPES = [
 
 export type MemberLinkType = (typeof MEMBER_LINK_TYPES)[number];
 
+export type MemberGender = 'male' | 'female' | 'unknown';
+
 export interface MemberLink {
   type: MemberLinkType;
   /** Empty means "use the platform's own name". */
@@ -382,6 +384,8 @@ export interface HierarchyMember {
   /** Order among people sharing a role; ignored unless the role allows several. */
   seat?: number;
   photo: string;
+  /** Chooses the placeholder portrait when `photo` is empty. Never inferred from the name. */
+  gender: MemberGender;
   /** Several typed links per person. Supersedes `email` and `linkedin` below. */
   links: MemberLink[];
   /**

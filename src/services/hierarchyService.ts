@@ -1,12 +1,12 @@
 import { supabase } from '@/lib/supabase';
-import type { HierarchyMember, HierarchyRole, MemberLink, MemberLinkType } from '@/types';
+import type { HierarchyMember, HierarchyRole, MemberGender, MemberLink, MemberLinkType } from '@/types';
 import { MEMBER_LINK_TYPES } from '@/types';
 
 const MEMBER_PHOTOS_BUCKET = 'member-photos';
 
 const roleColumns = 'slug,title,tier,rank,allows_multiple';
 const termColumns = 'id,term,label,is_current,created_at';
-const memberColumns = 'id,term_id,role_slug,name,seat,photo_url,photo_path,email,linkedin,links';
+const memberColumns = 'id,term_id,role_slug,name,seat,photo_url,photo_path,email,linkedin,links,gender';
 
 /** Where a member whose role is not in the catalogue sorts: last, but still on the page. */
 export const UNFILED_TIER = 99;
@@ -45,6 +45,7 @@ export interface HierarchyMemberInput {
   email: string | null;
   linkedin: string | null;
   links: MemberLink[];
+  gender: MemberGender;
 }
 
 /** Everything a page needs to draw the serving council, resolved together. */
@@ -81,6 +82,7 @@ interface HierarchyMemberRow {
   email: string | null;
   linkedin: string | null;
   links: unknown;
+  gender: string | null;
 }
 
 /**
@@ -140,6 +142,8 @@ const toMember = (row: HierarchyMemberRow): HierarchyMemberRecord => ({
   email: row.email ?? undefined,
   linkedin: row.linkedin ?? undefined,
   links: toMemberLinks(row.links),
+  // Anything the CHECK would not accept is read as unrecorded rather than trusted.
+  gender: row.gender === 'male' || row.gender === 'female' ? row.gender : 'unknown',
 });
 
 /** Empty strings become NULL, so "cleared" and "never set" are one fact in the database. */
@@ -169,6 +173,7 @@ const toMemberPayload = (input: HierarchyMemberInput) => ({
   email: blankToNull(input.email),
   linkedin: blankToNull(input.linkedin),
   links: toLinksPayload(input.links),
+  gender: input.gender,
 });
 
 /**
@@ -536,6 +541,7 @@ export const hierarchyService = {
           email: blankToNull(member.email),
           linkedin: blankToNull(member.linkedin),
           links: toLinksPayload(member.links),
+          gender: member.gender,
         }))
       )
       .select(memberColumns);
