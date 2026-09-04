@@ -304,9 +304,20 @@ async function refreshAuthSession(): Promise<void> {
   if (error) console.warn('Could not refresh auth session before protected action', error);
 }
 
+/**
+ * The same 5 MB ceiling bannersService, galleryService, projectsService and
+ * eventImageSubmissionsService all apply. This function checked the MIME type and stopped,
+ * which made event covers the one upload path in the app with no size limit in the browser --
+ * and the event-images bucket had none either, so nothing bounded it at all.
+ */
+const MAX_BYTES = 5 * 1024 * 1024;
+
 function assertEventImage(file: File): void {
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
     throw new Error('Please upload a PNG, JPG, or WebP image.');
+  }
+  if (file.size > MAX_BYTES) {
+    throw new Error('That image is larger than 5 MB. Please pick a smaller version.');
   }
 }
 
