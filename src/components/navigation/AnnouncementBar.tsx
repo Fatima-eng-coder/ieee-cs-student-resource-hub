@@ -54,8 +54,24 @@ export default function AnnouncementBar() {
   const source = (pinned.length ? pinned : announcements).slice(0, 6);
   if (source.length === 0) return null;
 
-  // Duplicate the list so the marquee loops seamlessly.
-  const items = [...source, ...source];
+  /*
+   * Fill the bar, however few announcements there are.
+   *
+   * The track was exactly two copies of the list. That is the minimum the animation needs --
+   * it translates by -50%, so the second copy has to be sitting where the first started when
+   * it wraps -- but two copies of ONE short headline is a track narrower than the bar, and the
+   * result was a lonely item with a screenful of empty ink trailing it.
+   *
+   * So the list is first repeated until there is enough of it to plausibly span a wide screen,
+   * and only then doubled. The doubling stays exact, because the -50% is what makes the loop
+   * seamless; repeating an odd number of times would make it jump. No invented announcements:
+   * one real headline simply comes round more often, which is what a ticker with one thing to
+   * say should do.
+   */
+  const MIN_TRACK_ITEMS = 6;
+  const repeats = Math.max(1, Math.ceil(MIN_TRACK_ITEMS / source.length));
+  const track = Array.from({ length: repeats }, () => source).flat();
+  const items = [...track, ...track];
 
   return (
     <div className="overflow-hidden bg-ieee-ink py-2 text-white">
@@ -64,6 +80,11 @@ export default function AnnouncementBar() {
           <Link
             key={`${a.id}-${idx}`}
             to={`/announcements/${a.id}`}
+            // Every copy after the first is the same headline again. Hiding them from the
+            // accessibility tree stops a screen reader reading the list N times over; it was
+            // already reading everything twice before this change.
+            aria-hidden={idx >= source.length}
+            tabIndex={idx >= source.length ? -1 : undefined}
             className="flex items-center gap-2 text-slate-300 transition-colors hover:text-ieee-orange"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-ieee-orange" />

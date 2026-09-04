@@ -3,7 +3,7 @@ import { ImagePlus, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
-import { AdminField, AdminInput, AdminSelect } from '@/components/admin/AdminField';
+import { AdminField, AdminInput, AdminTextarea, AdminSelect } from '@/components/admin/AdminField';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import EmptyState from '@/components/ui/EmptyState';
 import { adminAuthService } from '@/services/adminAuthService';
@@ -382,8 +382,22 @@ export default function AdminBannersPage() {
             <AdminField label="Title" required>
               <AdminInput value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
             </AdminField>
-            <AdminField label="Subtitle">
-              <AdminInput value={draft.subtitle} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} />
+            {/*
+              A textarea, not an input. This is the popup's body copy, and admins paste real
+              prose into it -- paragraphs, "* " bullets, a couple of links. A browser silently
+              strips newlines when multi-line text is pasted into <input>, so the structure was
+              being destroyed here, before it ever reached Postgres. Rendering it faithfully
+              downstream could not have brought back what the field had already thrown away.
+            */}
+            <AdminField
+              label="Subtitle"
+              hint="Shown as the popup's body. Blank lines start a new paragraph, lines starting with * become bullets, and links are made clickable."
+            >
+              <AdminTextarea
+                rows={7}
+                value={draft.subtitle}
+                onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })}
+              />
             </AdminField>
             <AdminField label="Type">
               <AdminSelect

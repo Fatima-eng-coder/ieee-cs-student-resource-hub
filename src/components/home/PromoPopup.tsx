@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react';
 import { bannersService, type PromoBanner } from '@/services/bannersService';
+import RichText from '@/components/ui/RichText';
 
 /** How long one promotion holds the floor before the next slides in. */
 const ROTATE_MS = 10_000;
@@ -252,7 +253,7 @@ export default function PromoPopup() {
                 {current.title}
               </h2>
               {current.body && (
-                <p className="mt-2.5 text-sm leading-relaxed text-slate-600">{current.body}</p>
+                <RichText text={current.body} className="mt-2.5 text-sm leading-relaxed text-slate-600" />
               )}
 
               {current.link.kind !== 'none' && (

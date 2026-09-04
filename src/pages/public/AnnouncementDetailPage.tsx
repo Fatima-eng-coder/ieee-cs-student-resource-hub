@@ -6,6 +6,7 @@ import type { Announcement } from '@/types';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import EmptyState from '@/components/ui/EmptyState';
+import RichText from '@/components/ui/RichText';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -90,7 +91,7 @@ export default function AnnouncementDetailPage() {
 
         <article className="mt-6 overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
           <div className="p-8 sm:p-10">
-            <p className="leading-relaxed text-slate-700">{announcement.body}</p>
+            <RichText text={announcement.body} className="leading-relaxed text-slate-700" />
           </div>
         </article>
 

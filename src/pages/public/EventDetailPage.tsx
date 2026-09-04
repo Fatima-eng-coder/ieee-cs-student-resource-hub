@@ -8,6 +8,7 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import EmptyState from '@/components/ui/EmptyState';
 import Magnetic from '@/components/effects/Magnetic';
+import RichText from '@/components/ui/RichText';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -159,7 +160,7 @@ export default function EventDetailPage() {
         <div className="mt-8 grid gap-8 lg:grid-cols-[1.5fr_1fr]">
           <div>
             <h2 className="font-display text-xl font-bold text-slate-900">About this event</h2>
-            <p className="mt-3 leading-relaxed text-slate-600">{event.longDescription || event.description}</p>
+            <RichText text={event.longDescription || event.description} className="mt-3 leading-relaxed text-slate-600" />
 
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {info.map((c) => {
