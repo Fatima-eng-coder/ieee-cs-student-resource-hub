@@ -144,16 +144,6 @@ export default function Footer() {
                   </a>
                 );
               })}
-              {/* Was mailto:...@example.edu — a reserved domain that can never receive mail, so
-                  the icon opened a mail client addressed to nowhere. The contact form does
-                  reach the committee, and its messages land in the portal inbox. */}
-              <Link
-                to="/faq-contact"
-                aria-label="Email us"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:border-ieee-orange hover:text-ieee-orange"
-              >
-                <Mail className="h-[18px] w-[18px]" />
-              </Link>
             </div>
           </div>
           {columns.map((col) => (
@@ -176,8 +166,7 @@ export default function Footer() {
       </div>
 
       <div className="relative border-t border-white/10 px-4 py-5 text-center font-mono text-[11px] text-slate-500 sm:px-6">
-        © {new Date().getFullYear()} IEEE Computer Society Islamabad Branch Chapter. All data on this
-        prototype is for demonstration only.
+        © {new Date().getFullYear()} IEEE Computer Society Islamabad Branch Chapter.
       </div>
     </footer>
   );
