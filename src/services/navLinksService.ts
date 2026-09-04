@@ -98,17 +98,35 @@ export const navLinksService = {
   },
 
   /**
-   * The whole navbar in one upsert: sort_order is a link's position in the array the admin page
-   * is holding, so any change to that array renumbers every row after it. Sent as one statement
-   * rather than a write per row, a save that failed halfway would leave the order the admin can
-   * see and the order the site serves disagreeing about where the links go.
+   * Saves a navbar edit as one upsert of only the rows it actually changed.
+   *
+   * This used to write all twelve rows on every edit, and that is how three links came to be
+   * switched off with nobody admitting to it. sort_order is a link's position in the array the
+   * admin page is holding, so the page has an opinion about every row, not just the one being
+   * touched -- and an upsert of all twelve states that opinion as fact. A tab left open while
+   * somebody else edited the navbar would, on its owner's very next toggle, quietly restore its
+   * own hours-old view of the other eleven. Last writer wins, for rows that writer never touched.
+   *
+   * `baseline` is the last state this client knows the server held. Anything matching it is
+   * left alone, so a toggle writes one row and a reorder writes the two that swapped. Two admins
+   * can now work on different links at the same time without either undoing the other.
+   *
+   * Still one statement, for the reason it always was: a partial failure would leave the order
+   * the admin sees and the order the site serves disagreeing about where the links go.
    */
-  async saveAll(items: NavLinkItem[]): Promise<void> {
+  async save(items: NavLinkItem[], baseline: NavLinkItem[]): Promise<void> {
+    const before = new Map(baseline.map((item, index) => [item.id, JSON.stringify(toPayload(item, index))]));
+    const changed = items
+      .map((item, index) => toPayload(item, index))
+      .filter((row) => before.get(row.id) !== JSON.stringify(row));
+
+    // Nothing moved. Worth the early return: the debounce fires on the trailing edge, so a
+    // toggle flipped and flipped back inside it arrives here as a no-op.
+    if (changed.length === 0) return;
+
     await refreshAuthSession();
 
-    const { error } = await supabase
-      .from('nav_links')
-      .upsert(items.map(toPayload), { onConflict: 'id' });
+    const { error } = await supabase.from('nav_links').upsert(changed, { onConflict: 'id' });
 
     if (error) throw new Error(friendlyWriteError(error.message));
   },

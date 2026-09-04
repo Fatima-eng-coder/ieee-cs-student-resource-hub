@@ -57,6 +57,13 @@ export function useNavLinks(live = false) {
    * gone and reported the successful delete as a failure.
    */
   const itemsRef = useRef<NavLinkItem[]>([]);
+
+  /**
+   * The last list this client knows the server held, which is what every save is diffed
+   * against. Distinct from `itemsRef`: that one carries the optimistic edit the admin can
+   * already see, and diffing against it would find nothing to write.
+   */
+  const serverRef = useRef<NavLinkItem[]>([]);
   const loadedRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingItems = useRef<NavLinkItem[] | null>(null);
@@ -76,6 +83,9 @@ export function useNavLinks(live = false) {
     saveTimer.current !== null || pendingItems.current !== null || writesInFlight.current > 0;
 
   const applyItems = useCallback((next: NavLinkItem[]) => {
+    // Recorded before the equality bail-out: a read that matches what is on screen still tells
+    // us what the server holds, and skipping it there would leave the baseline behind for ever.
+    serverRef.current = next;
     if (navLinksAreEqual(itemsRef.current, next)) return;
     itemsRef.current = next;
     setItems(next);
@@ -118,9 +128,17 @@ export function useNavLinks(live = false) {
     (next: NavLinkItem[]) => {
       writesInFlight.current += 1;
 
+      const baseline = serverRef.current;
+
       void navLinksService
-        .saveAll(next)
-        .then(() => setWriteError(null))
+        .save(next, baseline)
+        .then(() => {
+          setWriteError(null);
+          // Accepted, so this is now what the server holds — and the baseline the next edit is
+          // diffed against. Without this a second toggle would be diffed against the state
+          // before the first and would rewrite both.
+          serverRef.current = next;
+        })
         .catch((err: unknown) => {
           setWriteError(err instanceof Error ? err.message : 'Failed to save navbar links.');
           // The page is showing an edit the database refused. Take the server's copy back so
@@ -268,7 +286,7 @@ export function useNavLinks(live = false) {
         // Nothing is mounted to show this, but an uncaught rejection here surfaces as a page
         // error in dev and as noise in production logs.
         void navLinksService
-          .saveAll(pendingItems.current)
+          .save(pendingItems.current, serverRef.current)
           .catch((err: unknown) => console.warn('Navbar changes could not be saved on unmount', err));
       }
       pendingItems.current = null;
