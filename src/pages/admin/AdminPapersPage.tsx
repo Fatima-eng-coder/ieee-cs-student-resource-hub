@@ -261,14 +261,9 @@ export default function AdminPapersPage() {
     setSaving(true);
     setError(null);
     try {
-      const { duplicate, exists } = await papersService.findDuplicate(paper, {
-        verificationStatuses: ['verified'],
-      });
-      if (exists) {
-        setDuplicateReview({ pending: paper, duplicate });
-        return;
-      }
-
+      // No duplicate pre-check. The duplicates panel at the top of this page already lists
+      // every copy of a sitting side by side, so an admin pressing Approve has seen them and
+      // decided; refusing the click here would second-guess that with less information.
       const verified = await papersService.verify(paper.id);
       setPapers((items) => items.map((item) => (item.id === verified.id ? verified : item)));
     } catch (err) {

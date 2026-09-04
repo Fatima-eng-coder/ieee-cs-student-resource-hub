@@ -74,17 +74,14 @@ export type MaterialChange =
 
 /**
  * Mirrors public.course_material_duplicate_exists so the form can warn before submitting.
- * The database is what actually enforces it — keep the two in step.
+ * Nothing enforces anything any more -- both sides only report -- but keep the two in step, or
+ * the warning a student sees disagrees with the one the RPC would have given.
  *
- * Midterms and finals were capped at 1, which rejected the second paper for any subject that
- * is not centralised: those set one paper per section.
+ * There is no cap. Several papers for one sitting is normal -- a subject that is not
+ * centralised sets one per section -- and nothing here refuses a write on account of a count.
+ * A match is reported so somebody can be TOLD what already exists: a student before they
+ * submit, who cannot see pending rows for themselves. They can always go ahead.
  */
-const duplicateLimitByType: Record<Paper['examType'], number> = {
-  Midterm: 4,
-  Final: 4,
-  Quiz: 4,
-  Assignment: 4,
-};
 
 const materialColumns =
   'id,course_id,course_name,title,session,year,material_type,instructor,file_url,file_path,uploaded_by,uploaded_date,verification,tags,downloads';
@@ -147,13 +144,11 @@ function isSameDuplicateGroup(paper: Paper, candidate: DuplicateMaterialCandidat
 }
 
 export function findDuplicateInPapers(papers: Paper[], candidate: DuplicateMaterialCandidate): DuplicatePaperResult {
-  const materialType = normalizeMaterialType(candidate.examType);
-  const limit = duplicateLimitByType[materialType];
   const existing = papers.filter(
     (paper) => paper.verification !== 'unverified' && isSameDuplicateGroup(paper, candidate)
   );
 
-  const duplicate = existing.length >= limit ? existing[0] : null;
+  const duplicate = existing[0] ?? null;
   return { duplicate, exists: Boolean(duplicate) };
 }
 
@@ -453,8 +448,7 @@ export const papersService = {
   ): Promise<DuplicatePaperResult> {
     const materialType = normalizeMaterialType(candidate.examType);
     const session = normalizeSession(candidate.session);
-    const limit = duplicateLimitByType[materialType];
-    const verificationStatuses = options.verificationStatuses ?? ['pending', 'verified'];
+      const verificationStatuses = options.verificationStatuses ?? ['pending', 'verified'];
 
     let hiddenDuplicateExists = false;
     if (options.includeHiddenRows && verificationStatuses.includes('pending')) {
@@ -494,16 +488,26 @@ export const papersService = {
     const existing = ((data ?? []) as CourseMaterialRow[])
       .map(toPaper)
       .filter((paper) => isSameDuplicateGroup(paper, { ...candidate, session, examType: materialType }));
-    const duplicate = existing.length >= limit ? existing[0] : null;
+    const duplicate = existing[0] ?? null;
     return { duplicate, exists: Boolean(duplicate) || hiddenDuplicateExists };
   },
 
+  /**
+   * Approves a material. Deliberately does not check for duplicates.
+   *
+   * It used to refuse, which made approving the second copy of a sitting impossible from the
+   * one screen where somebody had actually looked at both. That guard predates the duplicates
+   * panel on the admin page: an admin pressing Approve now does so with every copy of that
+   * sitting listed in front of them, so refusing the click second-guesses a decision that was
+   * made with better information than this function has.
+   *
+   * The warning that matters is the one before submission, where the person has not seen the
+   * existing paper. That is still there, and now fires on the first match rather than the
+   * fourth.
+   */
   async verify(id: string): Promise<Paper> {
     const paper = await this.get(id);
     if (!paper) throw new Error('Material not found.');
-
-    const { duplicate, exists } = await this.findDuplicate(paper, { verificationStatuses: ['verified'] });
-    if (exists) throw new DuplicateMaterialError(duplicate);
 
     return this.update(id, { verification: 'verified' });
   },
