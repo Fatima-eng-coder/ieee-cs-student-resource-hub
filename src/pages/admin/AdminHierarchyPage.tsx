@@ -145,6 +145,11 @@ export default function AdminHierarchyPage() {
    */
   const [photoEditing, setPhotoEditing] = useState(false);
 
+  /** The term being renamed, or null. Separate from newTerm so the two drawers cannot collide. */
+  const [editingTerm, setEditingTerm] = useState<HierarchyTermRecord | null>(null);
+  const [editTermCode, setEditTermCode] = useState('');
+  const [editTermLabel, setEditTermLabel] = useState('');
+
   const [newTerm, setNewTerm] = useState<string | null>(null);
   /** Null while the label is still following the term code; a string once the admin edits it. */
   const [newTermLabel, setNewTermLabel] = useState<string | null>(null);
@@ -432,6 +437,18 @@ export default function AdminHierarchyPage() {
   const selectedSeason = (SEASONS.find((s) => trimmedNewTerm.startsWith(s.code))?.code ?? 'FA') as Season;
   const selectedYear = /^[A-Z]{2}\d{2}$/.test(trimmedNewTerm) ? 2000 + Number(trimmedNewTerm.slice(2)) : ceilingYear;
 
+  /* ---- The edit drawer's derived values ------------------------------ */
+
+  const editSeason = (SEASONS.find((x) => editTermCode.toUpperCase().startsWith(x.code))?.code ?? 'FA') as Season;
+  const editYear = /^[A-Z]{2}\d{2}$/.test(editTermCode.toUpperCase())
+    ? 2000 + Number(editTermCode.slice(2))
+    : ceilingYear;
+
+  /** Taken by SOME OTHER term. Its own code is obviously allowed, or a rename could never save. */
+  const editTermTaken = terms.some(
+    (t) => t.id !== editingTerm?.id && t.term.toUpperCase() === editTermCode.trim().toUpperCase()
+  );
+
   const yearOptions: number[] = [];
   for (let year = ceilingYear; year >= earliestYear; year -= 1) yearOptions.push(year);
   // A year held in state but not in the list would leave the select showing one thing while
@@ -516,6 +533,28 @@ export default function AdminHierarchyPage() {
    * with an empty roster is recoverable, whereas a promotion rolled back because a copy
    * failed would leave the site with no serving council.
    */
+  const openTermEditor = (term: HierarchyTermRecord) => {
+    setEditingTerm(term);
+    setEditTermCode(term.term.toUpperCase());
+    setEditTermLabel(term.label);
+    setError(null);
+  };
+
+  const saveTermEdit = async () => {
+    if (!editingTerm) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await hierarchyService.updateTerm(editingTerm.id, editTermCode, editTermLabel);
+      setTerms((list) => list.map((t) => (t.id === updated.id ? updated : t)));
+      setEditingTerm(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rename the term.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const startNewTerm = async () => {
     const code = trimmedNewTerm;
     const label = newTermLabelValue;
@@ -617,6 +656,22 @@ export default function AdminHierarchyPage() {
               )}
             </button>
           ))}
+
+          {/*
+            Editing lives on the selected term rather than on every chip: a pencil beside each of
+            them turns a row of terms into a row of controls, and the thing an admin wants to
+            rename is almost always the one they are already looking at.
+          */}
+          {canManage && selected && (
+            <button
+              type="button"
+              onClick={() => openTermEditor(selected)}
+              className="flex items-center gap-1.5 rounded-full border border-dashed border-black/15 px-3.5 py-1.5 text-sm font-medium text-slate-500 transition hover:border-ieee-orange/50 hover:text-ieee-orange"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit {selected.term}
+            </button>
+          )}
         </div>
 
         {loading || membersLoading ? (
@@ -847,6 +902,75 @@ export default function AdminHierarchyPage() {
             </AdminField>
 
             <MemberLinksEditor links={draft.links} onChange={(links) => setDraft({ ...draft, links })} />
+          </div>
+        )}
+      </AdminEditDrawer>
+
+      {/* ---- Edit a term --------------------------------------------- */}
+      <AdminEditDrawer
+        open={editingTerm !== null}
+        title={editingTerm ? `Edit ${editingTerm.term}` : 'Edit term'}
+        subtitle="Move this council to a different semester, or correct its name"
+        onClose={() => setEditingTerm(null)}
+        footer={
+          <button
+            onClick={() => void saveTermEdit()}
+            disabled={saving || !editTermCode.trim() || !editTermLabel.trim() || editTermTaken}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-ieee-orange px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-ieee-orange-dark disabled:opacity-60"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save changes
+          </button>
+        }
+      >
+        {editingTerm && (
+          <div className="grid gap-4">
+            <p className="rounded-xl bg-cream/70 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+              The roster moves with the term. Members belong to it by id rather than by its code,
+              so all {members.length} of them travel across without being touched.
+              {editingTerm.isCurrent && ' This is the serving council, so the change is live immediately.'}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <AdminField label="Season" required>
+                <select
+                  value={editSeason}
+                  onChange={(e) => setEditTermCode(termCodeFor(e.target.value as Season, editYear))}
+                  className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-ieee-orange/60"
+                >
+                  {SEASONS.map((season) => (
+                    <option key={season.code} value={season.code}>{season.name}</option>
+                  ))}
+                </select>
+              </AdminField>
+
+              <AdminField label="Year" required>
+                <select
+                  value={editYear}
+                  onChange={(e) => setEditTermCode(termCodeFor(editSeason, Number(e.target.value)))}
+                  className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-ieee-orange/60"
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </AdminField>
+            </div>
+
+            {/*
+              The database has a UNIQUE on term, so two councils cannot share a semester. Saying
+              so here beats letting the write fail: the admin finds out while choosing, not after
+              pressing Save.
+            */}
+            {editTermTaken && (
+              <p className="rounded-xl bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-700">
+                {editTermCode} already belongs to another term. Pick a different semester.
+              </p>
+            )}
+
+            <AdminField label="Name" required hint="What visitors see, e.g. Fall 2026.">
+              <AdminInput value={editTermLabel} onChange={(e) => setEditTermLabel(e.target.value)} />
+            </AdminField>
           </div>
         )}
       </AdminEditDrawer>

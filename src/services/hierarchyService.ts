@@ -237,6 +237,11 @@ function memberError(error: { code?: string | null; message: string }, action: s
  */
 function termError(error: { code?: string | null; message: string }, action: string): Error {
   if (error.code === '42501') return new Error(`Only content managers can ${action}.`);
+  // hierarchy_terms_term_key. Two councils cannot occupy one semester, and the editor filters
+  // taken codes out of the picker -- so reaching this means somebody else claimed it in between.
+  if (error.code === '23505') {
+    return new Error('Another term already uses that semester. Pick a different one.');
+  }
   if (error.code === '22023') return new Error('A term code and a label are both required.');
   if (error.code === 'PGRST202') {
     return new Error('This project is missing the database function that does that. Its migrations need applying.');
@@ -508,6 +513,36 @@ export const hierarchyService = {
     const { data, error } = await supabase.rpc('add_hierarchy_term', { new_term: code, new_label: name });
 
     if (error) throw termError(error, 'add a term to the archive');
+    return toTerm(data as HierarchyTermRow);
+  },
+
+  /**
+   * Renames a term, or moves it to a different semester.
+   *
+   * Only the code and the label. `is_current` is left alone deliberately: which term is serving
+   * is its own decision, guarded by hierarchy_terms_single_current_idx, and folding it into an
+   * edit would let a rename quietly hand the site a different council.
+   *
+   * The roster travels with it. Members are keyed on term_id, not on the code, so moving FA26
+   * to SP27 carries all fifteen people across without touching a single member row.
+   */
+  async updateTerm(id: string, term: string, label: string): Promise<HierarchyTermRecord> {
+    const code = term.trim().toUpperCase();
+    const name = label.trim();
+    if (!code || !name) throw new Error('A term code and a label are both required.');
+
+    await refreshAuthSession();
+    const { data, error } = await supabase
+      .from('hierarchy_terms')
+      .update({ term: code, label: name })
+      .eq('id', id)
+      .select(termColumns)
+      .single();
+
+    if (error) throw termError(error, 'rename a term');
+    if (!data) {
+      throw new Error('That term no longer exists, or you do not have permission to change it.');
+    }
     return toTerm(data as HierarchyTermRow);
   },
 
