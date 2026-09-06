@@ -85,6 +85,23 @@ export default function AdminDevelopersPage() {
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin text-ieee-orange" /> Loading links…
           </div>
+        ) : developers.length === 0 ? (
+          /*
+            An empty grid here would look like a bug. This panel edits contact links for a roster
+            that is authored in code, not in the database -- deliberately, so nobody can lose a
+            contributor with a stray click -- so "there is nobody to edit" has a cause an admin
+            cannot see from this screen, and saying it here is the only way they find out.
+          */
+          <div className="rounded-2xl border border-dashed border-black/10 bg-white/60 p-8 text-center">
+            <p className="font-display text-base font-bold text-slate-900">No developers listed yet</p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
+              The roster is part of the site's source, not the database, so that a contributor
+              cannot be removed by accident from here. Add people to
+              <span className="font-mono text-xs text-slate-600"> src/data/developers.ts </span>
+              and they appear on this page and on /developers, where visitors currently see a
+              "coming soon" screen.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {developers.map((developer, i) => {
