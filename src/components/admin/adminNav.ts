@@ -32,6 +32,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       { label: 'Projects', to: '/portal/projects', icon: 'layers' },
       { label: 'Navigation', to: '/portal/navigation', icon: 'compass' },
       { label: 'Hierarchy', to: '/portal/hierarchy', icon: 'building' },
+      { label: 'Timeline', to: '/portal/timeline', icon: 'clock' },
       { label: 'Quick Links', to: '/portal/quick-links', icon: 'link' },
       { label: 'Announcements', to: '/portal/announcements', icon: 'megaphone' },
       { label: 'Gallery', to: '/portal/gallery', icon: 'image' },

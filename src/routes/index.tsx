@@ -73,6 +73,7 @@ import FormResponsesPage from '@/pages/admin/FormResponsesPage';
 import AdminDateSheetsPage from '@/pages/admin/AdminDateSheetsPage';
 import AdminNavbarPage from '@/pages/admin/AdminNavbarPage';
 import AdminFooterPage from '@/pages/admin/AdminFooterPage';
+import AdminTimelinePage from '@/pages/admin/AdminTimelinePage';
 
 export const router = createBrowserRouter([
   {
@@ -149,6 +150,7 @@ export const router = createBrowserRouter([
       { path: 'projects', element: <AdminProjectsPage /> },
       { path: 'navigation', element: <AdminNavigationPage /> },
       { path: 'hierarchy', element: <AdminHierarchyPage /> },
+      { path: 'timeline', element: <AdminTimelinePage /> },
       { path: 'inbox', element: <AdminInboxPage /> },
       { path: 'submissions', element: <AdminSubmissionsPage /> },
       { path: 'submissions/history', element: <AdminSubmissionHistoryPage /> },
