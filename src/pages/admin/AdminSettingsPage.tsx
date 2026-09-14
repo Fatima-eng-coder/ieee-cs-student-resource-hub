@@ -33,7 +33,7 @@ const managedElsewhere = [
   {
     label: 'Site-wide ticker',
     description:
-      'The scrolling bar above the header on the public site. It plays up to six pinned announcements, or the six newest when none are pinned. Log in and sign up sit outside that layout and do not show it.',
+      'The scrolling bar above the header on the public site. It plays the six newest announcements that have "Show in the site-wide ticker" switched on, which every announcement does unless you turn it off. Log in and sign up sit outside that layout and do not show it.',
     to: '/portal/announcements',
   },
   {

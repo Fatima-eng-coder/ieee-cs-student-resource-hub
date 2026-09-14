@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Megaphone, Pencil, Pin, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Megaphone, Pencil, Pin, Plus, Radio, Trash2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
@@ -51,6 +51,10 @@ const emptyAnnouncement = (): AdminAnnouncement => ({
   date: new Date().toISOString().slice(0, 10),
   category: 'general',
   pinned: false,
+  // true, unlike its two neighbours here -- the column defaults to true and the editor has to
+  // agree with it, or every announcement created through this page would arrive with the
+  // ticker switched off while the database says the default is on.
+  showInTicker: true,
   formSource: 'none',
   externalFormUrl: null,
   formId: null,
@@ -226,6 +230,18 @@ export default function AdminAnnouncementsPage() {
     if (failure) setError(failure);
   };
 
+  /**
+   * How many announcements the ticker is currently playing from, counted with the open
+   * drawer's unsaved answer swapped in for the row it is editing.
+   *
+   * Counting the saved list alone would tell an admin who has just unticked the last one that
+   * there is still one in the ticker, which is the opposite of what they need to know at that
+   * moment. A new announcement counts too — it is about to exist.
+   */
+  const tickerCount = announcements.filter(
+    (a) => (draft && !isNew && a.id === draft.id ? draft.showInTicker : a.showInTicker)
+  ).length + (draft && isNew && draft.showInTicker ? 1 : 0);
+
   const columns: AdminTableColumn<AdminAnnouncement>[] = [
     {
       key: 'title',
@@ -242,10 +258,28 @@ export default function AdminAnnouncementsPage() {
     {
       key: 'pinned',
       header: 'Pinned',
+      // sortValue is what makes AdminTable render the header as a sort button at all, so
+      // without it this column looked different from every other one in the table.
+      sortValue: (a) => (a.pinned ? 'pinned' : 'no'),
       render: (a) =>
         a.pinned ? (
           <span className="inline-flex items-center gap-1 text-ieee-orange">
             <Pin className="h-3.5 w-3.5" /> Yes
+          </span>
+        ) : (
+          <span className="text-slate-400">No</span>
+        ),
+    },
+    {
+      // The ticker is the most prominent surface on the site, and before this column it was
+      // the only visibility flag you could not see from the list.
+      key: 'ticker',
+      header: 'Ticker',
+      sortValue: (a) => (a.showInTicker ? 'ticker' : 'no'),
+      render: (a) =>
+        a.showInTicker ? (
+          <span className="inline-flex items-center gap-1 text-ieee-orange">
+            <Radio className="h-3.5 w-3.5" /> Yes
           </span>
         ) : (
           <span className="text-slate-400">No</span>
@@ -384,15 +418,67 @@ export default function AdminAnnouncementsPage() {
                 <AdminInput type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
               </AdminField>
             </div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
-                checked={!!draft.pinned}
-                onChange={(e) => setDraft({ ...draft, pinned: e.target.checked })}
-                className="accent-ieee-orange"
-              />
-              Pin to top
-            </label>
+            {/*
+              One block, two settings, because the whole bug was that these were one setting.
+              Side by side with what each actually controls written under it, there is nowhere
+              left for "pin" to be read as "put this in the ticker". Follows the PromotionFields
+              idiom below rather than the bare checkbox this used to be — the third visibility
+              control on the page should not be the odd one out.
+            */}
+            <fieldset className="rounded-2xl border border-black/10 bg-cream/60 p-4">
+              <legend className="px-1 text-sm font-semibold text-slate-700">Where this appears</legend>
+
+              <div className="flex flex-col gap-2">
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-black/5 bg-white px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={!!draft.pinned}
+                    onChange={(e) => setDraft({ ...draft, pinned: e.target.checked })}
+                    className="mt-0.5 accent-ieee-orange"
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                      <Pin className="h-4 w-4 text-ieee-orange" />
+                      Pin to the top of the announcements page
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      Sorts it above the newer posts on /announcements and gives it a “Pinned”
+                      badge. Nothing else — it does not affect the ticker.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-black/5 bg-white px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={draft.showInTicker}
+                    onChange={(e) => setDraft({ ...draft, showInTicker: e.target.checked })}
+                    className="mt-0.5 accent-ieee-orange"
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                      <Radio className="h-4 w-4 text-ieee-orange" />
+                      Show in the site-wide ticker
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      The scrolling bar above the header, on every public page. It plays the six
+                      newest announcements that have this switched on.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {/*
+                An admin who switches this off everywhere makes the bar vanish from the whole
+                site with nothing on screen to explain why, so the count is stated here — the
+                one place where somebody is in a position to put it back.
+              */}
+              <p className="mt-2.5 text-xs text-slate-500">
+                {tickerCount === 0
+                  ? 'No announcement is in the ticker, so the bar is hidden across the site.'
+                  : `${plural(tickerCount, 'announcement')} currently in the ticker; it shows the six newest.`}
+              </p>
+            </fieldset>
             <FormAttachmentField
               itemNoun="announcement"
               value={{

@@ -5,7 +5,7 @@ import type { Announcement } from '@/types';
 export type FormSource = 'none' | 'external' | 'internal';
 
 const announcementColumns =
-  'id,title,summary,body,date,category,pinned,form_source,external_form_url,form_id,promoted,promo_headline,promo_cta_label,promo_starts_at,promo_ends_at,promo_sort';
+  'id,title,summary,body,date,category,pinned,show_in_ticker,form_source,external_form_url,form_id,promoted,promo_headline,promo_cta_label,promo_starts_at,promo_ends_at,promo_sort';
 
 /**
  * The public announcement shape plus the columns only the admin sets: the form an
@@ -39,6 +39,10 @@ interface AnnouncementRow {
   date: string;
   category: Announcement['category'];
   pinned: boolean;
+  // Optional-and-nullable like the promo columns below, not strict like `pinned`: it was
+  // added by a later migration, so a response from a deployment that predates it is a row
+  // without the key rather than a row with false in it.
+  show_in_ticker?: boolean | null;
   form_source?: FormSource | string | null;
   external_form_url?: string | null;
   form_id?: string | null;
@@ -76,6 +80,13 @@ const toAnnouncement = (row: AnnouncementRow): AdminAnnouncement => ({
   date: row.date,
   category: row.category,
   pinned: row.pinned,
+  // `?? true`, never `Boolean(...)`: the column defaults to true, so a row that arrives
+  // without a value has to read as ON here too. `Boolean(undefined)` is false, which would
+  // empty the ticker with nothing to see -- an empty ticker renders as no bar at all, not as
+  // an error. The reachable case is a build pointed at a database that predates the migration;
+  // a column missing from the select list above is not, since PostgREST answers that with a
+  // 42703 that fails the whole read rather than a row with the key absent.
+  showInTicker: row.show_in_ticker ?? true,
   ...toAttachment(row),
   promoted: Boolean(row.promoted),
   promoHeadline: row.promo_headline ?? '',
@@ -175,6 +186,9 @@ export const announcementsService = {
         date: input.date,
         category: input.category,
         pinned: Boolean(input.pinned),
+        // Not Boolean(): that turns an omitted value into false, which is the wrong default for
+        // this column and would hand a new announcement the opposite of what the editor shows.
+        show_in_ticker: input.showInTicker !== false,
         created_by: userData.user?.id ?? null,
         ...toAttachmentPayload(input),
         ...toPromoPayload(input),
@@ -196,6 +210,9 @@ export const announcementsService = {
     if (patch.date !== undefined) payload.date = patch.date;
     if (patch.category !== undefined) payload.category = patch.category;
     if (patch.pinned !== undefined) payload.pinned = Boolean(patch.pinned);
+    // The `!== undefined` guard is the load-bearing half, not the coercion: without it every
+    // partial update would write false into this column and switch the whole ticker off.
+    if (patch.showInTicker !== undefined) payload.show_in_ticker = Boolean(patch.showInTicker);
 
     // The three attachment columns are one value as far as the check constraint is
     // concerned, so they move together or not at all.

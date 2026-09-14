@@ -10,7 +10,18 @@ export interface Announcement {
   body: string;
   date: string;
   category: 'general' | 'event' | 'academic' | 'navigation' | 'projects';
+  /** Sorts this announcement to the top of the announcements page, and shows a "Pinned" badge. */
   pinned?: boolean;
+  /**
+   * Whether it plays in the scrolling ticker above the header. Independent of `pinned` — the
+   * ticker used to infer itself from that flag, which meant pinning one announcement dropped
+   * every other one out of the bar.
+   *
+   * Required, unlike `pinned`. `pinned?: boolean` is exactly what let the old ticker filter
+   * typecheck, and a flag that silently reads as `undefined` here empties the bar site-wide
+   * with no error to follow; a missing value should be a compile error instead.
+   */
+  showInTicker: boolean;
 }
 
 export interface Banner {

@@ -49,9 +49,38 @@ export default function AnnouncementBar() {
     };
   }, []);
 
-  // Prefer pinned announcements, fall back to the latest — these drive the ticker live.
-  const pinned = announcements.filter((a) => a.pinned);
-  const source = (pinned.length ? pinned : announcements).slice(0, 6);
+  /*
+   * What plays here is now an explicit per-announcement setting, not an inference.
+   *
+   * This used to read:
+   *
+   *     const pinned = announcements.filter((a) => a.pinned);
+   *     const source = (pinned.length ? pinned : announcements).slice(0, 6);
+   *
+   * — so pinning a single announcement emptied the bar of every other one. The fallback made
+   * that invisible: with nothing pinned the ticker looked correct, and the failure only
+   * appeared once somebody used a feature on a different page. `pinned` now means only what
+   * its badge on the announcements page says it means.
+   *
+   * Re-sorted by date rather than taken in the order list() returns. That read is ordered
+   * pinned-first for the announcements page, and inheriting it here would let pinning jump an
+   * announcement into the six slots the ticker has — quietly reintroducing the same coupling
+   * through the back door. Newest-first is the ticker's own rule.
+   *
+   * The id tiebreak is what makes that true rather than nearly true. `date` is a calendar day
+   * and defaults to today, so several announcements sharing one is the ordinary case, not an
+   * edge case — and Array.sort is stable, so without a second key a tied group would simply
+   * keep the pinned-first order it arrived in. Pin the seventh announcement posted today and
+   * it would take the top slot and push another off the end of the six. Any deterministic key
+   * that is not `pinned` closes that off; id is already on every row.
+   */
+  const source = [...announcements]
+    .filter((a) => a.showInTicker !== false)
+    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
+    .slice(0, 6);
+
+  // Reachable on purpose: an admin who switches every announcement off gets no bar, which is
+  // a legitimate thing to ask for. The admin editor is where that is explained, not here.
   if (source.length === 0) return null;
 
   /*
