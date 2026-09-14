@@ -36,6 +36,32 @@ export const UNIVERSITY_EMAIL_PATTERN =
   /^([a-z]{2})([0-9]{2})-([a-z]{3,4})-([0-9]{3,4})@isbstudent\.comsats\.edu\.pk$/;
 
 /**
+ * The registration number on its own, e.g. FA24-BCS-059.
+ *
+ * Built from the SAME character classes as UNIVERSITY_EMAIL_PATTERN above, deliberately: the
+ * local part of a COMSATS student address IS the registration number, so two definitions that
+ * could drift apart would mean an address the signup flow accepts whose registration number a
+ * form then rejects, or the reverse.
+ *
+ * That is also why the programme is `{3,4}` and the roll `{3,4}` rather than the 3-and-3 shape
+ * people describe when asked. BCS is three letters but BSE and BCEE exist, and four-digit rolls
+ * are issued; narrowing it here would reject students the rest of this application already
+ * admits. Every anchor and class note on UNIVERSITY_EMAIL_PATTERN applies verbatim — in
+ * particular no `i` flag, because case is handled by uppercasing ASCII only.
+ */
+export const REGISTRATION_NUMBER_PATTERN = /^([A-Za-z]{2})([0-9]{2})-([A-Za-z]{3,4})-([0-9]{3,4})$/;
+
+/** Upper-cased and trimmed, which is how the university writes it and how it should be stored. */
+export function normaliseRegistrationNumber(value: string): string | null {
+  const trimmed = value.trim().toUpperCase();
+  return REGISTRATION_NUMBER_PATTERN.test(trimmed) ? trimmed : null;
+}
+
+export function isRegistrationNumber(value: string): boolean {
+  return normaliseRegistrationNumber(value) !== null;
+}
+
+/**
  * `fa` or `sp` on every address anyone has shown us, but the pattern above accepts any two
  * letters, so this is the type the parser can actually honour. A union with `(string & {})` in it
  * collapses to `string` anyway — it looked like a promise while checking nothing.

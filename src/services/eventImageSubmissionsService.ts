@@ -23,8 +23,12 @@ import { supabase } from '@/lib/supabase';
 
 const EVENT_IMAGES_BUCKET = 'event-images';
 
-/** The table's own ceiling. Kept here so the picker stops before the database has to. */
-export const MAX_EVENT_PHOTOS = 3;
+/**
+ * The table's own ceiling (event_image_submissions_max_images_check), kept here so the picker
+ * stops before the database has to. Raised from 3 to 10 in 20260907001000 -- change both or
+ * neither, or the form will offer a submission the insert refuses.
+ */
+export const MAX_EVENT_PHOTOS = 10;
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;

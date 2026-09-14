@@ -262,6 +262,15 @@ export type FormFieldType =
   | 'file'
   | 'image';
 
+/**
+ * Re-exported from the module that owns the rules, so the type and its checks stay together.
+ * Imported as well as re-exported because `export ... from` does not bind the name locally, and
+ * FormField below needs to refer to it.
+ */
+import type { FormFieldFormat } from '@/utils/formFormats';
+
+export type { FormFieldFormat };
+
 export interface FormFieldOption {
   id: string;
   label: string;
@@ -271,10 +280,17 @@ export interface FormField {
   id: string;
   type: FormFieldType;
   label: string;
-  /** Stored as form_fields.help_text. */
+  /** Stored as form_fields.help_text. Rendered ABOVE the input, under the question. */
   description?: string;
+  /** Sample text shown INSIDE the empty input. Stored as form_fields.placeholder. */
   placeholder?: string;
   required: boolean;
+  /**
+   * Shape the answer has to take — a number, a Gmail address, a FA24-BCS-059 registration
+   * number. See src/utils/formFormats.ts; re-checked server-side by a trigger, because anon
+   * can insert responses. Absent means 'none'.
+   */
+  format?: FormFieldFormat;
   /** For dropdown / radio / checkbox. */
   options?: FormFieldOption[];
 }

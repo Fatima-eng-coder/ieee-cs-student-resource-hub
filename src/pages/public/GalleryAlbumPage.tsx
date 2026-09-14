@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Expand } from 'lucide-react';
 import { galleryService, type AdminGalleryAlbum } from '@/services/galleryService';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import EmptyState from '@/components/ui/EmptyState';
+import Lightbox from '@/components/ui/Lightbox';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -53,6 +54,8 @@ export default function GalleryAlbumPage() {
   const [album, setAlbum] = useState<AdminGalleryAlbum | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Index of the photo being viewed full screen; null when the grid is all there is. */
+  const [viewing, setViewing] = useState<number | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -147,19 +150,54 @@ export default function GalleryAlbumPage() {
                 transition={{ duration: 0.35, delay: (idx % 3) * 0.06 }}
                 className="group overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm"
               >
-                <div className="overflow-hidden">
+                {/*
+                  A real button, not a click handler on the image. The hover scale already
+                  promised this was openable; a div with onClick would keep that promise only
+                  for a mouse, leaving keyboard and screen-reader users with the same dead
+                  grid. The button also gives the viewer somewhere to return focus to on close.
+                */}
+                <button
+                  type="button"
+                  onClick={() => setViewing(idx)}
+                  aria-label={photo.caption ? `Open photo: ${photo.caption}` : `Open photo ${idx + 1}`}
+                  data-cursor="link"
+                  className="relative block w-full overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-ieee-orange focus-visible:ring-offset-2"
+                >
                   <img
                     src={photo.url}
                     alt={photo.caption}
                     loading="lazy"
                     className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
                   />
-                </div>
+                  {/* Says "this opens" on hover for a mouse, and is simply never shown on a
+                      touch screen -- where tapping it is the obvious thing to try anyway. */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ieee-ink/0 opacity-0 transition duration-300 group-hover:bg-ieee-ink/30 group-hover:opacity-100"
+                  >
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-ieee-ink shadow-lg">
+                      <Expand className="h-5 w-5" />
+                    </span>
+                  </span>
+                </button>
                 {photo.caption && <figcaption className="p-4 text-sm text-slate-600">{photo.caption}</figcaption>}
               </motion.figure>
             ))}
           </div>
         )}
+
+        {/* Mounted unconditionally so its enter/exit animation has something to run on; it
+            renders nothing at all while `viewing` is null. */}
+        <Lightbox
+          images={album.images.map((photo) => ({
+            id: photo.id,
+            url: photo.url,
+            caption: photo.caption || undefined,
+          }))}
+          index={viewing}
+          onClose={() => setViewing(null)}
+          onIndexChange={setViewing}
+        />
       </PageSection>
     </div>
   );

@@ -1,14 +1,32 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, ArrowUp, ArrowDown, GripVertical, Loader2, Save, X, FileStack, Ticket } from 'lucide-react';
-import type { FormDef, FormField, FormFieldType, FormPage, FormStatus } from '@/types';
+import type { FormDef, FormField, FormFieldFormat, FormFieldType, FormPage, FormStatus } from '@/types';
+import { FORMAT_SPECS, FORM_FIELD_FORMATS } from '@/utils/formFormats';
 import { formsService } from '@/services/formsService';
 import { makeId } from '@/utils/storage';
 import { fromLocalInput, toLocalInput } from '@/utils/time';
 import { fieldTypeMeta, fieldTypeOrder } from '@/components/forms/fieldTypes';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 
-const newField = (): FormField => ({ id: makeId('ff'), type: 'short-text', label: '', required: false });
+const newField = (): FormField => ({
+  id: makeId('ff'),
+  type: 'short-text',
+  label: '',
+  required: false,
+  format: 'none',
+});
+
+/**
+ * Mirrors FORMATTABLE_TYPES in formsService — the types whose answer is a string a person typed,
+ * and therefore the only ones a format rule can police. Kept in step with the writer, which
+ * drops a format on anything else rather than storing a rule nothing enforces.
+ */
+const formattableTypes = new Set<FormFieldType>(['short-text', 'long-text', 'email', 'number']);
+
+/** The chosen format's own example, offered as the placeholder box's ghost text. */
+const formatPlaceholderHint = (format: FormFieldFormat | undefined) =>
+  format && format !== 'none' ? FORMAT_SPECS[format].samplePlaceholder : '';
 const newPage = (): FormPage => ({ id: makeId('fp'), fields: [newField()] });
 
 /** A datetime-local value is wall-clock, so it is read back on the same clock it was typed on. */
@@ -520,12 +538,68 @@ export default function FormBuilderPage() {
                           </select>
                         </div>
 
-                        <input
-                          value={field.description ?? ''}
-                          onChange={(e) => patchField(page.id, field.id, { description: e.target.value })}
-                          placeholder="Helper text (optional)"
-                          className="mt-2 w-full rounded-lg border border-transparent bg-transparent px-1 text-xs text-slate-500 outline-none placeholder:text-slate-300 focus:border-slate-200 focus:bg-slate-50"
-                        />
+                        {/*
+                          Two hint fields, not one, and labelled so they cannot be confused.
+                          Only `description` existed, and it renders ABOVE the input — so an
+                          admin writing "e.g. FA24-BCS-059" got a line of grey text under the
+                          question instead of sample text inside the empty box. `placeholder`
+                          has been a real column and a real render all along; nothing in the
+                          builder ever wrote to it.
+                        */}
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          <label className="flex flex-col gap-1">
+                            <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              Sample text (inside the box)
+                            </span>
+                            <input
+                              value={field.placeholder ?? ''}
+                              onChange={(e) => patchField(page.id, field.id, { placeholder: e.target.value })}
+                              placeholder={formatPlaceholderHint(field.format) || 'e.g. FA24-BCS-059'}
+                              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 outline-none placeholder:text-slate-300 focus:border-ieee-orange"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              Helper text (under the question)
+                            </span>
+                            <input
+                              value={field.description ?? ''}
+                              onChange={(e) => patchField(page.id, field.id, { description: e.target.value })}
+                              placeholder="Shown above the box"
+                              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 outline-none placeholder:text-slate-300 focus:border-ieee-orange"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Format rules only apply to typed answers — see FORMATTABLE_TYPES in
+                            formsService. Offering the picker on a checkbox would be offering a
+                            setting the writer drops on save. */}
+                        {formattableTypes.has(field.type) && (
+                          <label className="mt-2 flex flex-col gap-1">
+                            <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              Accepted format
+                            </span>
+                            <select
+                              value={field.format ?? 'none'}
+                              onChange={(e) =>
+                                patchField(page.id, field.id, { format: e.target.value as FormFieldFormat })
+                              }
+                              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 outline-none focus:border-ieee-orange sm:w-64"
+                            >
+                              {FORM_FIELD_FORMATS.map((key) => (
+                                <option key={key} value={key}>
+                                  {FORMAT_SPECS[key].label}
+                                </option>
+                              ))}
+                            </select>
+                            {field.format && field.format !== 'none' && (
+                              <span className="px-1 text-[11px] text-slate-400">
+                                {FORMAT_SPECS[field.format].help} Checked again on the server, so it
+                                holds even if someone bypasses the page.
+                              </span>
+                            )}
+                          </label>
+                        )}
 
                         {hasOptions && (
                           <div className="mt-3 flex flex-col gap-1.5">

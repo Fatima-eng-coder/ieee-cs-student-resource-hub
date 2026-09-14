@@ -7,6 +7,7 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import PhotoFilePicker from '@/components/ui/PhotoFilePicker';
 import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
+import EventNamePicker, { type EventNameValue } from '@/components/forms/EventNamePicker';
 import {
   eventImageSubmissionsService,
   MAX_EVENT_PHOTOS,
@@ -35,8 +36,11 @@ const options: Option[] = [
 export default function ContributePage() {
   const { user, ensureAuth } = useAuth();
   const [events, setEvents] = useState<EventItem[]>([]);
+  // Tracked so the event picker can say "loading" instead of "no event matches that", which is
+  // what an empty list looks like before the first read lands.
+  const [loadingEvents, setLoadingEvents] = useState(true);
   const [photoModal, setPhotoModal] = useState(false);
-  const [eventId, setEventId] = useState('');
+  const [eventChoice, setEventChoice] = useState<EventNameValue>({ name: '', eventId: null });
   const [photos, setPhotos] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -53,6 +57,9 @@ export default function ContributePage() {
         })
         .catch(() => {
           if (!ignore) setEvents([]);
+        })
+        .finally(() => {
+          if (!ignore) setLoadingEvents(false);
         });
 
     const unsubscribe = subscribeEventsChanged(loadEvents);
@@ -64,7 +71,15 @@ export default function ContributePage() {
     };
   }, []);
 
-  const previousEvents = useMemo(() => events.filter((event) => event.timing === 'previous'), [events]);
+  /*
+   * Every event is offered, not just `timing === 'previous'`.
+   *
+   * The old filter looked right and was not: `timing` is derived from the date, so an event
+   * that finished this morning is still 'upcoming' for the rest of the day -- exactly when
+   * people are most likely to send their photos, and exactly when the list did not contain it.
+   * Anything genuinely too early to have photos is filtered by the person, who knows.
+   */
+  const eventOptions = useMemo(() => events, [events]);
 
   /**
    * The upload needs a session, so a guest is asked to sign in at the point they click rather
@@ -76,13 +91,16 @@ export default function ContributePage() {
   };
 
   const submitPhotos = async () => {
-    const ev = previousEvents.find((e) => e.id === eventId);
-    if (!ev) return setError('Choose which event these photos are from.');
+    // One check for both ways of answering: a picked event and a typed name both land in
+    // `name`, and the row stores that string either way.
+    const eventName = eventChoice.name.trim();
+    if (!eventName) return setError('Choose which event these photos are from, or type its name.');
+    if (photos.length === 0) return setError('Add at least one photo.');
 
     setSending(true);
     setError('');
     try {
-      await eventImageSubmissionsService.submit({ eventName: ev.title, files: photos });
+      await eventImageSubmissionsService.submit({ eventName, files: photos });
       setDone(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Those photos could not be sent.');
@@ -97,7 +115,7 @@ export default function ContributePage() {
     setTimeout(() => {
       setDone(false);
       setPhotos([]);
-      setEventId('');
+      setEventChoice({ name: '', eventId: null });
       setError('');
     }, 200);
   };
@@ -197,27 +215,21 @@ export default function ContributePage() {
               ) : (
                 <>
                   <h2 className="font-display text-xl font-bold text-slate-900">Submit Event Photos</h2>
-                  <p className="mt-1 text-sm text-slate-500">Pick the event, then add your photos.</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Search for the event — or type its name if it is not listed — then add your
+                    photos. You can send up to {MAX_EVENT_PHOTOS} at once.
+                  </p>
 
                   {/* the dropdown that appears for the event-photos option */}
                   <label className="mt-5 block text-sm font-semibold text-slate-700">Which event?</label>
-                  <select
-                    value={eventId}
-                    onChange={(e) => setEventId(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-black/10 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-ieee-orange focus:ring-2 focus:ring-ieee-orange/20"
-                  >
-                    <option value="">Select an event…</option>
-                    {previousEvents.length === 0 && (
-                      <option value="" disabled>
-                        No previous events available
-                      </option>
-                    )}
-                    {previousEvents.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.title}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1.5">
+                    <EventNamePicker
+                      events={eventOptions}
+                      value={eventChoice}
+                      onChange={setEventChoice}
+                      loading={loadingEvents}
+                    />
+                  </div>
 
                   <label className="mt-4 block text-sm font-semibold text-slate-700">Photos</label>
                   <div className="mt-1.5">
@@ -243,7 +255,7 @@ export default function ContributePage() {
                   ) : (
                     <button
                       onClick={() => void submitPhotos()}
-                      disabled={!eventId || photos.length === 0 || sending}
+                      disabled={!eventChoice.name.trim() || photos.length === 0 || sending}
                       className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ieee-orange px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {sending && <Loader2 className="h-4 w-4 animate-spin" />}

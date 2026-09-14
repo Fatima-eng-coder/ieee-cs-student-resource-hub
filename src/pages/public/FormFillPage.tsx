@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Loader2, Check, AlertCircle, Ticket } from 'lucide-react';
 import type { FormCapacity, FormDef, FormAnswer } from '@/types';
 import { formsService } from '@/services/formsService';
+import { checkFormat, normaliseAnswer } from '@/utils/formFormats';
 import { useAuth } from '@/context/AuthContext';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
@@ -51,7 +52,15 @@ export default function FormFillPage() {
   const [seatsRead, setSeatsRead] = useState(false);
   const [page, setPage] = useState(0);
   const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
-  const [errors, setErrors] = useState<Set<string>>(new Set());
+  /**
+   * fieldId -> the sentence to show under that field.
+   *
+   * Was a Set of ids, which could only ever mean "this one is wrong" and so only ever rendered
+   * the one fixed string "This field is required." A format rule has something specific to say
+   * -- "Use the registration number format, like FA24-BCS-059" -- and a student who cannot see
+   * WHY their answer was refused will retype the same thing.
+   */
+  const [errors, setErrors] = useState<Map<string, string>>(new Map());
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [seatsUnknown, setSeatsUnknown] = useState(false);
@@ -76,7 +85,7 @@ export default function FormFillPage() {
     setDone(false);
     setPage(0);
     setAnswers({});
-    setErrors(new Set());
+    setErrors(new Map());
 
     formsService
       .get(id ?? '')
@@ -267,16 +276,29 @@ export default function FormFillPage() {
     setAnswers((a) => ({ ...a, [fieldId]: value }));
     setErrors((e) => {
       if (!e.has(fieldId)) return e;
-      const next = new Set(e);
+      const next = new Map(e);
       next.delete(fieldId);
       return next;
     });
   };
 
   const validatePage = () => {
-    const missing = current.fields.filter((f) => f.required && isEmpty(answers[f.id]));
-    setErrors(new Set(missing.map((f) => f.id)));
-    return missing.length === 0;
+    const found = new Map<string, string>();
+
+    for (const field of current.fields) {
+      if (field.required && isEmpty(answers[field.id])) {
+        found.set(field.id, 'This field is required.');
+        continue;
+      }
+      // Format is checked second and only on a non-empty answer: an optional question left
+      // blank is not badly formatted, it is unanswered, and saying otherwise would make every
+      // formatted field effectively required.
+      const problem = checkFormat(field.format, answers[field.id]);
+      if (problem) found.set(field.id, problem);
+    }
+
+    setErrors(found);
+    return found.size === 0;
   };
 
   const next = () => {
@@ -290,7 +312,19 @@ export default function FormFillPage() {
     setBusy(true);
     setFailure(null);
     try {
-      await formsService.submitResponse(form.id, answers, fieldLabels, user?.name);
+      // Canonicalised on the way out: a registration number typed "fa24-bcs-059" is stored
+      // FA24-BCS-059 and a mobile becomes E.164, so a column of these sorts and groups instead
+      // of splitting one student into two spellings. Only formatted fields are touched.
+      const canonical: Record<string, FormAnswer> = { ...answers };
+      for (const formPage of pages) {
+        for (const field of formPage.fields) {
+          if (field.format && field.format !== 'none' && field.id in canonical) {
+            canonical[field.id] = normaliseAnswer(field.format, canonical[field.id]) as FormAnswer;
+          }
+        }
+      }
+
+      await formsService.submitResponse(form.id, canonical, fieldLabels, user?.name);
       setDone(true);
     } catch (cause) {
       // Without this the button simply stopped spinning and the student was left staring at a
@@ -443,9 +477,19 @@ export default function FormFillPage() {
                         />
                       )}
                       <div className={field.description ? '' : 'mt-2'}>
-                        <FormFieldInput field={field} value={answers[field.id]} onChange={set(field.id)} error={errors.has(field.id)} />
+                        <FormFieldInput
+                          field={field}
+                          value={answers[field.id]}
+                          onChange={set(field.id)}
+                          error={errors.has(field.id)}
+                          formId={form.id}
+                        />
                       </div>
-                      {errors.has(field.id) && <p className="mt-1.5 text-xs font-medium text-rose-600">This field is required.</p>}
+                      {errors.has(field.id) && (
+                        <p role="alert" className="mt-1.5 text-xs font-medium text-rose-600">
+                          {errors.get(field.id)}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

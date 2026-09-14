@@ -5,6 +5,14 @@ import { ArrowUpRight, type LucideIcon } from 'lucide-react';
 import PageHero, { type Crumb } from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 
+/** A single prominent call to action, for a parked page that still has somewhere to send you. */
+export interface ComingSoonAction {
+  label: string;
+  to: string;
+  /** One line under the button saying what happens next. */
+  hint?: string;
+}
+
 export interface MeanwhileLink {
   label: string;
   description: string;
@@ -23,6 +31,15 @@ interface ComingSoonProps {
   icon: LucideIcon;
   /** Onward destinations so the page is never a dead end. */
   meanwhile?: MeanwhileLink[];
+  /**
+   * The one thing a visitor can still do here, shown as a primary button.
+   *
+   * A parked page is not always a page with nothing behind it. The projects showcase, for
+   * instance, is empty only because nothing has been approved yet -- submissions are open the
+   * whole time, and the page that takes them was reachable from nowhere while this screen was
+   * up. Without this prop the parked state had to either lie about that or hide it.
+   */
+  action?: ComingSoonAction;
 }
 
 const listVariants: Variants = {
@@ -47,6 +64,7 @@ export default function ComingSoon({
   breadcrumb,
   icon: Icon,
   meanwhile = [],
+  action,
 }: ComingSoonProps) {
   const reduceMotion = useReducedMotion();
 
@@ -102,6 +120,22 @@ export default function ComingSoon({
             Nothing here is broken — this page is parked while the section is rebuilt, and it will
             return at this same address. The rest of the site is working as usual.
           </p>
+
+          {action && (
+            <div className="mt-7 flex flex-col items-center">
+              <Link
+                to={action.to}
+                data-cursor="link"
+                className="inline-flex items-center gap-2 rounded-xl bg-ieee-orange px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(255,108,12,0.3)] transition hover:bg-ieee-orange-dark"
+              >
+                {action.label}
+                <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+              </Link>
+              {action.hint && (
+                <p className="mt-2.5 max-w-sm text-xs leading-relaxed text-slate-500">{action.hint}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {meanwhile.length > 0 && (

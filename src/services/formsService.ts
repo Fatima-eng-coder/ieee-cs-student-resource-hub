@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { FORM_FIELD_FORMATS, type FormFieldFormat } from '@/utils/formFormats';
 import { announcementsService, type AnnouncementFormLink } from '@/services/announcementsService';
 import { eventsService, type EventFormLink } from '@/services/eventsService';
 import type {
@@ -23,8 +24,15 @@ import type {
 const formColumns =
   'id,title,description,status,opens_at,closes_at,max_responses,show_remaining,is_default,created_by,created_at,updated_at';
 const pageColumns = 'id,form_id,title,description,sort_order';
+/**
+ * Types whose answer is a typed string, and therefore the only ones a format can police.
+ * A checkbox answer is an array; a date and a dropdown are already constrained by the control
+ * itself; a file or image answer is a path this application wrote, not something a person typed.
+ */
+const FORMATTABLE_TYPES = new Set<FormFieldType>(['short-text', 'long-text', 'email', 'number']);
+
 const fieldColumns =
-  'id,form_id,page_id,label,help_text,placeholder,field_type,required,options,sort_order';
+  'id,form_id,page_id,label,help_text,placeholder,field_type,required,format,options,sort_order';
 const responseColumns = 'id,form_id,submitted_by,student_email,answers,field_labels,created_at';
 
 /** PostgREST caps how many rows one request returns, so a busy form is read a page at a time. */
@@ -76,6 +84,9 @@ interface FormFieldRow {
   label: string;
   help_text: string | null;
   placeholder: string | null;
+  // Optional and nullable because it was added by a later migration (20260907002000); a
+  // response from a deployment that predates it has no key here rather than 'none' in it.
+  format?: string | null;
   field_type: DbFieldType;
   required: boolean;
   options: unknown;
@@ -163,6 +174,13 @@ const toFormField = (row: FormFieldRow): FormField => {
     description: row.help_text || undefined,
     placeholder: row.placeholder || undefined,
     required: Boolean(row.required),
+    // Narrowed against the known list rather than cast: form_fields_format_check confines the
+    // column, but a value this build has never heard of would otherwise be handed to
+    // FORMAT_SPECS[...] and read as undefined at the point a student is being told why their
+    // answer was refused.
+    format: FORM_FIELD_FORMATS.includes(row.format as FormFieldFormat)
+      ? (row.format as FormFieldFormat)
+      : 'none',
     options: optionFieldTypes.has(type) ? toOptions(row.options) : undefined,
   };
 };
@@ -425,6 +443,10 @@ function buildRows(formId: string, pages: FormPage[]) {
         placeholder: field.placeholder?.trim() ?? '',
         field_type: fieldTypeToDb[field.type] ?? 'short_text',
         required: Boolean(field.required),
+        // A format on a field type that cannot carry one (a checkbox answer is an array, a date
+        // is already constrained by its input) would be stored and then silently never checked.
+        // Dropped on write so the builder and the table agree about what is in force.
+        format: FORMATTABLE_TYPES.has(field.type) ? (field.format ?? 'none') : 'none',
         options: hasOptions ? (field.options ?? []).map((o) => ({ id: o.id, label: o.label })) : [],
         sort_order: fieldIndex,
       });
@@ -544,7 +566,114 @@ export function subscribeFormResponsesChanged(formId: string, callback: () => vo
   };
 }
 
+
+// ---------------------------------------------------------------------------------------
+// Attachments
+// ---------------------------------------------------------------------------------------
+
+/**
+ * Where a form's uploaded files go. The prefix is load-bearing: the storage policy added in
+ * 20260907003000 admits an anonymous writer ONLY under this first path segment.
+ */
+const FORM_UPLOAD_BUCKET = 'event-images';
+const FORM_UPLOAD_PREFIX = 'form-uploads';
+
+/** The bucket's own allowlist. Anything else answers 415 before RLS is consulted. */
+const ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Only these two question types carry a file, and the image one is narrowed to pictures. */
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+/** Slugified and time-prefixed, so two students uploading "scan.pdf" do not collide. */
+function safeFileName(file: File): string {
+  const dot = file.name.lastIndexOf('.');
+  const stem = (dot > 0 ? file.name.slice(0, dot) : file.name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 50);
+  const ext = dot > 0 ? file.name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+  return `${Date.now()}-${stem || 'file'}${ext ? `.${ext}` : ''}`;
+}
+
+function assertAttachment(file: File, imagesOnly: boolean): void {
+  const allowed = imagesOnly ? IMAGE_TYPES : ATTACHMENT_TYPES;
+  if (!allowed.includes(file.type)) {
+    throw new Error(
+      imagesOnly
+        ? 'Please choose a PNG, JPG or WebP image.'
+        : 'Please choose a PDF, PNG, JPG or WebP file.'
+    );
+  }
+  if (file.size > ATTACHMENT_MAX_BYTES) {
+    throw new Error('That file is larger than 5 MB. Please pick a smaller one.');
+  }
+}
+
+/**
+ * The bucket path behind a stored answer, or null when the answer is not one of ours.
+ *
+ * Answers hold the public URL rather than the bare path, which is a deliberate departure from
+ * what 20260901000200's column comment anticipated. The reason is that `answers` can only hold a
+ * scalar per field, and exactly one string has to serve three readers: the admin table (which
+ * renders an http link), the CSV export (where a path is not clickable and an admin has no way
+ * to turn one into a file), and any cleanup. A public URL satisfies all three and the path is
+ * recoverable from it, which is what this does. The bucket is public, so the URL needs no
+ * signing and does not expire.
+ */
+export function attachmentPathFromUrl(url: string): string | null {
+  const marker = `/storage/v1/object/public/${FORM_UPLOAD_BUCKET}/`;
+  const at = url.indexOf(marker);
+  if (at === -1) return null;
+  const path = url.slice(at + marker.length);
+  return path.startsWith(`${FORM_UPLOAD_PREFIX}/`) ? path : null;
+}
+
 export const formsService = {
+  /**
+   * Uploads one answer attachment and returns the public URL to store in the answer.
+   *
+   * Uploaded when the file is chosen rather than on submit, so a slow or refused upload is
+   * reported next to the field that caused it instead of surfacing as a failed submission after
+   * the student has filled in the rest of the form.
+   *
+   * The cost of that choice is an orphan: a file uploaded by somebody who then abandons the
+   * form is a stored object no row points at. That is the right way round -- the alternative is
+   * a submitted response whose attachment is missing, which is data loss rather than waste --
+   * and content managers can sweep the prefix, which is why the policy grants them delete and
+   * grants the uploader none.
+   */
+  async uploadAttachment(file: File, formId: string, imagesOnly: boolean): Promise<string> {
+    assertAttachment(file, imagesOnly);
+    await refreshAuthSessionIfSignedIn();
+
+    const path = `${FORM_UPLOAD_PREFIX}/${formId}/${safeFileName(file)}`;
+    const { error } = await supabase.storage
+      .from(FORM_UPLOAD_BUCKET)
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+
+    if (error) {
+      const lower = (error.message ?? '').toLowerCase();
+      if (lower.includes('mime') || lower.includes('not supported')) {
+        throw new Error('That file type is not accepted. Please use a PDF, PNG, JPG or WebP.');
+      }
+      if (lower.includes('exceeded') || lower.includes('too large') || lower.includes('payload')) {
+        throw new Error('That file is larger than 5 MB. Please pick a smaller one.');
+      }
+      if (lower.includes('row-level security') || lower.includes('unauthorized') || lower.includes('denied')) {
+        throw new Error('Attachments cannot be uploaded right now. Please tell the team.');
+      }
+      if (lower.includes('network') || lower.includes('fetch')) {
+        throw new Error('We could not reach the server. Check your connection and try again.');
+      }
+      throw new Error('That file could not be uploaded. Please try again.');
+    }
+
+    const { data } = supabase.storage.from(FORM_UPLOAD_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  },
+
   /** Every form, newest first, with the default form pinned last — for the admin. */
   async list(): Promise<FormDef[]> {
     const forms = await fetchForms();

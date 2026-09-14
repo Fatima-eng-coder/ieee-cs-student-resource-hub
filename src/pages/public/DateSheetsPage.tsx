@@ -31,12 +31,23 @@ const meanwhile: MeanwhileLink[] = [
 
 const breadcrumb = [{ label: 'Home', to: '/' }, { label: 'Date Sheets' }];
 
+/*
+ * Said as "none published yet", not as "this section is being rebuilt".
+ *
+ * The previous copy described a changeover that is finished: the table, the uploader, the
+ * publish toggle and this listing all work, and the page turns itself into the real thing the
+ * moment a sheet is published. Telling a student the feature is paused would send them looking
+ * elsewhere for something that is simply waiting on the exam office.
+ *
+ * There is no student CTA here on purpose, unlike the projects showcase. A date sheet is issued
+ * by the department; a student upload would be a rumour with a download button on it.
+ */
 const parkedScreen = (
   <ComingSoon
     eyebrow="Exams"
     breadcrumb={breadcrumb}
-    title="Exam date sheets are coming back."
-    description="Per-program, per-semester date sheets are being moved onto a schedule the department can update directly, so they're paused until that changeover is done."
+    title="No date sheets have been published yet."
+    description="The team puts each program's schedule here as the department releases it. Nothing is up right now — check the announcements for exam notices in the meantime."
     icon={CalendarClock}
     meanwhile={meanwhile}
   />

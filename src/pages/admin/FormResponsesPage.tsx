@@ -92,6 +92,23 @@ function csvDateTime(iso: string): string {
 
 const isHttpUrl = (text: string) => /^https?:\/\//i.test(text);
 
+/**
+ * The readable end of an attachment URL.
+ *
+ * Attachment answers are hosted URLs now (they used to be a bare filename for `file`, which was
+ * never uploaded anywhere, and a base64 data URL for `image`). The full URL in a table cell is
+ * 120 characters of storage path, so the filename is shown and the URL kept on the title and
+ * the href.
+ */
+const attachmentLabel = (url: string) => {
+  try {
+    const name = decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '');
+    return name.replace(/^\d{10,}-/, '') || url;
+  } catch {
+    return url;
+  }
+};
+
 const quoteList = (labels: string[]) => labels.map((label) => `“${label}”`).join(', ');
 
 const primaryButton =
@@ -240,7 +257,7 @@ export default function FormResponsesPage() {
                 title={text}
                 className="block max-w-[18rem] truncate font-medium text-ieee-orange hover:underline"
               >
-                {text}
+                {column.type === 'file' ? attachmentLabel(text) : text}
               </a>
             );
           }

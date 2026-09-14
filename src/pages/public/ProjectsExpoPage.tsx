@@ -111,14 +111,27 @@ export default function ProjectsExpoPage() {
     );
   }
 
+  /*
+   * The copy here used to read "we're reworking how student projects are submitted ...
+   * Submissions reopen with it", which was not true: /projects-expo/submit has been live and
+   * accepting the whole time. Worse, the only link to it sat in the branch below -- the one
+   * that renders when there is at least one approved project -- so the page told students
+   * submissions were closed AND hid the form that was open. The showcase is empty for one
+   * reason: nothing has been approved yet. It says that now, and the way in is on screen.
+   */
   if (projects.length === 0) {
     return (
       <ComingSoon
         eyebrow="Projects"
         breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Projects' }]}
-        title="The projects showcase is being rebuilt."
-        description="We're reworking how student projects are submitted, credited and discovered, so the showcase is offline while that lands. Submissions reopen with it."
+        title="No projects have been published yet."
+        description="The showcase fills up as the team reviews what students send in. Nothing has cleared review so far — so if you have built something, yours can be the first."
         icon={LayoutGrid}
+        action={{
+          label: 'Submit your project',
+          to: '/projects-expo/submit',
+          hint: 'You will need to sign in, and the team checks each submission before it appears here.',
+        }}
         meanwhile={meanwhile}
       />
     );

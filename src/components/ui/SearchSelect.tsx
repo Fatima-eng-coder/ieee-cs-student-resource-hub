@@ -111,8 +111,15 @@ export interface SearchSelectProps<T> {
   disabled?: boolean;
   loading?: boolean;
   allowClear?: boolean;
-  /** Pinned under the scrolling results — an escape hatch such as "suggest a new one". */
-  footer?: ReactNode;
+  /**
+   * Pinned under the scrolling results — an escape hatch such as "suggest a new one".
+   *
+   * Given the live query when passed as a function, so the escape hatch can quote what the
+   * person actually typed: "Use “Orientation Day 2026”" is a far clearer offer than a generic
+   * "add a new one", and it is the difference between an escape hatch somebody notices and one
+   * they scroll past. A plain node still works and is unaffected.
+   */
+  footer?: ReactNode | ((query: string) => ReactNode);
   /** Cap on rendered rows; the list is a picker, not a report. */
   limit?: number;
 }
@@ -454,7 +461,12 @@ export default function SearchSelect<T>({
             )}
           </ul>
 
-          {footer && <div className="shrink-0 border-t border-black/5 p-1.5">{footer}</div>}
+          {(() => {
+            const rendered = typeof footer === 'function' ? footer(query) : footer;
+            return rendered ? (
+              <div className="shrink-0 border-t border-black/5 p-1.5">{rendered}</div>
+            ) : null;
+          })()}
         </motion.div>
       )}
     </div>
