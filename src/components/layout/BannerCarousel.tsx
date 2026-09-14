@@ -27,7 +27,20 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <div className="relative h-72 overflow-hidden rounded-3xl shadow-md sm:h-80">
+      {/*
+        A portrait banner gets a taller, narrower frame rather than the wide strip.
+        object-cover on a fixed 288px-tall box crops a poster through the middle -- the title
+        and the date, which is the whole content of a poster, are the first things to go. The
+        shape is per-banner because a society is handed both: sponsor strips are wide, event
+        posters are tall.
+      */}
+      <div
+        className={`relative mx-auto overflow-hidden rounded-3xl shadow-md ${
+          banner.orientation === 'portrait'
+            ? 'h-[26rem] w-full max-w-sm sm:h-[32rem]'
+            : 'h-72 sm:h-80'
+        }`}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={banner.id}
@@ -37,7 +50,21 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
             transition={{ duration: 0.5 }}
             className="absolute inset-0"
           >
-            <img src={banner.image} alt={banner.title} className="h-full w-full object-cover" />
+            {/* Blurred fill behind, whole image in front: a poster keeps its proportions and
+                the frame still has something in its corners. Matches the admin preview. */}
+            <img
+              src={banner.image}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full scale-125 object-cover blur-2xl"
+            />
+            <img
+              src={banner.image}
+              alt={banner.title}
+              className={`relative mx-auto h-full w-full ${
+                banner.orientation === 'portrait' ? 'object-contain' : 'object-cover'
+              }`}
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 p-6 text-white sm:p-8">
               <span className="rounded-full bg-ieee-orange px-3 py-1 text-xs font-semibold uppercase">

@@ -4,12 +4,14 @@ import {
   ArrowUp,
   ExternalLink,
   ImagePlus,
+  Images,
   Loader2,
   Pencil,
   Plus,
   Trash2,
 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
+import GalleryPhotoPicker, { type PickedPhoto } from '@/components/admin/GalleryPhotoPicker';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import { AdminField, AdminInput, AdminTextarea } from '@/components/admin/AdminField';
@@ -51,11 +53,17 @@ function AlbumCoverField({
   imageUrl,
   selectedFile,
   onFileChange,
+  albumId,
+  onPickExisting,
 }: {
   imageUrl: string;
   selectedFile: File | null;
   onFileChange: (file: File | null) => void;
+  /** Empty for an album that has not been saved yet — it has no photos to choose from. */
+  albumId: string;
+  onPickExisting: (photo: PickedPhoto) => void;
 }) {
+  const [picking, setPicking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useMemo(() => (selectedFile ? URL.createObjectURL(selectedFile) : ''), [selectedFile]);
   const displayUrl = previewUrl || imageUrl;
@@ -82,6 +90,37 @@ function AlbumCoverField({
           </span>
         )}
       </button>
+
+      {/*
+        "Use one of this album's photos" is the common case and had no path at all: the cover
+        was upload-only, so making the third photo the cover meant finding that file again and
+        uploading a second copy of bytes already in the bucket.
+      */}
+      {albumId ? (
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-ieee-orange/30 px-3 py-2 text-xs font-semibold text-ieee-orange transition hover:bg-ieee-orange/5"
+        >
+          <Images className="h-3.5 w-3.5" /> Use one of this album&rsquo;s photos
+        </button>
+      ) : (
+        <p className="rounded-xl border border-dashed border-black/10 px-3 py-2 text-[11px] text-slate-400">
+          Save the album first to pick its cover from the photos inside it.
+        </p>
+      )}
+
+      <GalleryPhotoPicker
+        open={picking}
+        albumId={albumId}
+        title="Pick a cover from this album"
+        onClose={() => setPicking(false)}
+        onPick={(photo) => {
+          // Clears any pending upload: two sources for one field, and the last answer wins.
+          onFileChange(null);
+          onPickExisting(photo);
+        }}
+      />
 
       {selectedFile && (
         <p className="rounded-xl border border-black/5 bg-white px-3 py-2 text-xs font-medium text-slate-500">
@@ -388,7 +427,25 @@ export default function AdminGalleryPage() {
       };
 
       const saved = isNew ? await galleryService.create(input) : await galleryService.update(draft.id, input);
-      if (previousCoverPath && previousCoverPath !== saved.coverImagePath) {
+
+      /*
+       * Sweep the replaced cover -- unless it is one of the album's own photos.
+       *
+       * This guard arrived with "use one of this album's photos as the cover". Before that a
+       * cover was always a file uploaded for the purpose, so the object under the old path was
+       * owned by the cover alone and deleting it was free. A cover picked from the album points
+       * at a photo that is still IN the album: sweeping it would delete a live photo's bytes
+       * out of the bucket and leave a broken frame in the grid, from an action the admin would
+       * read as "I changed the cover".
+       */
+      const albumPhotoPaths = new Set(
+        (photos.length ? photos : saved.images).map((photo) => photo.imagePath).filter(Boolean)
+      );
+      if (
+        previousCoverPath &&
+        previousCoverPath !== saved.coverImagePath &&
+        !albumPhotoPaths.has(previousCoverPath)
+      ) {
         void galleryService.removeCoverImage(previousCoverPath);
       }
 
@@ -532,6 +589,22 @@ export default function AdminGalleryPage() {
                 imageUrl={draft.coverImage}
                 selectedFile={selectedCover}
                 onFileChange={setSelectedCover}
+                albumId={draft.id}
+                onPickExisting={(photo) =>
+                  setDraft((current) =>
+                    current
+                      ? {
+                          ...current,
+                          coverImage: photo.url,
+                          // The path is carried so the save path's "delete the old cover if it
+                          // changed" sweep still knows what it is looking at. It points at the
+                          // album's own photo, which the sweep must NOT delete -- see the guard
+                          // added alongside this in save().
+                          coverImagePath: photo.path,
+                        }
+                      : current
+                  )
+                }
               />
             </AdminField>
             <AdminField label="Album title" required>

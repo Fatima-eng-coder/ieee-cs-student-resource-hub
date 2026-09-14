@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ImagePlus, Images, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import { AdminField, AdminInput, AdminTextarea, AdminSelect } from '@/components/admin/AdminField';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import EmptyState from '@/components/ui/EmptyState';
+import GalleryPhotoPicker, { type PickedPhoto } from '@/components/admin/GalleryPhotoPicker';
 import { adminAuthService } from '@/services/adminAuthService';
 import {
   bannersService,
+  BANNER_ORIENTATIONS,
   BANNER_TYPES,
   isOpenableBannerLink,
   type AdminBanner,
+  type BannerOrientation,
   type BannerSaveInput,
   type BannerType,
 } from '@/services/bannersService';
@@ -37,6 +40,7 @@ const emptyBanner = (): AdminBanner => ({
   ctaLabel: '',
   ctaLink: '',
   type: 'announcement',
+  orientation: 'landscape',
   isPublished: true,
   sortOrder: 0,
   createdAt: '',
@@ -48,12 +52,17 @@ function BannerImageField({
   imageUrl,
   selectedFile,
   onFileChange,
+  onPickExisting,
+  orientation,
 }: {
   imageUrl: string;
   selectedFile: File | null;
   onFileChange: (file: File | null) => void;
+  onPickExisting: (photo: PickedPhoto) => void;
+  orientation: BannerOrientation;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [picking, setPicking] = useState(false);
   const previewUrl = useMemo(() => (selectedFile ? URL.createObjectURL(selectedFile) : ''), [selectedFile]);
   const displayUrl = previewUrl || imageUrl;
 
@@ -68,7 +77,11 @@ function BannerImageField({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="group relative flex aspect-[16/9] w-full overflow-hidden rounded-xl border border-black/10 bg-ieee-ink transition hover:border-ieee-orange/60"
+        /* The preview frame takes the shape the banner is set to, so "portrait" is something
+           the admin can see before publishing rather than after. */
+        className={`group relative flex w-full overflow-hidden rounded-xl border border-black/10 bg-ieee-ink transition hover:border-ieee-orange/60 ${
+          orientation === 'portrait' ? 'mx-auto aspect-[3/4] max-w-[15rem]' : 'aspect-[16/9]'
+        }`}
       >
         {hasFile(displayUrl) ? (
           // The same treatment the homepage banner gives it: the whole image over a blurred
@@ -90,6 +103,26 @@ function BannerImageField({
           </span>
         )}
       </button>
+
+      {/* Reuse rather than re-upload: a poster already in a gallery album is the same bytes,
+          and uploading a second copy is how two versions of one picture start to drift. */}
+      <button
+        type="button"
+        onClick={() => setPicking(true)}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-ieee-orange/30 px-3 py-2 text-xs font-semibold text-ieee-orange transition hover:bg-ieee-orange/5"
+      >
+        <Images className="h-3.5 w-3.5" /> Choose from the gallery
+      </button>
+
+      <GalleryPhotoPicker
+        open={picking}
+        title="Pick a picture for this banner"
+        onClose={() => setPicking(false)}
+        onPick={(photo) => {
+          onFileChange(null);
+          onPickExisting(photo);
+        }}
+      />
 
       {selectedFile && (
         <p className="rounded-xl border border-black/5 bg-white px-3 py-2 text-xs font-medium text-slate-500">
@@ -184,6 +217,7 @@ export default function AdminBannersPage() {
         ctaLabel: draft.ctaLabel,
         ctaLink: draft.ctaLink,
         type: draft.type,
+        orientation: draft.orientation,
         isPublished: draft.isPublished,
         sortOrder: draft.sortOrder,
       };
@@ -377,6 +411,12 @@ export default function AdminBannersPage() {
                 imageUrl={draft.image}
                 selectedFile={selectedImage}
                 onFileChange={setSelectedImage}
+                orientation={draft.orientation}
+                onPickExisting={(photo) =>
+                  setDraft((current) =>
+                    current ? { ...current, image: photo.url, imagePath: photo.path } : current
+                  )
+                }
               />
             </AdminField>
             <AdminField label="Title" required>
@@ -399,18 +439,37 @@ export default function AdminBannersPage() {
                 onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })}
               />
             </AdminField>
-            <AdminField label="Type">
-              <AdminSelect
-                value={draft.type}
-                onChange={(e) => setDraft({ ...draft, type: e.target.value as BannerType })}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AdminField label="Type">
+                <AdminSelect
+                  value={draft.type}
+                  onChange={(e) => setDraft({ ...draft, type: e.target.value as BannerType })}
+                >
+                  {BANNER_TYPES.map((type) => (
+                    <option key={type} value={type} className="capitalize">
+                      {type}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </AdminField>
+              <AdminField
+                label="Shape"
+                hint="Portrait for a poster, landscape for a wide strip."
               >
-                {BANNER_TYPES.map((type) => (
-                  <option key={type} value={type} className="capitalize">
-                    {type}
-                  </option>
-                ))}
-              </AdminSelect>
-            </AdminField>
+                <AdminSelect
+                  value={draft.orientation}
+                  onChange={(e) =>
+                    setDraft({ ...draft, orientation: e.target.value as BannerOrientation })
+                  }
+                >
+                  {BANNER_ORIENTATIONS.map((orientation) => (
+                    <option key={orientation} value={orientation} className="capitalize">
+                      {orientation}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </AdminField>
+            </div>
 
             <div className="rounded-xl border border-black/5 bg-white p-3">
               <p className="mb-3 text-sm font-semibold text-slate-700">Call to action</p>

@@ -32,6 +32,12 @@ export interface Banner {
   ctaLabel: string;
   ctaLink: string;
   type: 'sponsor' | 'workshop' | 'announcement' | 'partner' | 'campaign';
+  /**
+   * How the carousel frames it. Every banner was implicitly landscape and a portrait poster was
+   * cropped through the middle; this is how one says it is tall. Optional so a caller that has
+   * not been updated still compiles, and absent reads as landscape — the old behaviour.
+   */
+  orientation?: 'landscape' | 'portrait';
 }
 
 export type EventCategory = 'workshop' | 'competition' | 'seminar' | 'session' | 'hackathon' | 'other';

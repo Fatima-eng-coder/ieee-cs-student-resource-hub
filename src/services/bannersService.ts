@@ -29,16 +29,28 @@ const BANNERS_BUCKET = 'event-images';
 const BANNERS_PREFIX = 'banners';
 
 const bannerColumns =
-  'id,title,subtitle,image_url,image_path,cta_label,cta_link,banner_type,is_published,sort_order,created_at,updated_at';
+  'id,title,subtitle,image_url,image_path,cta_label,cta_link,banner_type,orientation,is_published,sort_order,created_at,updated_at';
 
 export type BannerType = Banner['type'];
 
 export const BANNER_TYPES: BannerType[] = ['sponsor', 'workshop', 'announcement', 'partner', 'campaign'];
 
+/**
+ * How the carousel frames a banner. Mirrors site_banners_orientation_check.
+ *
+ * A society is handed portrait posters far more often than wide strips, and every banner was
+ * rendered into the same landscape frame -- so a poster was cropped through the middle by
+ * object-cover with no way to say otherwise.
+ */
+export type BannerOrientation = 'landscape' | 'portrait';
+
+export const BANNER_ORIENTATIONS: BannerOrientation[] = ['landscape', 'portrait'];
+
 /** The public banner shape plus the columns only the admin sets. */
 export interface AdminBanner extends Banner {
   subtitle: string;
   imagePath: string | null;
+  orientation: BannerOrientation;
   isPublished: boolean;
   sortOrder: number;
   createdAt: string;
@@ -50,6 +62,7 @@ export interface BannerSaveInput {
   subtitle: string;
   image: string;
   imagePath: string | null;
+  orientation: BannerOrientation;
   ctaLabel: string;
   ctaLink: string;
   type: BannerType;
@@ -66,6 +79,9 @@ interface BannerRow {
   cta_label: string | null;
   cta_link: string | null;
   banner_type: BannerType | string;
+  // Optional and nullable: added by 20260907004000, so a response from a build that predates it
+  // has no key here rather than 'landscape' in it.
+  orientation?: string | null;
   is_published: boolean;
   sort_order: number | null;
   created_at: string;
@@ -74,6 +90,10 @@ interface BannerRow {
 
 const normalizeType = (value: string): BannerType =>
   BANNER_TYPES.includes(value as BannerType) ? (value as BannerType) : 'announcement';
+
+/** Anything unrecognised -- including absent -- is landscape, which is what every banner was. */
+const normalizeOrientation = (value: string | null | undefined): BannerOrientation =>
+  BANNER_ORIENTATIONS.includes(value as BannerOrientation) ? (value as BannerOrientation) : 'landscape';
 
 const toBanner = (row: BannerRow): AdminBanner => ({
   id: row.id,
@@ -84,6 +104,7 @@ const toBanner = (row: BannerRow): AdminBanner => ({
   ctaLabel: row.cta_label ?? '',
   ctaLink: row.cta_link ?? '',
   type: normalizeType(row.banner_type),
+  orientation: normalizeOrientation(row.orientation),
   isPublished: row.is_published,
   sortOrder: row.sort_order ?? 0,
   createdAt: row.created_at,
@@ -103,6 +124,7 @@ const toPayload = (input: BannerSaveInput) => ({
   cta_label: input.ctaLabel.trim(),
   cta_link: input.ctaLink.trim(),
   banner_type: input.type,
+  orientation: normalizeOrientation(input.orientation),
   is_published: Boolean(input.isPublished),
   sort_order: Number.isFinite(input.sortOrder) ? Math.trunc(input.sortOrder) : 0,
 });
