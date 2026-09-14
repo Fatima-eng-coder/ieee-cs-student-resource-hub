@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 /**
@@ -127,101 +127,115 @@ export default function Lightbox({
 
   useNeighbourPreload(images, open ? index : null);
 
+  /*
+   * Unmounted outright when closed, with no exit animation.
+   *
+   * This was an <AnimatePresence> wrapper so the overlay could fade out. It did not release the
+   * child: after Escape, React had already re-rendered with the viewer closed -- the scroll lock
+   * came off, so the state change definitely landed -- and the overlay stayed in the DOM at full
+   * opacity, covering the page with no way to dismiss it. Measured, repeatedly, at 900ms against
+   * a 200ms transition.
+   *
+   * Rather than keep hunting the interaction between AnimatePresence, a portal and a keyed child,
+   * the fade-out is simply gone. It bought 200ms of polish on the way out and cost the ability to
+   * close a full-screen overlay, which is not a trade worth making twice. The entrance animation
+   * is unaffected -- it does not depend on presence tracking.
+   */
+  if (!open || !current) return null;
+
   return createPortal(
-    <AnimatePresence>
-      {open && current && (
-        <motion.div
-          initial={reduceMotion ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={reduceMotion ? undefined : { opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] flex flex-col bg-ieee-ink/95 backdrop-blur-sm"
-          // The backdrop closes, but only when the backdrop itself was hit: without the target
-          // check, a click that starts on the photo and drifts a pixel onto the padding closes
-          // the viewer mid-look.
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[100] flex flex-col bg-ieee-ink/95 backdrop-blur-sm"
+      // The backdrop closes, but only when the backdrop itself was hit: without the target
+      // check, a click that starts on the photo and drifts a pixel onto the padding closes
+      // the viewer mid-look.
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={current.caption || `Photo ${index + 1} of ${images.length}`}
+        className="flex h-full flex-col"
+      >
+        <div className="flex shrink-0 items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <span className="font-mono text-xs text-white/60">
+            {index + 1} / {images.length}
+          </span>
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/40 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ieee-orange"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div
+          className="flex min-h-0 flex-1 items-center justify-center gap-2 px-2 sm:gap-4 sm:px-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) onClose();
           }}
         >
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label={current.caption || `Photo ${index + 1} of ${images.length}`}
-            className="flex h-full flex-col"
-          >
-            <div className="flex shrink-0 items-center justify-between gap-4 px-4 py-3 sm:px-6">
-              <span className="font-mono text-xs text-white/60">
-                {index + 1} / {images.length}
-              </span>
-              <button
-                ref={closeRef}
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/40 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ieee-orange"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div
-              className="flex min-h-0 flex-1 items-center justify-center gap-2 px-2 sm:gap-4 sm:px-4"
-              onClick={(event) => {
-                if (event.target === event.currentTarget) onClose();
-              }}
+          {images.length > 1 && (
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              aria-label="Previous photo"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/40 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ieee-orange"
             >
-              {images.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => step(-1)}
-                  aria-label="Previous photo"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/40 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ieee-orange"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </button>
-              )}
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+          )}
 
-              {/* Keyed on the photo so a step remounts it and the fade actually reads as a
-                  change of picture rather than as the same element flickering. */}
-              <motion.img
-                key={current.id}
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-                src={current.url}
-                alt={current.caption || ''}
-                /* max-h-full with min-h-0 on the parent is what keeps a tall photo inside the
-                   viewport instead of pushing the caption off the bottom of the screen. */
-                className="max-h-full min-h-0 max-w-full rounded-lg object-contain"
-              />
+          {/* Keyed on the photo so a step remounts it and the fade actually reads as a
+              change of picture rather than as the same element flickering. */}
+          <motion.img
+            key={current.id}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+            src={current.url}
+            alt={current.caption || ''}
+            /* max-h-full with min-h-0 on the parent is what keeps a tall photo inside the
+               viewport instead of pushing the caption off the bottom of the screen. */
+            className="max-h-full min-h-0 max-w-full rounded-lg object-contain"
+          />
 
-              {images.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => step(1)}
-                  aria-label="Next photo"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/40 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ieee-orange"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </button>
-              )}
-            </div>
+          {images.length > 1 && (
+            <button
+              type="button"
+              onClick={() => step(1)}
+              aria-label="Next photo"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/80 transition hover:border-white/40 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ieee-orange"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          )}
+        </div>
 
-            <div className="shrink-0 px-4 py-4 text-center sm:px-6">
-              {current.caption && (
-                <p className="mx-auto max-w-2xl text-sm leading-relaxed text-white/80">{current.caption}</p>
-              )}
-              {images.length > 1 && (
-                <p className="mt-1.5 font-mono text-[11px] text-white/40">
-                  Use the arrow keys to move between photos · Esc to close
-                </p>
-              )}
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+        <div className="shrink-0 px-4 py-4 text-center sm:px-6">
+          {current.caption && (
+            <p className="mx-auto max-w-2xl text-sm leading-relaxed text-white/80">{current.caption}</p>
+          )}
+          {/* Hidden on small screens: a phone has no arrow keys and no Esc, so this was
+              instructions for a keyboard the reader does not have. The on-screen chevrons
+              and the close button are the mobile affordance. */}
+          {images.length > 1 && (
+            <p className="mt-1.5 hidden font-mono text-[11px] text-white/40 sm:block">
+              Use the arrow keys to move between photos · Esc to close
+            </p>
+          )}
+        </div>
+      </div>
+    </motion.div>,
     document.body
   );
 }
