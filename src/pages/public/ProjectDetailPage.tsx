@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, Check, Code2, ExternalLink, Share2, Users2, X } from 'lucide-react';
-import { projectsService, subscribeProjectsChanged, type Project } from '@/services/projectsService';
+import { motion } from 'framer-motion';
+import { AlertCircle, Check, Code2, ExternalLink, Share2, Users2 } from 'lucide-react';
+import { projectsService, refreshProjectsOnReturn, type Project } from '@/services/projectsService';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
+import Lightbox from '@/components/ui/Lightbox';
 import EmptyState from '@/components/ui/EmptyState';
 import Avatar from '@/components/ui/Avatar';
 import Magnetic from '@/components/effects/Magnetic';
@@ -38,7 +39,15 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  /**
+   * Index, not a URL, because the shared viewer steps between images.
+   *
+   * This page had its own overlay: no Escape, no scroll lock behind it, no way to reach the
+   * next screenshot without closing and reopening, and a close button carrying `type`,
+   * `className` and `aria-label` but no onClick -- it only closed because the click bubbled to
+   * the backdrop, so the one control that looked like it closed the thing was decorative.
+   */
+  const [lightbox, setLightbox] = useState<number | null>(null);
 
   const load = useCallback(() => {
     projectsService
@@ -57,7 +66,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     setLoading(true);
     load();
-    const unsubscribe = subscribeProjectsChanged(load);
+    const unsubscribe = refreshProjectsOnReturn(load);
     return unsubscribe;
   }, [load]);
 
@@ -170,7 +179,7 @@ export default function ProjectDetailPage() {
                 <motion.button
                   key={screenshot}
                   type="button"
-                  onClick={() => setLightbox(screenshot)}
+                  onClick={() => setLightbox(index)}
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: index * 0.08 }}
@@ -245,35 +254,16 @@ export default function ProjectDetailPage() {
         </div>
       </PageSection>
 
-      <AnimatePresence>
-        {lightbox && (
-          <motion.div
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-ieee-ink/85 p-4 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setLightbox(null)}
-          >
-            <button
-              type="button"
-              className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <motion.img
-              key={lightbox}
-              initial={{ scale: 0.92, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              src={lightbox}
-              alt="Screenshot"
-              className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Lightbox
+        images={(project?.screenshots ?? []).map((url, index) => ({
+          id: url,
+          url,
+          caption: `${project?.title ?? 'Project'} screenshot ${index + 1}`,
+        }))}
+        index={lightbox}
+        onClose={() => setLightbox(null)}
+        onIndexChange={setLightbox}
+      />
     </div>
   );
 }

@@ -19,20 +19,17 @@ import type { ProjectPost, User } from '@/types';
  * Screenshots share the events bucket rather than getting one of their own, because creating a
  * bucket is a dashboard action no migration in this repo can perform.
  *
- * The prefix is `submissions/<uid>/projects/<projectId>/`, not a flat `projects/`. That is
- * forced by the bucket's policies, not by taste. storage.objects carries exactly two families
- * of INSERT policy for this bucket: the content-manager ones (bucket-wide, made in the
- * dashboard, gated on private.can_manage_content()), and the student ones from
- * 20260901000700, which check that the first two path segments are `submissions` and the
- * caller's own uid. A student submitting a project is not a content manager, so a write to a
- * projects/<uid>/<projectId>/… in the event-images bucket. 20260901002100 grants a signed-in
- * student INSERT there and 20260901002600 deliberately withholds DELETE: an author whose project
- * has been approved must not be able to empty the folder the public showcase is rendering from.
+ * The prefix is `projects/<uid>/<projectId>/`, which is what projectFolder builds below.
+ * 20260901002100 grants a signed-in student INSERT under exactly that shape — its policy checks
+ * that the first two path segments are `projects` and the caller's own uid — and 20260901002600
+ * deliberately withholds DELETE: an author whose project has been approved must not be able to
+ * empty the folder the public showcase is rendering from.
  *
- * The earlier draft borrowed the student photo folder (submissions/<uid>/…) because a bare
- * `projects/` prefix was refused at the time. It was refused because the policy did not exist
- * yet, and borrowing carried that folder's DELETE policy with it — which is exactly the control
- * an author should not have here.
+ * An earlier draft borrowed the student photo folder, `submissions/<uid>/…`, because a bare
+ * `projects/` prefix was refused at the time. It was refused because 20260901002100 did not exist
+ * yet, and borrowing carried that folder's DELETE policy with it — which is exactly the control an
+ * author should not have here. The prefix moved; this comment described the borrowed one for long
+ * enough to be worth saying plainly that it is gone.
  *
  * The cost of insert-only is an orphaned file when an upload lands and the row insert then
  * fails. Cleaning that up is a content manager's job, and a few invisible kilobytes are a better
@@ -89,6 +86,32 @@ export interface ProjectSubmission {
   demoUrl: string;
   authorName: string;
   screenshots: File[];
+}
+
+/**
+ * What a content manager may change on a project they are moderating.
+ *
+ * Deliberately not ProjectSubmission: there are no File uploads here. A moderator is correcting
+ * what a student wrote -- a typo'd title, a category filed as "Web" instead of "Web App", a demo
+ * link that never worked -- and removing a screenshot that should not be public. Adding new
+ * screenshots is not offered, because a moderator does not have the project's images; the person
+ * who does is the author.
+ *
+ * `keepScreenshots` is the indices to KEEP rather than the ones to drop, so the two paired arrays
+ * (screenshots and image_paths, which projects_image_paths_check requires to be the same length)
+ * can only ever be filtered together.
+ */
+export interface ProjectEdit {
+  title: string;
+  tagline: string;
+  description: string;
+  creators: string[];
+  techStack: string[];
+  category: string;
+  githubUrl: string;
+  demoUrl: string;
+  authorName: string;
+  keepScreenshots: number[];
 }
 
 interface ProjectRow {
@@ -163,8 +186,8 @@ const toPayload = (input: ProjectSubmission, images: UploadedImage[]) => ({
   tech_stack: input.techStack.map((tech) => tech.trim()).filter(Boolean),
   screenshots: images.map((image) => image.url),
   image_paths: images.map((image) => image.path),
-  github_url: input.githubUrl.trim() || null,
-  demo_url: input.demoUrl.trim() || null,
+  github_url: toSafeLink(input.githubUrl) || null,
+  demo_url: toSafeLink(input.demoUrl) || null,
   category: input.category.trim() || null,
   author_name: input.authorName.trim(),
 });
@@ -204,6 +227,16 @@ function assertSubmission(input: ProjectSubmission): void {
   }
 }
 
+/** The same rules as a submission, minus everything that only applies to a File. */
+function assertEdit(input: ProjectEdit): void {
+  if (!input.title.trim()) throw new Error('Please enter the project title.');
+  if (!input.tagline.trim()) throw new Error('Please enter a one-line summary of the project.');
+  if (!input.description.trim()) throw new Error('Please describe what the project does.');
+  if (input.creators.filter((creator) => creator.trim()).length === 0) {
+    throw new Error('Please name at least one person who built it.');
+  }
+}
+
 const friendlyReadError = (message: string) => {
   const lower = message.toLowerCase();
 
@@ -218,6 +251,36 @@ const friendlyReadError = (message: string) => {
   }
   return 'The project showcase could not be loaded right now. Please try again later.';
 };
+
+/** A scheme, or a protocol-relative authority: this link leaves the site. */
+const HAS_SCHEME = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+
+/** The only schemes allowed behind an href. Mirrors the guard bannersService applies. */
+const SAFE_SCHEME = /^(?:https?:|\/\/)/i;
+
+/**
+ * What actually goes in the href for a link a student typed.
+ *
+ * Two separate problems, both reaching the public page unchecked before this.
+ *
+ * The common one is a bare host. Almost nobody types the scheme, so "github.com/me/thing"
+ * was stored verbatim and rendered into href -- which a browser resolves RELATIVE to the
+ * current page, so the showcase's "View Code" button went to ieeecscui.vercel.app/github.com/...
+ * and 404'd on our own site. A missing https:// is added rather than refused: it is the
+ * overwhelmingly likely intent and refusing it would just teach people to paste harder.
+ *
+ * The rarer one is a scheme that should never be behind a link at all. `javascript:` runs in
+ * the visitor's page on click, and this is free text from an unauthenticated-until-signup
+ * student -- a weaker trust boundary than the admin-typed banner link the same guard already
+ * protects. An unsafe scheme is dropped to empty rather than repaired, because there is no
+ * honest guess at what it meant.
+ */
+function toSafeLink(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (!HAS_SCHEME.test(trimmed)) return `https://${trimmed}`;
+  return SAFE_SCHEME.test(trimmed) ? trimmed : '';
+}
 
 /** Said whenever a write names a row the database no longer hands back, however that is found. */
 const STALE_ROW_MESSAGE =
@@ -238,6 +301,13 @@ const refusalMessage: Record<WriteIntent, string> = {
 
 const friendlyWriteError = (message: string, intent: WriteIntent) => {
   const lower = message.toLowerCase();
+
+  // private.prevent_too_many_pending_submissions() already raises a sentence written for the
+  // student -- "You already have 5 pending submissions...". It was being swallowed and
+  // replaced with a generic "could not be submitted", which describes a transient failure and
+  // invites a retry that cannot succeed and orphans three more screenshots each time.
+  // eventImageSubmissionsService passes the same message through for the same reason.
+  if (lower.includes('pending submissions')) return message;
 
   if (lower.includes('projects_title_check')) {
     return 'Please enter the project title.';
@@ -303,16 +373,38 @@ async function refreshAuthSession(): Promise<void> {
 }
 
 /**
- * Best effort by design. Every caller has already done, or is about to do, the thing that
- * actually matters; a bucket that refused the removal must not turn a completed delete into an
- * error. An orphaned file costs storage, a half-reported delete costs trust in the screen.
+ * Best effort by design, and it returns how much of that effort landed.
+ *
+ * Every caller has already done, or is about to do, the thing that actually matters; a bucket
+ * that refused the removal must not turn a completed delete into an error. An orphaned file
+ * costs storage, a half-reported delete costs trust in the screen.
+ *
+ * But not throwing is not the same as succeeding, and the difference used to be invisible.
+ * Returning the count lets a caller word what it tells the admin on what happened rather than on
+ * what was attempted.
  */
-async function sweepStorage(paths: string[]): Promise<void> {
+async function sweepStorage(paths: string[]): Promise<number> {
   const present = paths.filter(Boolean);
-  if (present.length === 0) return;
+  if (present.length === 0) return 0;
 
-  const { error } = await supabase.storage.from(PROJECT_BUCKET).remove(present);
-  if (error) console.warn('Project screenshots could not be removed from storage', error);
+  const { data, error } = await supabase.storage.from(PROJECT_BUCKET).remove(present);
+  if (error) {
+    console.warn('Project screenshots could not be removed from storage', error);
+    return 0;
+  }
+
+  // Storage's bulk delete filters by RLS and answers `{ data: [], error: null }` when nothing was
+  // visible to remove — so a refused sweep produced no error and not even a warning, while the
+  // admin page went on to say "and its screenshots were deleted". Reachable today: the
+  // content-manager DELETE policy on event-images lives only in the dashboard and in no
+  // migration, so a re-provisioned project carries no such grant at all.
+  const removed = data?.length ?? 0;
+  if (removed < present.length) {
+    console.warn(
+      `Storage removed ${removed} of ${present.length} project screenshots; the rest were refused or already gone.`
+    );
+  }
+  return removed;
 }
 
 /** Index-suffixed so two files chosen in the same millisecond cannot collide. */
@@ -327,6 +419,19 @@ function safeFileName(file: File, index: number): string {
   return `${Date.now()}-${index}-${base || 'screenshot'}.${extension}`;
 }
 
+/**
+ * Live updates for the moderation queue.
+ *
+ * This subscribed to a table that was not in the supabase_realtime publication, so it reported
+ * success and then never fired -- four screens claimed to keep themselves current and none of
+ * them did. 20260908001000 adds public.projects to the publication, which is what makes this
+ * work at all.
+ *
+ * ADMIN SCREENS ONLY. The student-facing pages use refreshProjectsOnReturn() below instead; the
+ * reasoning is in AnnouncementBar.tsx and repeated in that migration -- a socket per anonymous
+ * reader is the most expensive thing this deployment can spend, and a showcase that changes a
+ * few times a term does not need one.
+ */
 export function subscribeProjectsChanged(callback: () => void): () => void {
   if (typeof window === 'undefined') return () => undefined;
 
@@ -344,6 +449,33 @@ export function subscribeProjectsChanged(callback: () => void): () => void {
   return () => {
     if (timeout) window.clearTimeout(timeout);
     void supabase.removeChannel(realtimeChannel);
+  };
+}
+
+/**
+ * Re-read when the tab comes back, for the student-facing pages.
+ *
+ * The same trade the announcement ticker makes: somebody arriving after a project is approved
+ * gets it on load, and somebody already here gets it the next time they focus the tab -- at a
+ * cost of zero open connections. A project showcase changes when a reviewer approves something,
+ * which is a handful of times a term, so the seconds this gives up are not seconds anyone was
+ * ever going to notice.
+ */
+export function refreshProjectsOnReturn(callback: () => void): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+
+  const refresh = () => {
+    // document.hidden guards the visibilitychange that fires on the way OUT, which would
+    // otherwise spend a read every time somebody switched away from the tab.
+    if (!document.hidden) callback();
+  };
+
+  document.addEventListener('visibilitychange', refresh);
+  window.addEventListener('focus', refresh);
+
+  return () => {
+    document.removeEventListener('visibilitychange', refresh);
+    window.removeEventListener('focus', refresh);
   };
 }
 
@@ -426,8 +558,13 @@ export const projectsService = {
   /**
    * Uploads first, then inserts, because projects_image_paths_check will not accept a row whose
    * screenshots have no paths — there is no valid row to write until the files exist. Anything
-   * that fails after an upload sweeps its own files back out before it rethrows, so a rejected
-   * submission does not leave three orphans in the bucket.
+   * that fails after an upload ATTEMPTS to sweep its own files back out before it rethrows. For a
+   * student author that attempt is refused and silently does nothing: 20260901002600 deliberately
+   * dropped "Students can remove their own project screenshots", so the author holds INSERT and no
+   * DELETE under their own prefix. A failed insert therefore leaves up to three orphans that only
+   * a content manager can clear -- the accepted cost of insert-only, set out in this file's
+   * header. Preventing them needs a server-side sweep, not a DELETE grant handed back to the
+   * uploader.
    *
    * The id is generated here rather than left to the column default so the screenshots can be
    * filed under it. A collision comes back as projects_pkey and is reported as such.
@@ -481,6 +618,75 @@ export const projectsService = {
   },
 
   /**
+   * Correct a project in place, as a content manager.
+   *
+   * The queue could approve, reject and delete, and nothing else — so a project with a typo in
+   * its title, a miscategorised entry, or one screenshot that should not be public had exactly
+   * one remedy available: reject it and ask the student to submit the whole thing again. For a
+   * misplaced apostrophe that is not a remedy, it is a reason nobody fixes anything.
+   *
+   * Screenshots are filtered, never rebuilt. `screenshots` (public URLs) and `image_paths`
+   * (bucket keys) are one list stored twice, and projects_image_paths_check requires them to be
+   * the same length — so both are derived from the same kept-indices filter and can never drift
+   * apart. Anything dropped is swept from the bucket AFTER the row is written, for the same
+   * reason remove() sweeps last: files deleted ahead of a write the policy then refuses would
+   * leave a live project whose images 404 forever.
+   *
+   * Read-modify-write, and the read is what makes the filter meaningful — the indices refer to
+   * the order the row actually holds, not to whatever the admin page last rendered.
+   */
+  async update(id: string, input: ProjectEdit): Promise<Project> {
+    assertEdit(input);
+    await refreshAuthSession();
+
+    const { data: existing, error: readError } = await supabase
+      .from('projects')
+      .select('screenshots,image_paths')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (readError) throw new Error(friendlyWriteError(readError.message, 'manage'));
+    if (!existing) throw new Error(STALE_ROW_MESSAGE);
+
+    const currentUrls = toStringArray((existing as { screenshots: unknown }).screenshots);
+    const currentPaths = toStringArray((existing as { image_paths: unknown }).image_paths);
+
+    const keep = new Set(input.keepScreenshots);
+    const keptUrls = currentUrls.filter((_url, index) => keep.has(index));
+    // Filtered on the URL index, not its own, so a row whose two arrays are already mismatched
+    // (older data, a partial write) cannot silently pair a URL with the wrong path.
+    const keptPaths = currentPaths.filter((_path, index) => keep.has(index));
+    const droppedPaths = currentPaths.filter((_path, index) => !keep.has(index));
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update({
+        title: input.title.trim(),
+        tagline: input.tagline.trim(),
+        description: input.description.trim(),
+        creators: input.creators.map((creator) => creator.trim()).filter(Boolean),
+        tech_stack: input.techStack.map((tech) => tech.trim()).filter(Boolean),
+        github_url: toSafeLink(input.githubUrl) || null,
+        demo_url: toSafeLink(input.demoUrl) || null,
+        category: input.category.trim() || null,
+        author_name: input.authorName.trim(),
+        screenshots: keptUrls,
+        image_paths: keptPaths,
+      })
+      .eq('id', id)
+      .select(projectColumns)
+      .maybeSingle();
+
+    if (error) throw new Error(friendlyWriteError(error.message, 'manage'));
+    // An RLS-refused UPDATE is filtered rather than raised, so it comes back as no row and no
+    // error — the same trap review() documents. Only a null here separates a refusal from a save.
+    if (!data) throw new Error(STALE_ROW_MESSAGE);
+
+    if (droppedPaths.length > 0) await sweepStorage(droppedPaths);
+    return toProject(data as ProjectRow);
+  },
+
+  /**
    * Approve or reject. reviewed_by and reviewed_at move with the status so the queue records
    * who decided and when, rather than only what was decided.
    *
@@ -520,7 +726,7 @@ export const projectsService = {
    * mid-session still passes the client gate while the database says no. A null count is the
    * header being absent and proves nothing, so only an explicit zero is a refusal.
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string): Promise<{ screenshotsRemoved: number; screenshotsExpected: number }> {
     await refreshAuthSession();
 
     const { data: row, error: pathError } = await supabase
@@ -538,7 +744,9 @@ export const projectsService = {
     if (error) throw new Error(friendlyWriteError(error.message, 'manage'));
     if (count === 0) throw new Error(STALE_ROW_MESSAGE);
 
-    await sweepStorage(toStringArray((row as { image_paths: unknown } | null)?.image_paths));
+    const paths = toStringArray((row as { image_paths: unknown } | null)?.image_paths);
+    const screenshotsRemoved = await sweepStorage(paths);
+    return { screenshotsRemoved, screenshotsExpected: paths.length };
   },
 
   /**

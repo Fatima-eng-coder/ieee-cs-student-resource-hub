@@ -28,6 +28,7 @@ const options: Option[] = [
   { title: 'Suggest Course Resource', icon: 'book', to: '/courses/suggest-correction', description: 'Correct or add missing course information.' },
   { title: 'Suggest Teacher Info', icon: 'faculty', to: '/courses/suggest-teacher', description: 'Share missing or updated faculty contact details.' },
   { title: 'Report Navigation Issue', icon: 'compass', to: '/navigation/report', description: 'Flag an incorrect indoor route.' },
+  { title: 'Share a Project', icon: 'layers', to: '/projects-expo/submit', description: 'Put something you built on the student showcase.' },
   { title: 'Submit Event Photos', icon: 'image', action: 'event-photos', description: 'Share photos from a recent event.' },
   { title: 'General Feedback', icon: 'message', to: '/faq-contact', description: 'Tell us what we can improve.' },
   { title: 'Sponsorship / Advertisement', icon: 'users', to: '/faq-contact', description: 'Partner with IEEE CS for your brand or event.' },

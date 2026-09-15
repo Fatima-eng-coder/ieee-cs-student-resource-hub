@@ -98,8 +98,10 @@ export const router = createBrowserRouter([
       { path: 'events/:id/register', element: <EventRegisterPage /> },
       { path: 'navigation', element: <NavigationPage /> },
       { path: 'navigation/report', element: <NavigationReportPage /> },
-      // Projects Expo is deferred. The landing route explains that; its old child routes
-      // redirect there so shared links and bookmarks do not 404.
+      // The showcase renders the real grid and falls back to a parked screen only while no
+      // project has been approved; /projects-expo/submit takes student submissions the whole
+      // time, and /projects-expo/:id serves approved projects only. React Router ranks the
+      // static 'submit' segment above ':id', so the order here is not what makes that work.
       { path: 'projects-expo', element: <ProjectsExpoPage /> },
       { path: 'projects-expo/submit', element: <SubmitProjectPage /> },
       { path: 'projects-expo/:id', element: <ProjectDetailPage /> },

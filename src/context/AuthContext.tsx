@@ -23,12 +23,22 @@ interface AuthContextValue {
    *  runs `action` after a successful sign-in. */
   ensureAuth: (action?: () => void, reason?: string) => boolean;
   promptAuth: (reason?: string) => void;
+  /**
+   * False until the session has been looked up.
+   *
+   * `user` starts null for everybody -- authService.getCurrentUser() unconditionally returns
+   * null and the real session arrives asynchronously -- so "not signed in" and "not asked
+   * yet" were the same value. Any screen that reacts to being signed out on mount therefore
+   * reacted to every visit, signed in or not.
+   */
+  authReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => authService.getCurrentUser());
+  const [authReady, setAuthReady] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'login' | 'signup'>('login');
   const [reason, setReason] = useState<string | undefined>();
@@ -50,9 +60,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let ignore = false;
 
-    authService.loadCurrentUser().then((currentUser) => {
-      if (!ignore) setUser(currentUser);
-    });
+    authService
+      .loadCurrentUser()
+      .then((currentUser) => {
+        if (!ignore) setUser(currentUser);
+      })
+      // Ready either way: a lookup that failed has still finished, and leaving this false
+      // would strand every screen waiting on it.
+      .finally(() => {
+        if (!ignore) setAuthReady(true);
+      });
 
     return () => {
       ignore = true;
@@ -84,8 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, modalOpen]);
 
   const value = useMemo(
-    () => ({ user, login, signup, logout, ensureAuth, promptAuth }),
-    [user, login, signup, logout, ensureAuth, promptAuth]
+    () => ({ user, authReady, login, signup, logout, ensureAuth, promptAuth }),
+    [user, authReady, login, signup, logout, ensureAuth, promptAuth]
   );
 
   return (

@@ -16,6 +16,13 @@ import { PROGRAMS } from '@/types';
  * PostgREST can answer with an empty message, and the banner below only renders a non-empty
  * string. Without the fallback a failed save would look identical to a cancelled one.
  */
+/**
+ * Where a term falls inside its academic year. Unknown terms sort first, which keeps a
+ * hand-typed term visible rather than burying it under every recognised one.
+ */
+const TERM_ORDER: Record<string, number> = { spring: 1, summer: 2, fall: 3, winter: 4 };
+const termRank = (term: string) => TERM_ORDER[term.trim().toLowerCase()] ?? 0;
+
 const getCleanError = (err: unknown, fallback: string) => (err instanceof Error && err.message) || fallback;
 
 const actionBtn =
@@ -256,7 +263,15 @@ export default function AdminDateSheetsPage() {
       render: (d) => <span className="text-xs font-semibold text-ieee-orange">{d.program}</span>,
     },
     { key: 'semester', header: 'Semester', sortValue: (d) => d.semester, render: (d) => `Sem ${d.semester}` },
-    { key: 'term', header: 'Term', sortValue: (d) => `${d.year}${d.term}`, render: (d) => `${d.term} ${d.year}` },
+    {
+      key: 'term',
+      header: 'Term',
+      // Numeric, not the concatenated string it used to be. '2026Fall' < '2026Spring' <
+      // '2026Summer' sorts the academic year backwards, so an admin sorting by Term to find
+      // the oldest sheets to retire was handed the newest.
+      sortValue: (d) => d.year * 10 + termRank(d.term),
+      render: (d) => `${d.term} ${d.year}`,
+    },
     {
       key: 'file',
       header: 'File',
@@ -438,8 +453,15 @@ export default function AdminDateSheetsPage() {
                   type="number"
                   min={1}
                   max={12}
-                  value={draft.semester}
-                  onChange={(e) => setDraft({ ...draft, semester: Number(e.target.value) })}
+                  value={draft.semester === 0 ? '' : draft.semester}
+                  // Number('') is 0, so clearing the box redrew it as "0" and the next digit
+                  // typed landed after it. An emptied field now stays empty while it is being
+                  // retyped; the range is still enforced at save, where the message can explain
+                  // itself (min/max alone never fire -- Save is a plain onClick, not a form
+                  // submit, so native constraint validation never runs).
+                  onChange={(e) =>
+                    setDraft({ ...draft, semester: e.target.value === '' ? 0 : Number(e.target.value) })
+                  }
                 />
               </AdminField>
               <AdminField label="Term">
@@ -454,8 +476,10 @@ export default function AdminDateSheetsPage() {
                   type="number"
                   min={2000}
                   max={2100}
-                  value={draft.year}
-                  onChange={(e) => setDraft({ ...draft, year: Number(e.target.value) })}
+                  value={draft.year === 0 ? '' : draft.year}
+                  onChange={(e) =>
+                    setDraft({ ...draft, year: e.target.value === '' ? 0 : Number(e.target.value) })
+                  }
                 />
               </AdminField>
             </div>

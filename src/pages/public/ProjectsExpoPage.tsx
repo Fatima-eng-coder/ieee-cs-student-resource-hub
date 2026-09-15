@@ -5,7 +5,7 @@ import { AlertCircle, ArrowUpRight, CalendarDays, Compass, FileText, LayoutGrid,
 import ComingSoon, { type MeanwhileLink } from '@/components/layout/ComingSoon';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
-import { projectsService, subscribeProjectsChanged, type Project } from '@/services/projectsService';
+import { projectsService, refreshProjectsOnReturn, type Project } from '@/services/projectsService';
 
 const meanwhile: MeanwhileLink[] = [
   {
@@ -59,7 +59,7 @@ export default function ProjectsExpoPage() {
 
   useEffect(() => {
     load();
-    const unsubscribe = subscribeProjectsChanged(load);
+    const unsubscribe = refreshProjectsOnReturn(load);
     return unsubscribe;
   }, [load]);
 

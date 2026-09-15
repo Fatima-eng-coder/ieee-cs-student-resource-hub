@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { AlertCircle, Check, Clock, Loader2, LogIn, Plus, X } from 'lucide-react';
 import {
   projectsService,
-  subscribeProjectsChanged,
+  refreshProjectsOnReturn,
   MAX_PROJECT_SCREENSHOTS,
   type Project,
 } from '@/services/projectsService';
@@ -29,10 +29,19 @@ function ChipInput({
   tone?: 'orange' | 'slate';
 }) {
   const [draft, setDraft] = useState('');
+  /**
+   * Only clears the box when the value actually became a chip.
+   *
+   * It used to clear unconditionally, so typing a name that was already in the list wiped
+   * what you typed and added nothing -- indistinguishable from a dropped keystroke.
+   */
   const add = () => {
     const v = draft.trim();
-    if (v && !values.includes(v)) onChange([...values, v]);
-    setDraft('');
+    if (!v) return;
+    if (!values.includes(v)) {
+      onChange([...values, v]);
+      setDraft('');
+    }
   };
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
@@ -63,6 +72,11 @@ function ChipInput({
               add();
             }
           }}
+          // Commits whatever is still in the box when focus leaves it -- including the blur
+          // that fires on the way to clicking Submit. Without it, a student who typed a
+          // teammate's name and reached straight for the button submitted without them, with
+          // nothing on screen to say so.
+          onBlur={add}
           placeholder={placeholder}
           className="w-full bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-slate-400"
         />
@@ -80,7 +94,7 @@ function ChipInput({
 }
 
 export default function SubmitProjectPage() {
-  const { user, ensureAuth } = useAuth();
+  const { user, authReady, ensureAuth } = useAuth();
   const [form, setForm] = useState({ title: '', tagline: '', description: '', category: '', githubUrl: '', demoUrl: '' });
   const [creators, setCreators] = useState<string[]>([]);
   const [techStack, setTechStack] = useState<string[]>([]);
@@ -91,6 +105,8 @@ export default function SubmitProjectPage() {
   const [mine, setMine] = useState<Project[]>([]);
   const [mineError, setMineError] = useState<string | null>(null);
   const prompted = useRef(false);
+  /** Guards the one-time author prefill; see the effect below. */
+  const prefilledCreator = useRef(false);
 
   /**
    * The insert policy pins author_id = auth.uid(), so this form has nowhere to send a guest's
@@ -99,15 +115,27 @@ export default function SubmitProjectPage() {
    * picked their screenshots, not after.
    */
   useEffect(() => {
-    if (user || prompted.current) return;
+    // authReady is what makes this a prompt for guests rather than for everybody. `user` is
+    // null on the first render of every visit while the session is still being read, so
+    // without it an already-signed-in student got the login modal thrown at them and then
+    // taken away again -- which reads as a session that keeps dropping.
+    if (!authReady || user || prompted.current) return;
     prompted.current = true;
     ensureAuth(undefined, SIGN_IN_REASON);
-  }, [user, ensureAuth]);
+  }, [authReady, user, ensureAuth]);
 
-  // Prefill the first creator with the signed-in student's name.
+  /**
+   * Prefill the first creator with the signed-in student's name -- ONCE.
+   *
+   * Keyed on creators.length, this re-ran the moment the list became empty, so removing your
+   * own chip put it straight back. Not a cosmetic annoyance: somebody submitting a project
+   * on behalf of a team they are not a member of could not take themselves off the credits.
+   */
   useEffect(() => {
-    if (user && creators.length === 0) setCreators([user.name]);
-  }, [user, creators.length]);
+    if (!user || prefilledCreator.current) return;
+    prefilledCreator.current = true;
+    setCreators((current) => (current.length === 0 ? [user.name] : current));
+  }, [user]);
 
   /**
    * "Did it arrive?" — the read policy exists so this question has an answer that is not "ask an
@@ -144,7 +172,7 @@ export default function SubmitProjectPage() {
       return;
     }
     loadMine();
-    return subscribeProjectsChanged(loadMine);
+    return refreshProjectsOnReturn(loadMine);
   }, [user, loadMine]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -154,6 +182,10 @@ export default function SubmitProjectPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // The upload leg runs for seconds with three 5 MB screenshots, and nothing stopped a
+    // second submit landing on top of it: a fresh project id, the same three files uploaded
+    // again, and two pending rows against a ceiling of five.
+    if (busy) return;
     if (!ensureAuth(undefined, SIGN_IN_REASON)) return;
     if (!user || !valid) return;
 
@@ -242,6 +274,18 @@ export default function SubmitProjectPage() {
       <PageSection tone="cream" top width="narrow">
         <form
           onSubmit={handleSubmit}
+          /*
+           * A form with a submit button submits on Enter from any single-line input. Here that
+           * meant a student fixing the title and pressing Enter out of habit sent the project
+           * immediately -- and once sent there is no edit and no withdraw, so the habit was
+           * unrecoverable. The textarea is untouched (Enter there is a newline, not a submit),
+           * and the button still works, so the only thing removed is the accident.
+           */
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+              event.preventDefault();
+            }
+          }}
           className="mx-auto w-full max-w-2xl rounded-3xl border border-black/5 bg-white p-6 shadow-[0_8px_30px_rgba(10,10,12,0.08)] sm:p-8"
         >
           <div className="flex flex-col gap-5">
