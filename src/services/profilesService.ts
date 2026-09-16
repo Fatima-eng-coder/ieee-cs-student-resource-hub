@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { SOCIETY_ROLES, type Profile, type ProfileRole } from '@/types';
+import { parseSemester } from '@/utils/validation';
 
 interface ProfileRow {
   id: string;
@@ -62,8 +63,11 @@ const toDirectoryProfile = (row: DirectoryProfileRow): DirectoryProfile => ({
   secondaryEmail: row.secondary_email ?? '',
   whatsapp: row.whatsapp ?? '',
   className: row.class_name ?? '',
-  semester: row.semester ?? null,
-  section: row.section ?? '',
+  // Accounts made before this field existed -- or by an older copy of the site still live when
+  // it arrived -- may have the number in class_name. A clean 1-12 there is read as the semester.
+  semester: row.semester ?? parseSemester(row.class_name ?? '') ?? null,
+  // Upper-cased on read as well as on sign-up, so rows written before that still group as one.
+  section: (row.section ?? '').toUpperCase(),
   degree: row.degree ?? '',
 });
 

@@ -261,9 +261,13 @@ function PhotoRow({
   onRemove: () => void;
 }) {
   const [caption, setCaption] = useState(photo.caption);
+  // A fresh row can arrive while the caption box has focus -- another photo's write re-reads the
+  // album, the shape backfill fills this row in. Resetting then would wipe what is being typed.
+  // Blur always comes before a commit, so a refused edit is still reset once it has been sent.
+  const editing = useRef(false);
 
   useEffect(() => {
-    setCaption(photo.caption);
+    if (!editing.current) setCaption(photo.caption);
   }, [photo]);
 
   return (
@@ -309,8 +313,13 @@ function PhotoRow({
           disabled={busy}
           placeholder="Caption"
           onChange={(e) => setCaption(e.target.value)}
+          onFocus={() => {
+            editing.current = true;
+          }}
           onBlur={() => {
+            editing.current = false;
             if (caption.trim() !== photo.caption) onCaptionCommit(caption);
+            else setCaption(photo.caption);
           }}
         />
         <div className="flex flex-wrap items-center gap-1.5">
@@ -393,7 +402,9 @@ export default function AdminGalleryPage() {
   const [isNew, setIsNew] = useState(false);
   const [selectedCover, setSelectedCover] = useState<File | null>(null);
   const [photos, setPhotos] = useState<AdminGalleryPhoto[]>([]);
-  const [photoBusy, setPhotoBusy] = useState(false);
+  // Per album, so an upload still running for an album whose drawer was closed neither locks
+  // nor unlocks the controls of the album open now.
+  const [busyAlbums, setBusyAlbums] = useState<ReadonlySet<string>>(() => new Set());
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<AdminGalleryAlbum | null>(null);
   const [deleting, setDeleting] = useState<AdminGalleryAlbum | null>(null);
@@ -405,6 +416,10 @@ export default function AdminGalleryPage() {
   const [uploads, setUploads] = useState<{ albumId: string; items: UploadItem[] } | null>(null);
   const [dragging, setDragging] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  // The saved album whose photos the drawer is showing, readable from inside a write that
+  // started before the drawer was closed or switched.
+  const openAlbumRef = useRef<string | null>(null);
+  const removingRef = useRef(false);
   const canManage = adminAuthService.canManageContent();
 
   const load = async () => {
@@ -427,8 +442,23 @@ export default function AdminGalleryPage() {
    * Photo writes land in the database before they reach this state, so both the drawer and the
    * table row are set from what came back rather than from what was asked for.
    */
+  const photoBusy = !!draft && busyAlbums.has(draft.id);
+
+  const markBusy = (albumId: string, busy: boolean) =>
+    setBusyAlbums((current) => {
+      const next = new Set(current);
+      if (busy) next.add(albumId);
+      else next.delete(albumId);
+      return next;
+    });
+
+  /** Photo feedback belongs to the album it is about; a drawer since moved on does not show it. */
+  const reportPhotoError = (albumId: string, message: string | null) => {
+    if (openAlbumRef.current === albumId) setPhotoError(message);
+  };
+
   const applyPhotos = (albumId: string, next: AdminGalleryPhoto[]) => {
-    setPhotos(next);
+    if (openAlbumRef.current === albumId) setPhotos(next);
     setAlbums((items) => items.map((item) => (item.id === albumId ? { ...item, images: next } : item)));
     setPreviewing((current) => (current?.id === albumId ? { ...current, images: next } : current));
   };
@@ -439,12 +469,12 @@ export default function AdminGalleryPage() {
       return;
     }
 
-    setPhotoBusy(true);
-    setPhotoError(null);
+    markBusy(albumId, true);
+    reportPhotoError(albumId, null);
     try {
       applyPhotos(albumId, await action());
     } catch (err) {
-      setPhotoError(getCleanError(err, 'That photo change could not be saved.'));
+      reportPhotoError(albumId, getCleanError(err, 'That photo change could not be saved.'));
       // The list on screen is now suspect, so it is replaced with the stored one rather than
       // left showing a photo, caption or order the database never accepted.
       try {
@@ -453,11 +483,12 @@ export default function AdminGalleryPage() {
         // The refresh failing leaves the earlier message standing, which is the useful one.
       }
     } finally {
-      setPhotoBusy(false);
+      markBusy(albumId, false);
     }
   };
 
   const openDraft = (album: AdminGalleryAlbum, asNew: boolean) => {
+    openAlbumRef.current = asNew ? null : album.id;
     setDraft(album);
     setIsNew(asNew);
     setSelectedCover(null);
@@ -471,6 +502,7 @@ export default function AdminGalleryPage() {
   };
 
   const closeDraft = () => {
+    openAlbumRef.current = null;
     setDraft(null);
     setSelectedCover(null);
     setPhotos([]);
@@ -511,8 +543,12 @@ export default function AdminGalleryPage() {
       if (ignore) return;
 
       const found = new Map(measured.map((item) => [item.id, item.orientation]));
+      // Rows that gained nothing are returned as the same objects, so nothing re-renders for them.
       const fill = (list: AdminGalleryPhoto[]) =>
-        list.map((photo) => (photo.orientation ? photo : { ...photo, orientation: found.get(photo.id) ?? null }));
+        list.map((photo) => {
+          const shape = found.get(photo.id);
+          return photo.orientation || !shape ? photo : { ...photo, orientation: shape };
+        });
 
       setPhotos(fill);
       setAlbums((items) => items.map((item) => (item.id === openAlbumId ? { ...item, images: fill(item.images) } : item)));
@@ -523,6 +559,32 @@ export default function AdminGalleryPage() {
       ignore = true;
     };
   }, [openAlbumId, unrecordedKey]);
+
+  /*
+   * While a saved album is open, a file dropped anywhere but the drop zone is ignored instead of
+   * being opened by the browser -- which would leave the portal, and abandon an upload in flight.
+   * And while any upload is running, leaving the page asks first.
+   */
+  useEffect(() => {
+    if (!openAlbumId) return;
+    const ignoreFileDrop = (event: DragEvent) => {
+      if (event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
+    };
+    window.addEventListener('dragover', ignoreFileDrop);
+    window.addEventListener('drop', ignoreFileDrop);
+    return () => {
+      window.removeEventListener('dragover', ignoreFileDrop);
+      window.removeEventListener('drop', ignoreFileDrop);
+    };
+  }, [openAlbumId]);
+
+  const anyPhotoWork = busyAlbums.size > 0;
+  useEffect(() => {
+    if (!anyPhotoWork) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [anyPhotoWork]);
 
   const columns: AdminTableColumn<AdminGalleryAlbum>[] = [
     {
@@ -586,7 +648,9 @@ export default function AdminGalleryPage() {
     setSuccess(null);
 
     let uploadedCover: { url: string; path: string } | null = null;
-    const previousCoverPath = draft.coverImagePath;
+    // From the album as stored, not the draft: picking a photo as the cover rewrites the draft's
+    // path, so the draft no longer names the file this save replaces.
+    const previousCoverPath = isNew ? null : albums.find((album) => album.id === draft.id)?.coverImagePath ?? null;
 
     try {
       if (selectedCover) {
@@ -633,6 +697,7 @@ export default function AdminGalleryPage() {
       // A new album is kept open on its saved id so the photo section unlocks in place —
       // uploading needs an album row to hang the photos off.
       if (isNew) {
+        openAlbumRef.current = saved.id;
         setDraft(saved);
         setIsNew(false);
         setPhotos(saved.images);
@@ -691,12 +756,22 @@ export default function AdminGalleryPage() {
     void runPhotoAction(() => galleryService.setPhotoOrientation(draft.id, ids, shape), draft.id);
   };
 
+  // The dialog stays clickable while it animates out, so a double click would otherwise remove
+  // the same photos twice.
   const confirmRemovePhotos = async () => {
-    if (!draft || !removingPhotos) return;
+    if (removingRef.current || !draft || !removingPhotos) return;
+    removingRef.current = true;
     const targets = removingPhotos;
     setRemovingPhotos(null);
-    await runPhotoAction(() => galleryService.removePhotos(draft.id, targets), draft.id);
-    setSelected(new Set());
+    try {
+      await runPhotoAction(
+        () => galleryService.removePhotos(draft.id, targets, [draft.coverImagePath]),
+        draft.id
+      );
+      setSelected(new Set());
+    } finally {
+      removingRef.current = false;
+    }
   };
 
   /**
@@ -713,8 +788,8 @@ export default function AdminGalleryPage() {
     const albumId = draft.id;
     const orientation = uploadShape === 'auto' ? null : uploadShape;
     setUploads({ albumId, items: chosen.map((file) => ({ name: file.name, state: 'waiting' })) });
-    setPhotoBusy(true);
-    setPhotoError(null);
+    markBusy(albumId, true);
+    reportPhotoError(albumId, null);
 
     try {
       const { photos: next, failed } = await galleryService.addPhotos(
@@ -732,27 +807,41 @@ export default function AdminGalleryPage() {
       );
       applyPhotos(albumId, next);
       if (failed > 0) {
-        setPhotoError(
+        reportPhotoError(
+          albumId,
           failed === chosen.length
             ? 'None of those photos could be added. The reasons are listed under each file.'
             : `${failed} of ${chosen.length} photos could not be added; the rest were saved. The reasons are listed under each file.`
         );
       }
     } catch (err) {
-      setPhotoError(getCleanError(err, 'Those photos could not be added.'));
+      const message = getCleanError(err, 'Those photos could not be added.');
+      reportPhotoError(albumId, message);
+      // A failure before any file was reached leaves the list waiting forever otherwise.
+      setUploads((current) =>
+        current?.albumId === albumId
+          ? {
+              albumId,
+              items: current.items.map((item) =>
+                item.state === 'waiting' || item.state === 'uploading' ? { ...item, state: 'failed', message } : item
+              ),
+            }
+          : current
+      );
       try {
         applyPhotos(albumId, await galleryService.listPhotos(albumId));
       } catch {
         // The earlier message is the useful one.
       }
     } finally {
-      setPhotoBusy(false);
+      markBusy(albumId, false);
     }
   };
 
   const uploadsHere = uploads && draft && uploads.albumId === draft.id ? uploads.items : null;
   const uploadsFinished = uploadsHere?.every((item) => item.state === 'done' || item.state === 'failed') ?? false;
   const uploadedCount = uploadsHere?.filter((item) => item.state === 'done').length ?? 0;
+  const processedCount = uploadsHere?.filter((item) => item.state === 'done' || item.state === 'failed').length ?? 0;
 
   const movePhoto = (index: number, direction: -1 | 1) => {
     if (!draft) return;
@@ -937,22 +1026,28 @@ export default function AdminGalleryPage() {
                           dragged in from a folder rather than picked one by one. */}
                       <div
                         onDragOver={(e) => {
-                          if (photoBusy || !Array.from(e.dataTransfer.types).includes('Files')) return;
+                          if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+                          // Always taken, even mid-upload, so the browser never opens the file instead.
                           e.preventDefault();
-                          setDragging(true);
+                          e.dataTransfer.dropEffect = photoBusy ? 'none' : 'copy';
+                          if (!photoBusy) setDragging(true);
                         }}
                         onDragLeave={() => setDragging(false)}
                         onDrop={(e) => {
-                          if (photoBusy) return;
                           e.preventDefault();
                           setDragging(false);
-                          const dropped = Array.from(e.dataTransfer.files).filter((file) =>
-                            ACCEPTED_PHOTO_TYPES.includes(file.type)
-                          );
-                          if (dropped.length === 0) {
+                          if (photoBusy) {
+                            setPhotoError('Wait for the current upload to finish, then drop the next photos.');
+                            return;
+                          }
+                          const dropped = Array.from(e.dataTransfer.files);
+                          if (dropped.length === 0) return;
+                          if (!dropped.some((file) => ACCEPTED_PHOTO_TYPES.includes(file.type))) {
                             setPhotoError('Only PNG, JPG and WebP pictures can be added to an album.');
                             return;
                           }
+                          // Everything dropped goes in the list: a file of the wrong kind is shown
+                          // as failed with its reason rather than silently left out.
                           void uploadPhotos(dropped);
                         }}
                         className={`mt-3 rounded-xl border-2 border-dashed transition ${
@@ -985,9 +1080,9 @@ export default function AdminGalleryPage() {
                             <span>
                               {uploadsFinished
                                 ? `${uploadedCount} of ${uploadsHere.length} added`
-                                : `Adding ${uploadedCount + 1} of ${uploadsHere.length}`}
+                                : `Adding ${Math.min(processedCount + 1, uploadsHere.length)} of ${uploadsHere.length}`}
                             </span>
-                            {uploadsFinished && (
+                            {(uploadsFinished || !photoBusy) && (
                               <button
                                 type="button"
                                 onClick={() => setUploads(null)}
@@ -1086,7 +1181,10 @@ export default function AdminGalleryPage() {
                           onMove={(direction) => movePhoto(index, direction)}
                           onShapeChange={(shape) => setShape([photo.id], shape)}
                           onRemove={() =>
-                            void runPhotoAction(() => galleryService.removePhoto(photo), draft.id)
+                            void runPhotoAction(
+                              () => galleryService.removePhoto(photo, [draft.coverImagePath]),
+                              draft.id
+                            )
                           }
                         />
                       ))}

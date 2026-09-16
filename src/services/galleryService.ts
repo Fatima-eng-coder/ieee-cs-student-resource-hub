@@ -225,8 +225,9 @@ function safeFileName(file: File, index: number): string {
  * delete into an error message. An orphaned file costs storage, a half-reported delete costs
  * the admin's trust in the screen.
  */
-async function sweepStorage(paths: (string | null)[]): Promise<void> {
-  const present = [...new Set(paths.filter((path): path is string => Boolean(path)))];
+async function sweepStorage(paths: (string | null)[], keep: (string | null)[] = []): Promise<void> {
+  const kept = new Set(keep.filter(Boolean));
+  const present = [...new Set(paths.filter((path): path is string => Boolean(path) && !kept.has(path)))];
   if (present.length === 0) return;
 
   const inUse = await pathsStillInUse(present);
@@ -254,32 +255,40 @@ async function sweepStorage(paths: (string | null)[]): Promise<void> {
  * costs a little storage, a wrongly deleted one is a broken picture on the homepage.
  */
 async function pathsStillInUse(paths: string[]): Promise<Set<string> | null> {
-  const [photos, covers, banners, phoneBanners] = await Promise.all([
-    supabase.from('gallery_photos').select('image_path').in('image_path', paths),
-    supabase.from('gallery_albums').select('cover_image_path').in('cover_image_path', paths),
-    supabase.from('site_banners').select('image_path').in('image_path', paths),
-    supabase.from('site_banners').select('mobile_image_path').in('mobile_image_path', paths),
-  ]);
+  const used = new Set<string>();
 
-  const failed = [photos, covers, banners, phoneBanners].find((result) => result.error);
-  if (failed) {
-    console.warn('Could not check which gallery files are still in use', failed.error);
-    return null;
+  // In groups: the paths travel in the query string of four GETs, and a whole album's worth of
+  // them in one request can pass the URL length a proxy will accept -- which would fail every
+  // read and quietly keep every file.
+  for (let offset = 0; offset < paths.length; offset += IN_USE_CHUNK) {
+    const chunk = paths.slice(offset, offset + IN_USE_CHUNK);
+    const reads = await Promise.all([
+      supabase.from('gallery_photos').select('image_path').in('image_path', chunk),
+      supabase.from('gallery_albums').select('cover_image_path').in('cover_image_path', chunk),
+      supabase.from('site_banners').select('image_path').in('image_path', chunk),
+      supabase.from('site_banners').select('mobile_image_path').in('mobile_image_path', chunk),
+    ]);
+
+    const failed = reads.find((result) => result.error);
+    if (failed) {
+      console.warn('Could not check which gallery files are still in use', failed.error);
+      return null;
+    }
+
+    for (const { data } of reads) {
+      for (const row of (data ?? []) as Record<string, unknown>[]) {
+        for (const value of Object.values(row)) {
+          if (typeof value === 'string' && value) used.add(value);
+        }
+      }
+    }
   }
 
-  const used = new Set<string>();
-  const collect = (rows: Record<string, unknown>[] | null, column: string) => {
-    for (const row of rows ?? []) {
-      const value = row[column];
-      if (typeof value === 'string' && value) used.add(value);
-    }
-  };
-  collect(photos.data, 'image_path');
-  collect(covers.data, 'cover_image_path');
-  collect(banners.data, 'image_path');
-  collect(phoneBanners.data, 'mobile_image_path');
   return used;
 }
+
+/** Paths per round of in-use reads. Gallery paths run to about 90 characters each. */
+const IN_USE_CHUNK = 40;
 
 /**
  * sort_order is a dense 0..n-1 index, and nothing in the database enforces that. Two admins
@@ -327,8 +336,15 @@ const listPhotosFor = async (albumId: string): Promise<AdminGalleryPhoto[]> =>
 /**
  * The rows go first: a file swept from a row that then survives would show as a broken photo.
  * A file the album cover or a banner still uses is kept -- see pathsStillInUse.
+ *
+ * `keepPaths` covers what no saved row can say yet: a photo just chosen as the cover in an
+ * editor that has not been saved. Only the caller knows about that choice.
  */
-async function removePhotosFrom(albumId: string, photos: AdminGalleryPhoto[]): Promise<AdminGalleryPhoto[]> {
+async function removePhotosFrom(
+  albumId: string,
+  photos: AdminGalleryPhoto[],
+  keepPaths: (string | null)[] = []
+): Promise<AdminGalleryPhoto[]> {
   if (photos.length === 0) return listPhotosFor(albumId);
   await refreshAuthSession();
 
@@ -343,7 +359,7 @@ async function removePhotosFrom(albumId: string, photos: AdminGalleryPhoto[]): P
   if (error) throw new Error(friendlyWriteError(error.message));
   if (count === 0) throw new Error(STALE_ROW_MESSAGE);
 
-  await sweepStorage(photos.map((photo) => photo.imagePath));
+  await sweepStorage(photos.map((photo) => photo.imagePath), keepPaths);
   return listPhotosFor(albumId);
 }
 
@@ -633,12 +649,16 @@ export const galleryService = {
     return toPhoto(data as GalleryPhotoRow);
   },
 
-  async removePhoto(photo: AdminGalleryPhoto): Promise<AdminGalleryPhoto[]> {
-    return removePhotosFrom(photo.albumId, [photo]);
+  async removePhoto(photo: AdminGalleryPhoto, keepPaths: (string | null)[] = []): Promise<AdminGalleryPhoto[]> {
+    return removePhotosFrom(photo.albumId, [photo], keepPaths);
   },
 
-  async removePhotos(albumId: string, photos: AdminGalleryPhoto[]): Promise<AdminGalleryPhoto[]> {
-    return removePhotosFrom(albumId, photos);
+  async removePhotos(
+    albumId: string,
+    photos: AdminGalleryPhoto[],
+    keepPaths: (string | null)[] = []
+  ): Promise<AdminGalleryPhoto[]> {
+    return removePhotosFrom(albumId, photos, keepPaths);
   },
 
   /**

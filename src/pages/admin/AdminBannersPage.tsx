@@ -192,6 +192,17 @@ export default function AdminBannersPage() {
   const [isNew, setIsNew] = useState(false);
   const [selectedDesktop, setSelectedDesktop] = useState<File | null>(null);
   const [selectedMobile, setSelectedMobile] = useState<File | null>(null);
+  // The chosen website file, so the phone slot's "phones will show this" preview shows the
+  // picture that will actually be saved rather than the one it replaces.
+  const desktopPreview = useMemo(
+    () => (selectedDesktop ? URL.createObjectURL(selectedDesktop) : ''),
+    [selectedDesktop]
+  );
+  useEffect(() => {
+    return () => {
+      if (desktopPreview) URL.revokeObjectURL(desktopPreview);
+    };
+  }, [desktopPreview]);
   const [deleting, setDeleting] = useState<AdminBanner | null>(null);
   const [saving, setSaving] = useState(false);
   const canManage = adminAuthService.canManageContent();
@@ -256,13 +267,15 @@ export default function AdminBannersPage() {
      */
     const stored = isNew ? null : banners.find((banner) => banner.id === draft.id) ?? null;
     const previous = [stored?.imagePath ?? null, stored?.mobileImagePath ?? null];
-
-    // One folder for both of this save's uploads -- computed once, or a new banner's two pictures
-    // would land in two different folders.
-    const folderId = draft.id || crypto.randomUUID();
     const uploaded: string[] = [];
 
     try {
+      // One folder for both of this save's uploads -- computed once, or a new banner's two
+      // pictures would land in two different folders. Only when something is uploaded, and
+      // inside the try: randomUUID is missing on a non-https page, and a throw out here would
+      // leave the button spinning with no message.
+      const folderId = selectedDesktop || selectedMobile ? draft.id || crypto.randomUUID() : '';
+
       let image = draft.image;
       let imagePath = draft.imagePath;
       let mobileImage = draft.mobileImage;
@@ -557,7 +570,7 @@ export default function AdminBannersPage() {
                       current ? { ...current, mobileImage: photo.url, mobileImagePath: photo.path } : current
                     )
                   }
-                  fallbackUrl={draft.image}
+                  fallbackUrl={desktopPreview || draft.image}
                   fallbackCaption="Phones will show the website picture"
                   clearLabel="Use the website picture"
                   onClear={() => {

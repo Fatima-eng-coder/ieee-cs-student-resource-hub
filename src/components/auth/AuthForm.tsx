@@ -254,7 +254,7 @@ export default function AuthForm({ mode, onModeChange, login, signup, onSuccess 
             {/*
               Text with a numeric keyboard, not type="number". A number input ignores maxLength,
               accepts "e", "-" and ".", changes on a scroll wheel, and this form is noValidate, so
-              its min/max would never fire anyway. Non-digits are stripped as they are typed, and
+              its min/max would never fire anyway. Only the first number in the box is kept, and
               the two-digit limit is applied after that rather than through maxLength, which
               would cut a pasted "sem 5" down to "se" before the digit could be kept.
 
@@ -270,7 +270,12 @@ export default function AuthForm({ mode, onModeChange, login, signup, onSuccess 
               aria-label="Semester (optional)"
               placeholder="1"
               value={form.semester}
-              onChange={(e) => setForm((f) => ({ ...f, semester: e.target.value.replace(/\D/g, '').slice(0, 2) }))}
+              onChange={(e) => {
+                // The first number typed or pasted, not every digit run together: "sem 1, sec 2"
+                // must give 1, not 12.
+                const digits = e.target.value.match(/\d+/)?.[0] ?? '';
+                setForm((f) => ({ ...f, semester: digits.slice(0, 2) }));
+              }}
               invalid={!semesterOk}
               hint={semesterOk ? 'Semester (optional)' : `Semester is a number from ${SEMESTER_MIN} to ${SEMESTER_MAX}.`}
             />

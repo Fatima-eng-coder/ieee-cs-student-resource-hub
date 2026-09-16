@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useMemo, useState, type CSSProperties } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Expand } from 'lucide-react';
 import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
-import { readImageOrientation, type ImageOrientation } from '@/utils/imageSize';
+import { orientationOf, type ImageOrientation } from '@/utils/imageSize';
 import { layoutJustifiedRows } from '@/utils/justifiedLayout';
 import { TILE_RATIO } from './tileShapes';
 
@@ -36,41 +36,20 @@ function sizingFor(width: number, compact: boolean) {
 }
 
 /**
- * Shapes for photos stored before shapes were recorded, read from the pictures themselves.
+ * Shapes for photos stored before shapes were recorded, read from the tiles' own images.
  *
- * Until a picture answers it is laid out as landscape, the common case, so at most those tiles
- * move once. The admin portal records these shapes when the album is next edited, after which
- * nothing here runs for it.
+ * Taken from each <img> as it loads rather than by fetching every picture up front: that would
+ * download every full-size original the moment the album opened, lazy loading or not. Until an
+ * image loads its tile is laid out as landscape, the common case, so at most that tile moves
+ * once -- usually before it has been scrolled into view. The admin portal records these shapes
+ * when the album is next opened for editing, after which nothing here runs for it.
  */
-function useMeasuredOrientations(photos: JustifiedPhoto[]): Record<string, ImageOrientation> {
+function useMeasuredOrientations() {
   const [measured, setMeasured] = useState<Record<string, ImageOrientation>>({});
-
-  // A string key, so the effect reruns when the set of unmeasured photos changes rather than on
-  // every render that hands down a new array.
-  const pendingKey = JSON.stringify(
-    photos.filter((photo) => !photo.orientation && !measured[photo.id]).map((photo) => [photo.id, photo.url])
-  );
-
-  useEffect(() => {
-    const pending = JSON.parse(pendingKey) as [string, string][];
-    if (pending.length === 0) return;
-    let ignore = false;
-
-    void Promise.all(
-      pending.map(async ([id, url]) => {
-        const orientation = await readImageOrientation(url).catch((): ImageOrientation => 'landscape');
-        return [id, orientation] as const;
-      })
-    ).then((entries) => {
-      if (!ignore) setMeasured((current) => ({ ...current, ...Object.fromEntries(entries) }));
-    });
-
-    return () => {
-      ignore = true;
-    };
-  }, [pendingKey]);
-
-  return measured;
+  const record = useCallback((id: string, orientation: ImageOrientation) => {
+    setMeasured((current) => (current[id] === orientation ? current : { ...current, [id]: orientation }));
+  }, []);
+  return [measured, record] as const;
 }
 
 export default function JustifiedPhotoGrid({
@@ -88,7 +67,7 @@ export default function JustifiedPhotoGrid({
 }) {
   const [ref, width] = useMeasuredWidth<HTMLDivElement>();
   const reduceMotion = useReducedMotion();
-  const measured = useMeasuredOrientations(photos);
+  const [measured, recordMeasured] = useMeasuredOrientations();
   const { targetHeight, gap } = sizingFor(width, compact);
 
   const shapes = photos.map((photo) => photo.orientation ?? measured[photo.id] ?? 'landscape');
@@ -134,6 +113,18 @@ export default function JustifiedPhotoGrid({
             alt={photo.caption}
             loading="lazy"
             decoding="async"
+            onLoad={
+              photo.orientation
+                ? undefined
+                : (event) =>
+                    recordMeasured(
+                      photo.id,
+                      orientationOf({
+                        width: event.currentTarget.naturalWidth,
+                        height: event.currentTarget.naturalHeight,
+                      })
+                    )
+            }
             className={`h-full w-full object-cover ${
               onOpen ? 'transition duration-500 group-hover:scale-105' : ''
             }`}
@@ -162,7 +153,7 @@ export default function JustifiedPhotoGrid({
                 onClick={() => onOpen(index)}
                 aria-label={label}
                 data-cursor="link"
-                className="relative block h-full w-full overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ieee-orange"
+                className="group/tile relative block h-full w-full overflow-hidden focus:outline-none"
               >
                 {image}
                 {/* "This opens" on hover for a mouse; never shown on a touch screen, where
@@ -175,6 +166,14 @@ export default function JustifiedPhotoGrid({
                     <Expand className="h-4.5 w-4.5" />
                   </span>
                 </span>
+                {/* The keyboard focus ring, as the last layer: a ring on the button itself is
+                    painted underneath the photo and cannot be seen. */}
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute inset-0 opacity-0 ring-3 ring-inset ring-ieee-orange group-focus-visible/tile:opacity-100 ${
+                    compact ? 'rounded-lg' : 'rounded-xl sm:rounded-2xl'
+                  }`}
+                />
               </button>
             ) : (
               image
