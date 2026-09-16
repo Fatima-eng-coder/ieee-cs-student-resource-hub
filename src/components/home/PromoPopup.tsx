@@ -24,6 +24,15 @@ import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-r
 import { bannersService, type PromoBanner } from '@/services/bannersService';
 import RichText from '@/components/ui/RichText';
 
+/**
+ * Below this width a banner's phone picture replaces its website picture.
+ *
+ * Tailwind's `sm` breakpoint (40rem), written as the last width BEFORE it, so the switch happens at
+ * exactly the point the popup's own `sm:` styles take over. The admin editor tells people "narrower
+ * than 640px", which is this at the default root font size.
+ */
+const PHONE_PICTURE_MEDIA = '(max-width: 39.99rem)';
+
 /** How long one promotion holds the floor before the next slides in. */
 const ROTATE_MS = 10_000;
 
@@ -233,12 +242,23 @@ export default function PromoPopup() {
                 slot collapses entirely when a promotion has none — announcements never do. */}
             {current.imageUrl && (
               <div className="relative w-full bg-ieee-ink">
-                <img
-                  src={current.imageUrl}
-                  alt=""
-                  className="max-h-[46dvh] w-full object-contain"
-                  loading="eager"
-                />
+                {/* <picture> rather than swapping src in script: the browser picks the file before
+                    it downloads anything, so a phone never fetches the website picture as well. */}
+                <picture>
+                  {current.mobileImageUrl && (
+                    <source media={PHONE_PICTURE_MEDIA} srcSet={current.mobileImageUrl} />
+                  )}
+                  <img
+                    src={current.imageUrl}
+                    alt=""
+                    // A phone picture is tall by design, so on a phone it is given more of the
+                    // screen than a wide picture would need; the text below still scrolls.
+                    className={`w-full object-contain sm:max-h-[46dvh] ${
+                      current.mobileImageUrl ? 'max-h-[60dvh]' : 'max-h-[46dvh]'
+                    }`}
+                    loading="eager"
+                  />
+                </picture>
               </div>
             )}
 

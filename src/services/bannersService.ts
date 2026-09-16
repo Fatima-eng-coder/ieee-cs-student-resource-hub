@@ -29,7 +29,7 @@ const BANNERS_BUCKET = 'event-images';
 const BANNERS_PREFIX = 'banners';
 
 const bannerColumns =
-  'id,title,subtitle,image_url,image_path,cta_label,cta_link,banner_type,orientation,is_published,sort_order,created_at,updated_at';
+  'id,title,subtitle,image_url,image_path,mobile_image_url,mobile_image_path,cta_label,cta_link,banner_type,orientation,is_published,sort_order,created_at,updated_at';
 
 export type BannerType = Banner['type'];
 
@@ -50,6 +50,9 @@ export const BANNER_ORIENTATIONS: BannerOrientation[] = ['landscape', 'portrait'
 export interface AdminBanner extends Banner {
   subtitle: string;
   imagePath: string | null;
+  /** Artwork for phones. Empty means phones are shown `image`. */
+  mobileImage: string;
+  mobileImagePath: string | null;
   orientation: BannerOrientation;
   isPublished: boolean;
   sortOrder: number;
@@ -62,6 +65,8 @@ export interface BannerSaveInput {
   subtitle: string;
   image: string;
   imagePath: string | null;
+  mobileImage: string;
+  mobileImagePath: string | null;
   orientation: BannerOrientation;
   ctaLabel: string;
   ctaLink: string;
@@ -76,6 +81,9 @@ interface BannerRow {
   subtitle: string | null;
   image_url: string | null;
   image_path: string | null;
+  // Optional and nullable: added by 20260917002000.
+  mobile_image_url?: string | null;
+  mobile_image_path?: string | null;
   cta_label: string | null;
   cta_link: string | null;
   banner_type: BannerType | string;
@@ -101,6 +109,8 @@ const toBanner = (row: BannerRow): AdminBanner => ({
   subtitle: row.subtitle ?? '',
   image: row.image_url ?? '',
   imagePath: row.image_path,
+  mobileImage: row.mobile_image_url ?? '',
+  mobileImagePath: row.mobile_image_path ?? null,
   ctaLabel: row.cta_label ?? '',
   ctaLink: row.cta_link ?? '',
   type: normalizeType(row.banner_type),
@@ -121,6 +131,10 @@ const toPayload = (input: BannerSaveInput) => ({
   subtitle: input.subtitle.trim(),
   image_url: input.image.trim() || null,
   image_path: input.imagePath ?? null,
+  // site_banners_mobile_image_check: never a phone picture without a desktop one. The editor
+  // enforces that too; this keeps the payload itself from ever asking for the refused state.
+  mobile_image_url: input.image.trim() ? input.mobileImage.trim() || null : null,
+  mobile_image_path: input.image.trim() && input.mobileImage.trim() ? input.mobileImagePath ?? null : null,
   cta_label: input.ctaLabel.trim(),
   cta_link: input.ctaLink.trim(),
   banner_type: input.type,
@@ -161,6 +175,10 @@ function assertBannerInput(input: BannerSaveInput): void {
   if (link && isUnsafeLink(link)) {
     throw new Error('That link cannot be opened by the button. Use a site path such as /events, or a full https:// address.');
   }
+
+  if (input.mobileImage.trim() && !input.image.trim()) {
+    throw new Error('Add the desktop picture first. The phone picture is optional and only replaces it on small screens.');
+  }
 }
 
 const friendlyReadError = (message: string) => {
@@ -195,6 +213,9 @@ const friendlyWriteError = (error: { code?: string; message: string }) => {
   }
 
   if (error.code === '23514' || lower.includes('violates check constraint')) {
+    if (lower.includes('site_banners_mobile_image_check') || lower.includes('site_banners_mobile_path_check')) {
+      return 'Add the desktop picture first. The phone picture is optional and only replaces it on small screens.';
+    }
     if (lower.includes('site_banners_cta_check')) {
       return 'A call to action needs both a button label and a link. Fill in both, or clear both.';
     }
@@ -264,9 +285,36 @@ function safeFileName(file: File): string {
  * error. An orphaned file costs storage, a half-reported delete costs trust in the screen.
  */
 async function sweepStorage(path: string | null | undefined): Promise<void> {
-  if (!path) return;
+  if (!isOwnedBannerPath(path)) return;
   const { error } = await supabase.storage.from(BANNERS_BUCKET).remove([path]);
   if (error) console.warn('Banner artwork could not be removed from storage', error);
+}
+
+/**
+ * Only files uploaded FOR a banner may ever be deleted BY a banner.
+ *
+ * A banner's picture can be chosen from the gallery, and then its path is a gallery photo's path
+ * -- gallery/<album>/... in the same bucket. Before this check, replacing that banner's picture,
+ * or deleting the banner, removed the gallery photo's file along with it, leaving a broken image
+ * in the album. The bucket's delete policy is bucket-wide for content managers, so nothing on the
+ * database side stops that: this prefix is the whole of the protection, which is why every
+ * removal in this file goes through it.
+ */
+export const isOwnedBannerPath = (path: string | null | undefined): path is string =>
+  Boolean(path) && (path as string).startsWith(`${BANNERS_PREFIX}/`);
+
+/**
+ * Removes the files a save made redundant: everything the row used to hold that it no longer
+ * holds in EITHER picture slot. Checking both slots is what stops a file used as the desktop
+ * picture and the phone picture at once from being swept because it left only one of them.
+ */
+async function sweepReplaced(
+  previous: (string | null | undefined)[],
+  stillUsed: (string | null | undefined)[]
+): Promise<void> {
+  const kept = new Set(stillUsed.filter(Boolean));
+  const redundant = [...new Set(previous.filter(isOwnedBannerPath))].filter((path) => !kept.has(path));
+  for (const path of redundant) await sweepStorage(path);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -299,6 +347,8 @@ export interface PromoBanner {
   title: string;
   body: string;
   imageUrl: string | null;
+  /** A phone-sized version of imageUrl, when the banner has one. Null everywhere else. */
+  mobileImageUrl: string | null;
   /** Empty when the admin left it unset; the rail picks the wording in that case. */
   ctaLabel: string;
   link: PromoBannerLink;
@@ -367,6 +417,8 @@ const toPromoBannerFromBanner = (row: BannerRow): PromoBanner => {
     title: row.title.trim(),
     body: row.subtitle?.trim() ?? '',
     imageUrl: row.image_url?.trim() || null,
+    // Only alongside a desktop picture, the same rule the table holds.
+    mobileImageUrl: row.image_url?.trim() ? row.mobile_image_url?.trim() || null : null,
     ctaLabel: row.cta_label?.trim() ?? '',
     // site_banners_cta_check guarantees these two are both set or both empty, so a label
     // never survives without somewhere to send the reader.
@@ -404,6 +456,8 @@ const toPromoBannerFromPromotion = (row: PromotionRow): PromoBanner => {
     // public.announcements has no image column and the RPC returns null for those rows, so a
     // text-only entry is the normal case here, not a defect.
     imageUrl: row.image_url?.trim() || null,
+    // Events and announcements carry one picture; only site banners have a phone version.
+    mobileImageUrl: null,
     ctaLabel: row.cta_label?.trim() ?? '',
     link,
     isForm: link.kind !== 'none' && (row.form_source === 'external' || row.form_source === 'internal'),
@@ -543,7 +597,7 @@ export const bannersService = {
 
     const { data: existing, error: pathError } = await supabase
       .from('site_banners')
-      .select('image_path')
+      .select('image_path,mobile_image_path')
       .eq('id', id)
       .maybeSingle();
 
@@ -556,14 +610,22 @@ export const bannersService = {
     if (error) throw new Error(friendlyWriteError(error));
     if (count === 0) throw new Error(STALE_ROW_MESSAGE);
 
-    await sweepStorage((existing as { image_path: string | null } | null)?.image_path ?? null);
+    // Both pictures, and only the ones uploaded for this banner -- a picture chosen from the
+    // gallery belongs to its album and stays there (see isOwnedBannerPath).
+    const paths = existing as { image_path: string | null; mobile_image_path?: string | null } | null;
+    await sweepReplaced([paths?.image_path, paths?.mobile_image_path], []);
   },
 
-  async uploadImage(file: File, bannerId: string): Promise<{ url: string; path: string }> {
+  async uploadImage(
+    file: File,
+    bannerId: string,
+    slot: 'desktop' | 'mobile' = 'desktop'
+  ): Promise<{ url: string; path: string }> {
     assertBannerImage(file);
     await refreshAuthSession();
 
-    const path = `${BANNERS_PREFIX}/${bannerId}/${safeFileName(file)}`;
+    // The slot in the name is for a person browsing the bucket; nothing reads it back.
+    const path = `${BANNERS_PREFIX}/${bannerId}/${slot}-${safeFileName(file)}`;
     const { error } = await supabase.storage
       .from(BANNERS_BUCKET)
       .upload(path, file, { cacheControl: '3600', upsert: false });
@@ -580,9 +642,22 @@ export const bannersService = {
    * the file with nobody the wiser — the refresh is what keeps that from being routine.
    */
   async removeImage(path?: string | null): Promise<void> {
-    if (!path) return;
+    if (!isOwnedBannerPath(path)) return;
 
     await refreshAuthSession();
     await sweepStorage(path);
+  },
+
+  /**
+   * After a save: remove what the stored row used to hold and no longer does, in either slot.
+   * `previous` must come from the row as it was loaded, never from the editor's draft -- picking a
+   * gallery photo rewrites the draft's path, and a sweep driven by the draft would either chase a
+   * path the row never held or miss the uploaded file that was really replaced.
+   */
+  async sweepReplaced(previous: (string | null)[], stillUsed: (string | null)[]): Promise<void> {
+    if (!previous.some(isOwnedBannerPath)) return;
+
+    await refreshAuthSession();
+    await sweepReplaced(previous, stillUsed);
   },
 };
