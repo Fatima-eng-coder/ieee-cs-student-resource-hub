@@ -45,19 +45,28 @@ export interface DeveloperCredit {
   work: CreditWork[];
 }
 
+/*
+ * Each item below is traceable to the repositories' history rather than written from memory:
+ *
+ *   Muhammad-Ahsan-001/ieee-cs-student-resource-hub   the first repo (1 July), "frontend prototype"
+ *   Shaharyar16/ieee-cs-student-resource-hub          imported it (10 July) and re-themed it
+ *   Fatima-eng-coder/ieee-cs-student-resource-hub     forked from Shaharyar's (11 August)
+ *
+ * Testing is the one exception: it leaves no commits, and it is credited on the team's word.
+ */
 export const DEVELOPERS: DeveloperCredit[] = [
   {
     id: 'muhammad-ahsan',
     work: [
-      { title: 'Initialised the first repository' },
+      { title: 'Initialized the first repo' },
       {
         title: 'Built the first version of the frontend',
         detail: 'The skeleton the site grew from, and its navigation.',
       },
       {
-        title: 'Built most of the backend',
+        title: 'Worked on the backend',
         detail:
-          'Work across the database schema and its migrations, the access rules that decide who can read and change what, file storage for papers, course material and photos, and the review queues that check what students send in before it goes live.',
+          'Moved the rest of the site from browser storage onto Supabase, then worked on team roles and access, file storage, the committee roster, forms, and the review of submitted papers.',
       },
       {
         title: 'Built the 2D and 3D campus navigation apps',
@@ -68,16 +77,44 @@ export const DEVELOPERS: DeveloperCredit[] = [
   {
     id: 'fatima-azaz',
     work: [
-      { title: 'Initialised the backend' },
+      {
+        title: 'Set up the backend',
+        detail: 'Connected the site to Supabase for the first time.',
+      },
+      {
+        title: 'Wired up sign-in',
+        detail: 'Account authentication through Supabase.',
+      },
       {
         title: 'Connected the first backend to the frontend',
         detail: 'Which meant building on the frontend side as well.',
       },
+      {
+        title: 'Built the faculty, past papers and courses flows',
+        detail: 'Along with the faculty page in the admin portal.',
+      },
+      { title: 'Built the events module' },
+      {
+        title: 'Added a clean-up for unused uploads',
+        detail: 'Finds and removes stored files that nothing points to any more.',
+      },
     ],
   },
   {
+    // Frontend only, by request: none of this card describes backend work.
     id: 'shaharyar-zia',
-    work: [{ title: 'Refined the look and feel of the frontend' }],
+    work: [
+      {
+        title: 'Refined the look and feel of the frontend',
+        detail: "Rebuilt the site's pages on the homepage's theme.",
+      },
+      {
+        title: 'Made the site work well on phones',
+        detail: 'A responsiveness pass across the pages.',
+      },
+      { title: "Added the chapter's logo and favicon" },
+      { title: 'Tested the site' },
+    ],
   },
 ];
 

@@ -21,13 +21,11 @@ export function ProfileLinks({
 }: {
   person: CreditedPerson;
   size?: 'sm' | 'md';
-  /** 'responsive' centres on phones and left-aligns from `sm`, matching the founder card. */
-  align?: 'center' | 'start' | 'responsive';
+  align?: 'center' | 'start';
 }) {
   if (person.links.length === 0) return null;
 
-  const justify =
-    align === 'center' ? 'justify-center' : align === 'start' ? 'justify-start' : 'justify-center sm:justify-start';
+  const justify = align === 'center' ? 'justify-center' : 'justify-start';
 
   const box = size === 'sm' ? 'h-7 w-7' : 'h-8 w-8';
   const glyph = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
@@ -121,18 +119,24 @@ export function CreditSectionHeader({
   );
 }
 
-/** Section 1 — one person, given the width of the page. */
+/**
+ * Section 1 — one person, centred on the page.
+ *
+ * A narrow card in the middle rather than a full-width banner: with only one person in the
+ * section, a stretched card left its right half empty and pulled the eye to the left edge. Centred,
+ * it reads as a spotlight, and it stacks the same way on a phone as on a desktop.
+ */
 export function FounderCard({ person }: { person: CreditedPerson }) {
   return (
-    <article className="relative overflow-hidden rounded-3xl border border-ieee-orange/20 bg-white p-6 shadow-sm sm:p-8">
-      {/* A wash of the brand colour behind the portrait, so the one card in this section reads as
-          the headline it is without needing a louder layout. */}
+    <article className="relative mx-auto max-w-md overflow-hidden rounded-3xl border border-ieee-orange/20 bg-white px-6 py-8 text-center shadow-sm sm:px-10 sm:py-10">
+      {/* A soft wash of the brand colour behind the portrait, so the one card in this section
+          reads as the headline it is. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-ieee-orange/10 blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 -translate-y-1/3 rounded-full bg-ieee-orange/10 blur-3xl"
       />
 
-      <div className="relative flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:gap-8 sm:text-left">
+      <div className="relative flex flex-col items-center gap-3">
         <MemberAvatar
           src={person.photoUrl}
           alt={person.name}
@@ -141,16 +145,15 @@ export function FounderCard({ person }: { person: CreditedPerson }) {
           size="h-36 w-36 sm:h-44 sm:w-44"
           className="ring-4 ring-ieee-orange/30 ring-offset-4 ring-offset-white"
         />
-
-        <div className="flex min-w-0 flex-col items-center gap-2 sm:items-start">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-ieee-orange px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-white">
-            <Crown aria-hidden="true" className="h-3 w-3" /> Founder
-          </span>
-          <h3 className="font-display text-2xl font-bold text-slate-900 sm:text-3xl">{person.name}</h3>
-          <Designation person={person} />
-          <div className="mt-2">
-            <ProfileLinks person={person} align="responsive" />
-          </div>
+        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-ieee-orange px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-white">
+          <Crown aria-hidden="true" className="h-3 w-3" /> Founder
+        </span>
+        <h3 className="font-display text-2xl font-bold text-slate-900 [overflow-wrap:anywhere] sm:text-3xl">
+          {person.name}
+        </h3>
+        <Designation person={person} />
+        <div className="mt-1">
+          <ProfileLinks person={person} />
         </div>
       </div>
     </article>
