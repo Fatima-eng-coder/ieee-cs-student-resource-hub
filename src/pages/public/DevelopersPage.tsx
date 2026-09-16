@@ -9,7 +9,7 @@ import {
   DeveloperCreditCard,
   FounderCard,
 } from '@/components/credits/CreditCards';
-import { BRAINSTORMERS, CREDITED_IDS, DEVELOPERS, FOUNDER } from '@/data/developers';
+import { BRAINSTORMERS, CREDITED_IDS, DEVELOPERS, FOUNDER, FOUNDER_HIGHLIGHTS } from '@/data/developers';
 import { developerProfilesService } from '@/services/developerProfilesService';
 import type { CreditProfile } from '@/types';
 
@@ -94,7 +94,7 @@ export default function DevelopersPage() {
             description="The person who initiated the hub and presided over its making."
           />
           <motion.div {...reveal()}>
-            <FounderCard person={founder} />
+            <FounderCard person={founder} highlights={FOUNDER_HIGHLIGHTS} />
           </motion.div>
         </section>
 

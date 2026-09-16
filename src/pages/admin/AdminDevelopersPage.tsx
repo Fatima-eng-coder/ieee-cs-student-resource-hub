@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Loader2, Lock, Pencil, RotateCw } from 'lucide-react';
+import { Check, Loader2, Pencil, RotateCw } from 'lucide-react';
 
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
@@ -15,7 +15,14 @@ import {
   type CreditProfileChanges,
   type CreditProfileInput,
 } from '@/services/developerProfilesService';
-import { CREDITED_IDS, DEVELOPERS, sectionsFor, type PersonId } from '@/data/developers';
+import {
+  CREDITED_IDS,
+  DEVELOPERS,
+  FOUNDER,
+  FOUNDER_HIGHLIGHTS,
+  sectionsFor,
+  type PersonId,
+} from '@/data/developers';
 import type { CreditedPerson, CreditProfile, MemberGender } from '@/types';
 
 /**
@@ -23,9 +30,8 @@ import type { CreditedPerson, CreditProfile, MemberGender } from '@/types';
  *
  * What changes here: a person's portrait, designation, placeholder and links. What does not: who
  * is credited, their name, and the work they are credited with. Those are authored in
- * src/data/developers.ts, and they are shown here read-only with that said out loud — an admin
- * who wants to correct somebody's name should learn where it lives, not be handed an input that
- * silently does nothing.
+ * src/data/developers.ts; the drawer shows the work as a read-only preview for context, and says
+ * nothing about where it lives — the people using this screen do not edit source files.
  *
  * There is no add and no remove. The roster in code decides who appears; a profile row for a
  * person is created the first time they are saved here.
@@ -107,7 +113,11 @@ export default function AdminDevelopersPage() {
   );
 
   const editing = draft ? people.find((person) => person.id === draft.id) ?? null : null;
-  const editingWork = draft ? DEVELOPERS.find((credit) => credit.id === draft.id)?.work ?? [] : [];
+  const editingWork = !draft
+    ? []
+    : draft.id === FOUNDER
+      ? FOUNDER_HIGHLIGHTS
+      : DEVELOPERS.find((credit) => credit.id === draft.id)?.work ?? [];
 
   const openEditor = (person: CreditedPerson) => {
     // Never on top of a read that failed: the draft would be built from display fallbacks, not
@@ -198,16 +208,6 @@ export default function AdminDevelopersPage() {
       <AdminTopbar title="Developers" subtitle="Portraits, designations and links on the credits page" />
 
       <div className="p-4 sm:p-6">
-        <div className="mb-5 flex max-w-3xl gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-600 ring-1 ring-black/5">
-          <Lock aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-          <p>
-            Who is credited, their names and the work they are credited with are part of the site
-            itself, in <span className="font-mono text-xs text-slate-700">src/data/developers.ts</span>
-            , so a contributor cannot be removed or misattributed from here by accident. Everything
-            else — portrait, designation and links — can be kept current below.
-          </p>
-        </div>
-
         {!canManage && (
           <p className="mb-5 max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             Your role can view the credits but not change them. Content managers can edit profiles.
@@ -409,15 +409,13 @@ export default function AdminDevelopersPage() {
 
             <MemberLinksEditor links={draft.links} onChange={(links) => setDraft({ ...draft, links })} />
 
-            {/* The locked half, shown so an admin can see what the page says about this person
-                and knows where to go to change it. */}
-            <div className="rounded-2xl border border-dashed border-black/10 bg-slate-50/60 p-4">
-              <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-                <Lock aria-hidden="true" className="h-3 w-3" /> Set in the site’s code
-              </p>
-              <p className="text-sm font-semibold text-slate-800">{editing.name}</p>
-              {editingWork.length > 0 ? (
-                <ul className="mt-2 flex flex-col gap-1.5">
+            {/* What the credits page says about this person, for context while editing. */}
+            {editingWork.length > 0 && (
+              <div className="rounded-2xl border border-black/5 bg-slate-50/60 p-4">
+                <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                  {draft.id === FOUNDER ? 'Highlights' : 'Work done'}
+                </p>
+                <ul className="flex flex-col gap-1.5">
                   {editingWork.map((item) => (
                     <li key={item.title} className="text-xs text-slate-600">
                       <span className="font-semibold text-slate-700">{item.title}</span>
@@ -425,14 +423,8 @@ export default function AdminDevelopersPage() {
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="mt-1 text-xs text-slate-500">No work items — this person is credited by section only.</p>
-              )}
-              <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-                To change the name or the work listed, edit{' '}
-                <span className="font-mono text-slate-500">src/data/developers.ts</span>.
-              </p>
-            </div>
+              </div>
+            )}
 
           </div>
         )}

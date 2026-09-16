@@ -126,7 +126,7 @@ export function CreditSectionHeader({
  * section, a stretched card left its right half empty and pulled the eye to the left edge. Centred,
  * it reads as a spotlight, and it stacks the same way on a phone as on a desktop.
  */
-export function FounderCard({ person }: { person: CreditedPerson }) {
+export function FounderCard({ person, highlights }: { person: CreditedPerson; highlights: CreditWork[] }) {
   return (
     <article className="relative mx-auto max-w-md overflow-hidden rounded-3xl border border-ieee-orange/20 bg-white px-6 py-8 text-center shadow-sm sm:px-10 sm:py-10">
       {/* A soft wash of the brand colour behind the portrait, so the one card in this section
@@ -156,6 +156,17 @@ export function FounderCard({ person }: { person: CreditedPerson }) {
           <ProfileLinks person={person} />
         </div>
       </div>
+
+      {highlights.length > 0 && (
+        // Left-aligned inside the centred card, the same way the developer cards list their work:
+        // centred bullet text is hard to scan once a line wraps.
+        <div className="relative mt-6 border-t border-black/5 pt-5 text-left">
+          <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+            Highlights
+          </p>
+          <WorkList work={highlights} />
+        </div>
+      )}
     </article>
   );
 }

@@ -36,6 +36,26 @@ export type PersonId = keyof typeof PEOPLE;
 /** One person, deliberately a single id rather than a list. */
 export const FOUNDER: PersonId = 'syed-abbas-raza';
 
+/**
+ * Shown on the founder's card. The first two are record: the hub's own history, and his four
+ * consecutive terms on the committee roster (FA24 joint secretary, SP25 general secretary, FA25
+ * vice chairperson, SP26 chairperson). The third is the team's appreciation.
+ */
+export const FOUNDER_HIGHLIGHTS: CreditWork[] = [
+  {
+    title: 'Initiated the hub and presided over its making',
+    detail: "The idea of one place for the chapter's student resources began with him.",
+  },
+  {
+    title: 'Served the chapter for four terms',
+    detail: 'As joint secretary, general secretary, vice chairperson, and then chairperson.',
+  },
+  {
+    title: 'Backed the team that built it',
+    detail: 'His support and direction gave the project the room it needed to grow.',
+  },
+];
+
 // ---------------------------------------------------------------------------------------
 // 2. The developers
 // ---------------------------------------------------------------------------------------
