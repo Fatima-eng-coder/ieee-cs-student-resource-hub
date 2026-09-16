@@ -221,6 +221,19 @@ export default function CursorField() {
 
   if (!enabled) return null;
 
+  /*
+   * The ring and dot sit above every overlay on the site, not merely above the page.
+   *
+   * They were z-90, and the photo viewer is a z-100 portal on document.body. Because the native
+   * pointer is hidden on <html> -- and a portal inherits that like anything else in the document --
+   * opening a photo left the real cursor hidden AND its replacement painted underneath a 95%-opaque
+   * overlay: no pointer at all, except over the viewer's buttons, whose default `cursor` beats the
+   * inherited `none`. A cursor is by definition the top-most thing on screen, so it gets a layer no
+   * dialog is meant to reach. pointer-events-none keeps it from ever intercepting a click.
+   *
+   * The glow stays low on purpose: it is ambient light on the page, and a warm halo over a dark
+   * photo viewer would tint the picture being looked at.
+   */
   return (
     <>
       <div
@@ -232,13 +245,13 @@ export default function CursorField() {
       <div
         ref={ringRef}
         aria-hidden="true"
-        className="pointer-events-none fixed left-0 top-0 z-[90] h-9 w-9 rounded-full border will-change-transform"
+        className="pointer-events-none fixed left-0 top-0 z-[1000] h-9 w-9 rounded-full border will-change-transform"
         style={{ borderColor: 'rgba(255,108,12,0.55)', opacity: 0 }}
       />
       <div
         ref={dotRef}
         aria-hidden="true"
-        className="pointer-events-none fixed left-0 top-0 z-[90] h-1.5 w-1.5 rounded-full bg-ieee-orange will-change-transform"
+        className="pointer-events-none fixed left-0 top-0 z-[1000] h-1.5 w-1.5 rounded-full bg-ieee-orange will-change-transform"
         style={{ opacity: 0 }}
       />
     </>
