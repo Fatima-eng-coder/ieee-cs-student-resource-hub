@@ -554,37 +554,46 @@ export interface SearchResult {
   link: string;
 }
 
-/**
- * The only part of a developer's entry an admin may change.
- *
- * Everything else — who is on the list, their name, role, photo and write-up — is fixed in
- * src/data/developers.ts. The database enforces that too: developer_links has no INSERT or
- * DELETE policy for anyone, and a trigger refuses a slug rename, so "cannot add or remove a
- * developer" is a guarantee rather than a convention in the UI.
- */
-export interface DeveloperLinks {
-  portfolio?: string;
-  github?: string;
-  linkedin?: string;
-  email?: string;
-  phone?: string;
+// --- Credits page ---------------------------------------------------------
+//
+// Split across two sources on purpose. Who is credited, and for what, is authored in
+// src/data/developers.ts -- that is the record, and an admin screen able to rewrite it is a way
+// to lose or misattribute somebody's work. What goes stale is editable: see CreditProfile.
+
+/** The three sections of the credits page, in the order they are shown. */
+export type CreditSection = 'founder' | 'developers' | 'brainstormers';
+
+/** One thing a developer is credited with. */
+export interface CreditWork {
+  title: string;
+  /** Optional expansion, shown under the title. */
+  detail?: string;
 }
 
-/** The fixed part of a developer's entry, authored in the repo. */
-export interface DeveloperProfile {
+/** A person as the roster names them. Authored in code; never edited from the admin. */
+export interface CreditPerson {
+  /** Kebab-case, and the key into public.developer_profiles. Never rename one. */
   id: string;
   name: string;
-  role: string;
-  photo: string;
-  contribution: string;
-  bio: string;
-  skills: string[];
 }
 
-/** A profile with its editable links merged in, which is what the page renders. */
-export interface Developer extends DeveloperProfile {
-  links: DeveloperLinks;
+/**
+ * The editable half of a person, stored in public.developer_profiles.
+ *
+ * Every field is optional in practice: a person with no row yet still appears on the page, with
+ * the placeholder portrait and no links, because a missing profile must never remove somebody
+ * from their own credits.
+ */
+export interface CreditProfile {
+  designation: string;
+  photoUrl: string;
+  photoPath: string | null;
+  gender: MemberGender;
+  links: MemberLink[];
 }
+
+/** What every card on the page renders from. */
+export type CreditedPerson = CreditPerson & CreditProfile;
 
 
 export type ProfileRole =
