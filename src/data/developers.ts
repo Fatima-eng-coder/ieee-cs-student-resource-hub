@@ -58,16 +58,16 @@ export const DEVELOPERS: DeveloperCredit[] = [
   {
     id: 'muhammad-ahsan',
     work: [
-      { title: 'Initialized the first repo' },
       {
-        title: 'Built the first version of the frontend',
-        detail: 'The skeleton the site grew from, and its navigation.',
+        title: 'Built the first skeleton frontend',
+        detail: 'What the site grew from, and its navigation.',
       },
       {
         title: 'Worked on the backend',
         detail:
           'Moved the rest of the site from browser storage onto Supabase, then worked on team roles and access, file storage, the committee roster, forms, and the review of submitted papers.',
       },
+      { title: 'Worked on banners, announcements, the gallery, projects and date sheets' },
       {
         title: 'Built the 2D and 3D campus navigation apps',
         detail: 'The interactive floor plan on this site, and the separate 3D navigator.',
@@ -77,26 +77,15 @@ export const DEVELOPERS: DeveloperCredit[] = [
   {
     id: 'fatima-azaz',
     work: [
-      {
-        title: 'Set up the backend',
-        detail: 'Connected the site to Supabase for the first time.',
-      },
-      {
-        title: 'Wired up sign-in',
-        detail: 'Account authentication through Supabase.',
-      },
+      { title: 'Set up the backend' },
+      { title: 'Wired up sign-in' },
       {
         title: 'Connected the first backend to the frontend',
         detail: 'Which meant building on the frontend side as well.',
       },
       {
-        title: 'Built the faculty, past papers and courses flows',
+        title: 'Built the faculty, past papers and courses flows, and the events module',
         detail: 'Along with the faculty page in the admin portal.',
-      },
-      { title: 'Built the events module' },
-      {
-        title: 'Added a clean-up for unused uploads',
-        detail: 'Finds and removes stored files that nothing points to any more.',
       },
     ],
   },
@@ -112,7 +101,6 @@ export const DEVELOPERS: DeveloperCredit[] = [
         title: 'Made the site work well on phones',
         detail: 'A responsiveness pass across the pages.',
       },
-      { title: "Added the chapter's logo and favicon" },
       { title: 'Tested the site' },
     ],
   },
