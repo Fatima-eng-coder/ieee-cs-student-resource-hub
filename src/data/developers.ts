@@ -78,12 +78,17 @@ export const DEVELOPERS: DeveloperCredit[] = [
     work: [
       {
         title: 'Connected the first backend to the frontend',
-        detail: 'Which meant building on the frontend side as well.',
+        detail:
+          'Set up the Supabase client and moved announcements, courses, faculty and past papers onto it, building on the frontend side as well.',
       },
-      { title: 'Helped with account migrations and sign-up' },
+      {
+        title: 'Helped with account migrations and sign-up',
+        detail:
+          "Wired Supabase sign-in for students and admins, and helped move the project onto the chapter's accounts.",
+      },
       {
         title: 'Built the faculty, past papers and courses flows, and the events module',
-        detail: 'Along with the faculty page in the admin portal.',
+        detail: 'The pages students use to browse them, plus the faculty page in the admin portal.',
       },
     ],
   },
@@ -93,13 +98,19 @@ export const DEVELOPERS: DeveloperCredit[] = [
     work: [
       {
         title: 'Refined the look and feel of the frontend',
-        detail: "Rebuilt the site's pages on the homepage's theme.",
+        detail:
+          "Rebuilt the site's pages on the homepage's theme, with shared page layouts, a site-wide cursor and scroll bar, and smoother page changes.",
       },
       {
         title: 'Made the site work well on phones',
-        detail: 'A responsiveness pass across the pages.',
+        detail:
+          'Stopped sideways scrolling, resized headings and spacing, and made the admin portal work on phones.',
       },
-      { title: 'Tested the site' },
+      {
+        title: 'Tested the site',
+        detail:
+          'Checked pages and flows, and fixed what team feedback raised on the homepage, navbar, announcement banner and events carousel.',
+      },
     ],
   },
 ];
