@@ -13,6 +13,8 @@ interface DirectoryProfileRow extends ProfileRow {
   secondary_email: string | null;
   whatsapp: string | null;
   class_name: string | null;
+  // Optional and nullable: added by 20260917001000.
+  semester?: number | null;
   section: string | null;
   degree: string | null;
 }
@@ -21,13 +23,15 @@ interface DirectoryProfileRow extends ProfileRow {
 export interface DirectoryProfile extends Profile {
   secondaryEmail: string;
   whatsapp: string;
+  /** Free text from before the semester field existed. Kept so older answers are not lost. */
   className: string;
+  semester: number | null;
   section: string;
   degree: string;
 }
 
 const profileColumns = 'id,name,email,role,created_at';
-const directoryColumns = `${profileColumns},secondary_email,whatsapp,class_name,section,degree`;
+const directoryColumns = `${profileColumns},secondary_email,whatsapp,class_name,semester,section,degree`;
 
 /** PostgREST answers with at most 1000 rows, so a bigger roster must be walked. */
 const PAGE_SIZE = 1000;
@@ -58,6 +62,7 @@ const toDirectoryProfile = (row: DirectoryProfileRow): DirectoryProfile => ({
   secondaryEmail: row.secondary_email ?? '',
   whatsapp: row.whatsapp ?? '',
   className: row.class_name ?? '',
+  semester: row.semester ?? null,
   section: row.section ?? '',
   degree: row.degree ?? '',
 });

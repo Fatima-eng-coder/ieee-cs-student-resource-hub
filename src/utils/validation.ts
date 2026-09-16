@@ -57,6 +57,25 @@ export function normaliseRegistrationNumber(value: string): string | null {
   return REGISTRATION_NUMBER_PATTERN.test(trimmed) ? trimmed : null;
 }
 
+/**
+ * Semester, as typed on the sign-up form: optional, and a whole number from 1 to 12 when given.
+ *
+ * The range matches profiles_semester_check and date_sheets_semester_check. Returns null for a
+ * blank box (optional means optional), the number when it is valid, and undefined when something
+ * was typed that is not a semester -- three answers, because "left empty" and "got it wrong" have
+ * to be told apart by every caller.
+ */
+export const SEMESTER_MIN = 1;
+export const SEMESTER_MAX = 12;
+
+export function parseSemester(value: string): number | null | undefined {
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  if (!/^[0-9]{1,2}$/.test(trimmed)) return undefined;
+  const semester = Number(trimmed);
+  return semester >= SEMESTER_MIN && semester <= SEMESTER_MAX ? semester : undefined;
+}
+
 export function isRegistrationNumber(value: string): boolean {
   return normaliseRegistrationNumber(value) !== null;
 }

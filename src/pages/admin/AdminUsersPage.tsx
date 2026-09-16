@@ -97,8 +97,10 @@ const rosterCsvColumns: CsvColumn<DirectoryProfile>[] = [
   { key: 'email', header: 'University Email' },
   { key: 'secondaryEmail', header: 'Secondary Email' },
   { key: 'whatsapp', header: 'WhatsApp' },
-  { key: 'className', header: 'Class' },
+  { key: 'semester', header: 'Semester' },
   { key: 'section', header: 'Section' },
+  // Free text from before sign-up asked for a semester. Exported so those answers are not lost.
+  { key: 'className', header: 'Class (older accounts)' },
   { key: 'degree', header: 'Degree' },
   { key: 'role', header: 'Role', value: (profile) => roleLabels[profile.role] },
   { key: 'createdAt', header: 'Joined', value: (profile) => csvDate(profile.createdAt) },
@@ -387,10 +389,22 @@ export default function AdminUsersPage() {
         render: (profile) => optionalCell(profile.whatsapp),
       },
       {
-        key: 'className',
-        header: 'Class',
-        sortValue: (profile) => profile.className,
-        render: (profile) => optionalCell(profile.className),
+        key: 'semester',
+        header: 'Semester',
+        // A number, so 10 sorts after 2. An empty semester sorts first, as 0.
+        sortValue: (profile) => profile.semester ?? 0,
+        // Older accounts typed a free-text "class" instead; shown greyed so it is not mistaken for
+        // a semester that was actually given.
+        render: (profile) =>
+          profile.semester !== null ? (
+            String(profile.semester)
+          ) : profile.className ? (
+            <span className="text-slate-400" title="Entered before sign-up asked for a semester">
+              {profile.className}
+            </span>
+          ) : (
+            optionalCell('')
+          ),
       },
       {
         key: 'section',
@@ -653,7 +667,7 @@ export default function AdminUsersPage() {
             rowKey={(profile) => profile.id}
             pageSize={10}
             searchable={(profile) =>
-              `${profile.name} ${profile.email} ${profile.secondaryEmail} ${profile.whatsapp} ${profile.className} ${profile.section} ${profile.degree} ${roleLabels[profile.role]}`
+              `${profile.name} ${profile.email} ${profile.secondaryEmail} ${profile.whatsapp} ${profile.semester ?? ''} ${profile.className} ${profile.section} ${profile.degree} ${roleLabels[profile.role]}`
             }
             emptyTitle={
               rosterError

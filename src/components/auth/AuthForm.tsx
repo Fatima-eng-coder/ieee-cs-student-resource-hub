@@ -21,6 +21,9 @@ import {
   parseUniversityEmail,
   passwordIssues,
   passwordScore,
+  parseSemester,
+  SEMESTER_MAX,
+  SEMESTER_MIN,
 } from '@/utils/validation';
 import RevealToggle from '@/components/ui/RevealToggle';
 import type { LoginInput, SignupInput } from '@/services/authService';
@@ -91,7 +94,8 @@ const emptyForm = {
   email: '',
   secondaryEmail: '',
   whatsapp: '',
-  className: '',
+  // A string, not a number: Number('') is 0, and a cleared box would refill itself with "0".
+  semester: '',
   section: '',
   degree: '',
   password: '',
@@ -132,11 +136,15 @@ export default function AuthForm({ mode, onModeChange, login, signup, onSuccess 
   );
   const confirmOk = !form.confirm || form.confirm === form.password;
 
+  // undefined means "typed, but not a semester"; null (left empty) is fine.
+  const semesterOk = parseSemester(form.semester) !== undefined;
+
   const canSubmit = signingUp
     ? Boolean(form.name.trim()) &&
       emailOk &&
       secondaryOk &&
       phoneOk &&
+      semesterOk &&
       pwIssues.length === 0 &&
       form.confirm === form.password
     : Boolean(form.email && form.password);
@@ -152,7 +160,7 @@ export default function AuthForm({ mode, onModeChange, login, signup, onSuccess 
           email: form.email,
           secondaryEmail: form.secondaryEmail,
           whatsapp: form.whatsapp,
-          className: form.className,
+          semester: form.semester,
           section: form.section,
           // The programme is already in the university address, so this is a confirmation
           // rather than a question — the service falls back to the parsed code.
@@ -243,20 +251,37 @@ export default function AuthForm({ mode, onModeChange, login, signup, onSuccess 
           />
 
           <div className="grid grid-cols-2 gap-3">
+            {/*
+              Text with a numeric keyboard, not type="number". A number input ignores maxLength,
+              accepts "e", "-" and ".", changes on a scroll wheel, and this form is noValidate, so
+              its min/max would never fire anyway. Non-digits are stripped as they are typed.
+
+              The hint is what names the field: these inputs have no visible label, so a bare
+              placeholder of "1" would read like a value somebody had already filled in.
+            */}
             <Field
               icon={<Users className="h-4 w-4" />}
               type="text"
-              placeholder="Class"
-              value={form.className}
-              onChange={set('className')}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={2}
+              autoComplete="off"
+              aria-label="Semester (optional)"
+              placeholder="1"
+              value={form.semester}
+              onChange={(e) => setForm((f) => ({ ...f, semester: e.target.value.replace(/\D/g, '').slice(0, 2) }))}
+              invalid={!semesterOk}
+              hint={semesterOk ? 'Semester (optional)' : `Semester is a number from ${SEMESTER_MIN} to ${SEMESTER_MAX}.`}
             />
             <Field
               icon={<Hash className="h-4 w-4" />}
               type="text"
-              placeholder="Section"
+              aria-label="Section (optional)"
+              placeholder="A/B"
               maxLength={4}
               value={form.section}
               onChange={set('section')}
+              hint="Section (optional)"
             />
           </div>
 

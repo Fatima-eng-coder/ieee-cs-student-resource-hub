@@ -7,6 +7,9 @@ import {
   normaliseUniversityEmail,
   parseUniversityEmail,
   passwordIssues,
+  parseSemester,
+  SEMESTER_MAX,
+  SEMESTER_MIN,
 } from '@/utils/validation';
 import type { User } from '@/types';
 
@@ -24,7 +27,8 @@ export interface SignupInput {
   /** Personal address, used if they ever lose access to the university one. */
   secondaryEmail?: string;
   whatsapp?: string;
-  className?: string;
+  /** As typed. Optional; a whole number from 1 to 12 when given — see parseSemester. */
+  semester?: string;
   section?: string;
   degree?: string;
   password: string;
@@ -67,6 +71,9 @@ function friendlyProfileError(message?: string): string {
 
   if (raw.includes('row-level security') || raw.includes('permission denied')) {
     return 'Your account was created but its details could not be saved. Please log in and complete your profile.';
+  }
+  if (raw.includes('profiles_semester_check')) {
+    return 'Your account was created, but the semester must be a number from 1 to 12. Please log in and update it.';
   }
   if (raw.includes('profiles_email_lower_key')) {
     return 'Another account is already using that university email. Please contact the team.';
@@ -171,6 +178,14 @@ export const authService = {
       throw new AuthError('That personal email address does not look valid.');
     }
 
+    // Checked BEFORE the account exists. The details are written by a separate update once
+    // signUp returns, so a bad value caught only by the database would leave a real account
+    // behind with every detail missing -- and no screen on which the student could fix it.
+    const semester = parseSemester(input.semester ?? '');
+    if (semester === undefined) {
+      throw new AuthError(`Semester must be a number from ${SEMESTER_MIN} to ${SEMESTER_MAX}, or left empty.`);
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password: input.password,
@@ -192,8 +207,11 @@ export const authService = {
       name,
       secondary_email: secondaryEmail,
       whatsapp,
-      class_name: cleanText(input.className ?? '', 40) || null,
-      section: cleanText(input.section ?? '', 8) || null,
+      // class_name is deliberately not sent any more, not even as null: it holds what older
+      // accounts typed before this field existed, and writing it here could only erase that.
+      semester,
+      // Upper-cased so "a" and "A" are one section in the admin roster and its export.
+      section: cleanText(input.section ?? '', 8).toUpperCase() || null,
       degree: cleanText(input.degree ?? '', 40) || parsed?.programme?.toUpperCase() || null,
     };
 
