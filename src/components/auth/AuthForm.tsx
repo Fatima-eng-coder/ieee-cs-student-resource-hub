@@ -254,7 +254,9 @@ export default function AuthForm({ mode, onModeChange, login, signup, onSuccess 
             {/*
               Text with a numeric keyboard, not type="number". A number input ignores maxLength,
               accepts "e", "-" and ".", changes on a scroll wheel, and this form is noValidate, so
-              its min/max would never fire anyway. Non-digits are stripped as they are typed.
+              its min/max would never fire anyway. Non-digits are stripped as they are typed, and
+              the two-digit limit is applied after that rather than through maxLength, which
+              would cut a pasted "sem 5" down to "se" before the digit could be kept.
 
               The hint is what names the field: these inputs have no visible label, so a bare
               placeholder of "1" would read like a value somebody had already filled in.
@@ -264,7 +266,6 @@ export default function AuthForm({ mode, onModeChange, login, signup, onSuccess 
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              maxLength={2}
               autoComplete="off"
               aria-label="Semester (optional)"
               placeholder="1"
