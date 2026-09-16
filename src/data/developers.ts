@@ -65,9 +65,8 @@ export const DEVELOPERS: DeveloperCredit[] = [
       {
         title: 'Worked on the backend',
         detail:
-          'Moved the rest of the site from browser storage onto Supabase, then worked on team roles and access, file storage, the committee roster, forms, and the review of submitted papers.',
+          'Moved the rest of the site from browser storage onto Supabase, then worked on banners, announcements, the gallery, projects, date sheets, forms and the committee roster, along with team roles and access, file storage, and the review of submitted papers.',
       },
-      { title: 'Worked on banners, announcements, the gallery, projects and date sheets' },
       {
         title: 'Built the 2D and 3D campus navigation apps',
         detail: 'The interactive floor plan on this site, and the separate 3D navigator.',
@@ -77,12 +76,11 @@ export const DEVELOPERS: DeveloperCredit[] = [
   {
     id: 'fatima-azaz',
     work: [
-      { title: 'Set up the backend' },
-      { title: 'Wired up sign-in' },
       {
         title: 'Connected the first backend to the frontend',
         detail: 'Which meant building on the frontend side as well.',
       },
+      { title: 'Helped with account migrations and sign-up' },
       {
         title: 'Built the faculty, past papers and courses flows, and the events module',
         detail: 'Along with the faculty page in the admin portal.',
