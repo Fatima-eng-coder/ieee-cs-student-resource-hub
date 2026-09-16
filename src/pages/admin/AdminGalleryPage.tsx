@@ -2,13 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
   ExternalLink,
   ImagePlus,
   Images,
   Loader2,
   Pencil,
   Plus,
+  RectangleHorizontal,
+  RectangleVertical,
   Trash2,
+  WandSparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import AdminTopbar from '@/components/admin/AdminTopbar';
 import GalleryPhotoPicker, { type PickedPhoto } from '@/components/admin/GalleryPhotoPicker';
@@ -16,6 +23,8 @@ import AdminTable, { type AdminTableColumn } from '@/components/admin/AdminTable
 import AdminEditDrawer from '@/components/admin/AdminEditDrawer';
 import { AdminField, AdminInput, AdminTextarea } from '@/components/admin/AdminField';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import JustifiedPhotoGrid from '@/components/gallery/JustifiedPhotoGrid';
+import { TILE_RATIO } from '@/components/gallery/tileShapes';
 import EmptyState from '@/components/ui/EmptyState';
 import { adminAuthService } from '@/services/adminAuthService';
 import {
@@ -25,6 +34,7 @@ import {
   type AlbumSaveInput,
 } from '@/services/galleryService';
 import { hasFile } from '@/utils/files';
+import { readImageOrientation, type ImageOrientation } from '@/utils/imageSize';
 
 const actionBtn =
   'flex items-center gap-1 rounded-lg border border-black/5 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-ieee-orange/40 hover:text-ieee-orange';
@@ -32,6 +42,80 @@ const dangerBtn =
   'flex items-center gap-1 rounded-lg border border-black/5 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600';
 const iconBtn =
   'flex h-7 w-7 items-center justify-center rounded-lg border border-black/5 bg-white text-slate-500 transition hover:border-ieee-orange/40 hover:text-ieee-orange disabled:opacity-40';
+
+const SHAPES: { value: ImageOrientation; label: string; Icon: LucideIcon }[] = [
+  { value: 'landscape', label: 'Landscape', Icon: RectangleHorizontal },
+  { value: 'portrait', label: 'Portrait', Icon: RectangleVertical },
+];
+
+/** 'auto' reads each picture's own shape as it is uploaded. */
+type UploadShape = 'auto' | ImageOrientation;
+
+const UPLOAD_SHAPES: { value: UploadShape; label: string; Icon: LucideIcon; hint: string }[] = [
+  {
+    value: 'auto',
+    label: 'Auto',
+    Icon: WandSparkles,
+    hint: 'Each photo keeps the shape it was taken in. You can change any of them afterwards.',
+  },
+  {
+    value: 'landscape',
+    label: 'Landscape',
+    Icon: RectangleHorizontal,
+    hint: 'Every photo in this upload gets a wide tile. Tall photos are cropped to fit.',
+  },
+  {
+    value: 'portrait',
+    label: 'Portrait',
+    Icon: RectangleVertical,
+    hint: 'Every photo in this upload gets a tall tile. Wide photos are cropped to fit.',
+  },
+];
+
+const ACCEPTED_PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+interface UploadItem {
+  name: string;
+  state: 'waiting' | 'uploading' | 'done' | 'failed';
+  message?: string;
+}
+
+/** Wide or tall, as two small toggle buttons. */
+function ShapeToggle({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: ImageOrientation | null;
+  disabled: boolean;
+  onChange: (shape: ImageOrientation) => void;
+}) {
+  return (
+    <div role="group" aria-label="Photo shape" className="flex overflow-hidden rounded-lg border border-black/5 bg-white">
+      {SHAPES.map(({ value: shape, label, Icon }) => {
+        const active = value === shape;
+        return (
+          <button
+            key={shape}
+            type="button"
+            title={label}
+            aria-label={label}
+            aria-pressed={active}
+            disabled={disabled}
+            onClick={() => {
+              if (!active) onChange(shape);
+            }}
+            className={`flex h-7 w-8 items-center justify-center transition disabled:opacity-40 ${
+              active ? 'bg-ieee-orange text-white' : 'text-slate-500 hover:text-ieee-orange'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const emptyAlbum = (): AdminGalleryAlbum => ({
   id: '',
@@ -158,16 +242,22 @@ function PhotoRow({
   index,
   total,
   busy,
+  selected,
+  onToggleSelect,
   onCaptionCommit,
   onMove,
+  onShapeChange,
   onRemove,
 }: {
   photo: AdminGalleryPhoto;
   index: number;
   total: number;
   busy: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
   onCaptionCommit: (caption: string) => void;
   onMove: (direction: -1 | 1) => void;
+  onShapeChange: (shape: ImageOrientation) => void;
   onRemove: () => void;
 }) {
   const [caption, setCaption] = useState(photo.caption);
@@ -177,8 +267,42 @@ function PhotoRow({
   }, [photo]);
 
   return (
-    <li className="flex items-start gap-3 rounded-xl border border-black/5 bg-white p-2.5">
-      <img src={photo.url} alt="" className="h-14 w-20 shrink-0 rounded-lg bg-cream object-cover" />
+    <li
+      className={`flex items-start gap-2.5 rounded-xl border bg-white p-2.5 transition ${
+        selected ? 'border-ieee-orange/50 ring-1 ring-ieee-orange/25' : 'border-black/5'
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={selected}
+        disabled={busy}
+        onChange={onToggleSelect}
+        aria-label={`Select photo ${index + 1}`}
+        className="mt-1 h-4 w-4 shrink-0 accent-ieee-orange"
+      />
+      {/* The thumbnail is drawn in the tile shape the album page will use, so a wrong shape is
+          visible here before anyone opens the public page. Clicking it selects the photo. */}
+      <button
+        type="button"
+        onClick={onToggleSelect}
+        disabled={busy}
+        aria-hidden="true"
+        tabIndex={-1}
+        className="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-cream"
+      >
+        <img
+          src={photo.url}
+          alt=""
+          style={photo.orientation ? { aspectRatio: TILE_RATIO[photo.orientation] } : undefined}
+          className={`rounded-md ${
+            photo.orientation === 'portrait'
+              ? 'h-full object-cover'
+              : photo.orientation === 'landscape'
+                ? 'w-full object-cover'
+                : 'h-full w-full object-contain'
+          }`}
+        />
+      </button>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <AdminInput
           value={caption}
@@ -189,7 +313,7 @@ function PhotoRow({
             if (caption.trim() !== photo.caption) onCaptionCommit(caption);
           }}
         />
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             className={iconBtn}
@@ -208,6 +332,7 @@ function PhotoRow({
           >
             <ArrowDown className="h-3.5 w-3.5" />
           </button>
+          <ShapeToggle value={photo.orientation} disabled={busy} onChange={onShapeChange} />
           <button
             type="button"
             className={`${iconBtn} hover:border-rose-300 hover:text-rose-600`}
@@ -249,18 +374,11 @@ function AlbumPublicPreview({ album }: { album: AdminGalleryAlbum }) {
       {album.images.length === 0 ? (
         <p className="text-xs text-slate-400">This album has no photos yet.</p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
-          {album.images.map((photo) => (
-            <figure key={photo.id} className="overflow-hidden rounded-xl border border-black/5 bg-white">
-              <img src={photo.url} alt={photo.caption} className="h-20 w-full object-cover" />
-              {photo.caption && (
-                <figcaption className="px-2 py-1 text-[11px] text-slate-500">{photo.caption}</figcaption>
-              )}
-            </figure>
-          ))}
-        </div>
+        <JustifiedPhotoGrid compact photos={album.images} />
       )}
-      <p className="text-xs text-slate-400">Photos appear on the public album page in this order.</p>
+      <p className="text-xs text-slate-400">
+        Photos appear on the public album page in this order, in rows sized to fit the screen.
+      </p>
     </div>
   );
 }
@@ -279,6 +397,13 @@ export default function AdminGalleryPage() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<AdminGalleryAlbum | null>(null);
   const [deleting, setDeleting] = useState<AdminGalleryAlbum | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [removingPhotos, setRemovingPhotos] = useState<AdminGalleryPhoto[] | null>(null);
+  const [uploadShape, setUploadShape] = useState<UploadShape>('auto');
+  // Tagged with its album, so a drawer reopened on another album mid-upload does not show
+  // (or receive) the first album's progress.
+  const [uploads, setUploads] = useState<{ albumId: string; items: UploadItem[] } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const canManage = adminAuthService.canManageContent();
 
@@ -337,6 +462,9 @@ export default function AdminGalleryPage() {
     setIsNew(asNew);
     setSelectedCover(null);
     setPhotos(album.images);
+    setSelected(new Set());
+    setDragging(false);
+    setUploads((current) => (current?.albumId === album.id ? current : null));
     setPhotoError(null);
     setError(null);
     setSuccess(null);
@@ -346,8 +474,55 @@ export default function AdminGalleryPage() {
     setDraft(null);
     setSelectedCover(null);
     setPhotos([]);
+    setSelected(new Set());
+    setDragging(false);
     setPhotoError(null);
   };
+
+  /*
+   * Photos stored before shapes were recorded get one now, measured from the pictures.
+   *
+   * Only for someone who can write, only for photos with no shape, and the write itself only
+   * fills blanks -- so a shape chosen while this was measuring is never overwritten, here or in
+   * the database. The public page measures these photos on its own until this has run.
+   */
+  const openAlbumId = draft && !isNew ? draft.id : '';
+  const unrecordedKey = JSON.stringify(
+    openAlbumId && canManage ? photos.filter((photo) => !photo.orientation).map((photo) => [photo.id, photo.url]) : []
+  );
+
+  useEffect(() => {
+    const unrecorded = JSON.parse(unrecordedKey) as [string, string][];
+    if (!openAlbumId || unrecorded.length === 0) return;
+    let ignore = false;
+
+    void (async () => {
+      const measured = (
+        await Promise.all(
+          unrecorded.map(async ([id, url]) => {
+            const orientation = await readImageOrientation(url).catch(() => null);
+            return orientation ? { id, orientation } : null;
+          })
+        )
+      ).filter((item): item is { id: string; orientation: ImageOrientation } => item !== null);
+
+      if (ignore || measured.length === 0) return;
+      await galleryService.recordMeasuredOrientations(openAlbumId, measured);
+      if (ignore) return;
+
+      const found = new Map(measured.map((item) => [item.id, item.orientation]));
+      const fill = (list: AdminGalleryPhoto[]) =>
+        list.map((photo) => (photo.orientation ? photo : { ...photo, orientation: found.get(photo.id) ?? null }));
+
+      setPhotos(fill);
+      setAlbums((items) => items.map((item) => (item.id === openAlbumId ? { ...item, images: fill(item.images) } : item)));
+      setPreviewing((current) => (current?.id === openAlbumId ? { ...current, images: fill(current.images) } : current));
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [openAlbumId, unrecordedKey]);
 
   const columns: AdminTableColumn<AdminGalleryAlbum>[] = [
     {
@@ -500,6 +675,85 @@ export default function AdminGalleryPage() {
     }
   };
 
+  const selectedPhotos = photos.filter((photo) => selected.has(photo.id));
+  const allSelected = photos.length > 0 && selectedPhotos.length === photos.length;
+
+  const toggleSelected = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const setShape = (ids: string[], shape: ImageOrientation) => {
+    if (!draft || ids.length === 0) return;
+    void runPhotoAction(() => galleryService.setPhotoOrientation(draft.id, ids, shape), draft.id);
+  };
+
+  const confirmRemovePhotos = async () => {
+    if (!draft || !removingPhotos) return;
+    const targets = removingPhotos;
+    setRemovingPhotos(null);
+    await runPhotoAction(() => galleryService.removePhotos(draft.id, targets), draft.id);
+    setSelected(new Set());
+  };
+
+  /**
+   * Any number of files, each reported on as it goes. The service saves every photo on its own,
+   * so a bad file costs only itself -- see galleryService.addPhotos.
+   */
+  const uploadPhotos = async (chosen: File[]) => {
+    if (!draft || chosen.length === 0) return;
+    if (!canManage) {
+      setPhotoError('You do not have permission to manage the gallery.');
+      return;
+    }
+
+    const albumId = draft.id;
+    const orientation = uploadShape === 'auto' ? null : uploadShape;
+    setUploads({ albumId, items: chosen.map((file) => ({ name: file.name, state: 'waiting' })) });
+    setPhotoBusy(true);
+    setPhotoError(null);
+
+    try {
+      const { photos: next, failed } = await galleryService.addPhotos(
+        albumId,
+        chosen.map((file) => ({ file, orientation })),
+        ({ index, state, message }) =>
+          setUploads((current) =>
+            current?.albumId === albumId
+              ? {
+                  albumId,
+                  items: current.items.map((item, position) => (position === index ? { ...item, state, message } : item)),
+                }
+              : current
+          )
+      );
+      applyPhotos(albumId, next);
+      if (failed > 0) {
+        setPhotoError(
+          failed === chosen.length
+            ? 'None of those photos could be added. The reasons are listed under each file.'
+            : `${failed} of ${chosen.length} photos could not be added; the rest were saved. The reasons are listed under each file.`
+        );
+      }
+    } catch (err) {
+      setPhotoError(getCleanError(err, 'Those photos could not be added.'));
+      try {
+        applyPhotos(albumId, await galleryService.listPhotos(albumId));
+      } catch {
+        // The earlier message is the useful one.
+      }
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const uploadsHere = uploads && draft && uploads.albumId === draft.id ? uploads.items : null;
+  const uploadsFinished = uploadsHere?.every((item) => item.state === 'done' || item.state === 'failed') ?? false;
+  const uploadedCount = uploadsHere?.filter((item) => item.state === 'done').length ?? 0;
+
   const movePhoto = (index: number, direction: -1 | 1) => {
     if (!draft) return;
     const target = index + direction;
@@ -650,6 +904,168 @@ export default function AdminGalleryPage() {
                     </div>
                   )}
 
+                  {canManage && (
+                    <div className="rounded-xl border border-black/5 bg-cream/60 p-3">
+                      <p className="text-xs font-semibold text-slate-600">Shape for the photos you add</p>
+                      <div role="radiogroup" aria-label="Shape for new photos" className="mt-2 grid grid-cols-3 gap-1.5">
+                        {UPLOAD_SHAPES.map(({ value, label, Icon }) => {
+                          const active = uploadShape === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              role="radio"
+                              aria-checked={active}
+                              disabled={photoBusy}
+                              onClick={() => setUploadShape(value)}
+                              className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold transition disabled:opacity-60 ${
+                                active
+                                  ? 'border-ieee-orange bg-ieee-orange text-white shadow-sm'
+                                  : 'border-black/10 bg-white text-slate-600 hover:border-ieee-orange/50 hover:text-ieee-orange'
+                              }`}
+                            >
+                              <Icon className="h-3.5 w-3.5" /> {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+                        {UPLOAD_SHAPES.find((option) => option.value === uploadShape)?.hint}
+                      </p>
+
+                      {/* A drop target as well as a button: a whole event's photos are usually
+                          dragged in from a folder rather than picked one by one. */}
+                      <div
+                        onDragOver={(e) => {
+                          if (photoBusy || !Array.from(e.dataTransfer.types).includes('Files')) return;
+                          e.preventDefault();
+                          setDragging(true);
+                        }}
+                        onDragLeave={() => setDragging(false)}
+                        onDrop={(e) => {
+                          if (photoBusy) return;
+                          e.preventDefault();
+                          setDragging(false);
+                          const dropped = Array.from(e.dataTransfer.files).filter((file) =>
+                            ACCEPTED_PHOTO_TYPES.includes(file.type)
+                          );
+                          if (dropped.length === 0) {
+                            setPhotoError('Only PNG, JPG and WebP pictures can be added to an album.');
+                            return;
+                          }
+                          void uploadPhotos(dropped);
+                        }}
+                        className={`mt-3 rounded-xl border-2 border-dashed transition ${
+                          dragging ? 'border-ieee-orange bg-ieee-orange/5' : 'border-slate-300'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => photoInputRef.current?.click()}
+                          disabled={photoBusy}
+                          className="flex w-full flex-col items-center justify-center gap-1 px-3 py-3.5 text-slate-500 transition hover:text-ieee-orange disabled:opacity-60"
+                        >
+                          <span className="flex items-center gap-1.5 text-xs font-semibold">
+                            {photoBusy && uploadsHere && !uploadsFinished ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ImagePlus className="h-4 w-4" />
+                            )}
+                            Add photos
+                          </span>
+                          <span className="text-[11px] font-normal text-slate-400">
+                            Select or drop as many as you like. PNG, JPG or WebP, up to 5 MB each.
+                          </span>
+                        </button>
+                      </div>
+
+                      {uploadsHere && (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-500">
+                            <span>
+                              {uploadsFinished
+                                ? `${uploadedCount} of ${uploadsHere.length} added`
+                                : `Adding ${uploadedCount + 1} of ${uploadsHere.length}`}
+                            </span>
+                            {uploadsFinished && (
+                              <button
+                                type="button"
+                                onClick={() => setUploads(null)}
+                                className="text-slate-400 transition hover:text-ieee-orange"
+                              >
+                                Clear list
+                              </button>
+                            )}
+                          </div>
+                          <ul className="mt-1.5 flex max-h-44 flex-col gap-1 overflow-y-auto pr-1">
+                            {uploadsHere.map((item, position) => (
+                              <li key={`${position}-${item.name}`} className="rounded-lg bg-white px-2.5 py-1.5 text-[11px]">
+                                <span className="flex items-center gap-2">
+                                  {item.state === 'done' ? (
+                                    <CircleCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                                  ) : item.state === 'failed' ? (
+                                    <CircleAlert className="h-3.5 w-3.5 shrink-0 text-rose-600" />
+                                  ) : item.state === 'uploading' ? (
+                                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-ieee-orange" />
+                                  ) : (
+                                    <Clock3 className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+                                  )}
+                                  <span className="min-w-0 truncate font-medium text-slate-600">{item.name}</span>
+                                </span>
+                                {item.state === 'failed' && item.message && (
+                                  <span className="mt-0.5 block pl-5.5 text-rose-600">{item.message}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {photos.length > 0 && canManage && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-black/5 bg-white px-3 py-2">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={(element) => {
+                            if (element) element.indeterminate = selectedPhotos.length > 0 && !allSelected;
+                          }}
+                          disabled={photoBusy}
+                          onChange={() =>
+                            setSelected(allSelected ? new Set() : new Set(photos.map((photo) => photo.id)))
+                          }
+                          className="h-4 w-4 accent-ieee-orange"
+                        />
+                        {selectedPhotos.length > 0 ? `${selectedPhotos.length} selected` : 'Select all'}
+                      </label>
+                      {selectedPhotos.length > 0 && (
+                        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                          {SHAPES.map(({ value, label, Icon }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              disabled={photoBusy}
+                              className={`${actionBtn} disabled:opacity-50`}
+                              onClick={() => setShape(selectedPhotos.map((photo) => photo.id), value)}
+                            >
+                              <Icon className="h-3.5 w-3.5" /> {label}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            disabled={photoBusy}
+                            className={`${dangerBtn} disabled:opacity-50`}
+                            onClick={() => setRemovingPhotos(selectedPhotos)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {photos.length > 0 && (
                     <ul className="flex flex-col gap-2">
                       {photos.map((photo, index) => (
@@ -659,6 +1075,8 @@ export default function AdminGalleryPage() {
                           index={index}
                           total={photos.length}
                           busy={photoBusy || !canManage}
+                          selected={selected.has(photo.id)}
+                          onToggleSelect={() => toggleSelected(photo.id)}
                           onCaptionCommit={(caption) =>
                             void runPhotoAction(async () => {
                               await galleryService.updateCaption(photo.id, caption);
@@ -666,6 +1084,7 @@ export default function AdminGalleryPage() {
                             }, draft.id)
                           }
                           onMove={(direction) => movePhoto(index, direction)}
+                          onShapeChange={(shape) => setShape([photo.id], shape)}
                           onRemove={() =>
                             void runPhotoAction(() => galleryService.removePhoto(photo), draft.id)
                           }
@@ -674,15 +1093,18 @@ export default function AdminGalleryPage() {
                     </ul>
                   )}
 
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => photoInputRef.current?.click()}
-                      disabled={photoBusy}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-500 transition hover:border-ieee-orange/60 hover:text-ieee-orange disabled:opacity-60"
-                    >
-                      <ImagePlus className="h-4 w-4" /> Add photos
-                    </button>
+                  {photos.length > 0 && (
+                    <details className="group rounded-xl border border-black/5 bg-white">
+                      <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-600 transition hover:text-ieee-orange">
+                        How the album will look
+                      </summary>
+                      <div className="border-t border-black/5 p-3">
+                        <JustifiedPhotoGrid compact photos={photos} />
+                        <p className="mt-2 text-[11px] text-slate-400">
+                          Rows are resized to fill the screen, so wider screens fit more photos in each row.
+                        </p>
+                      </div>
+                    </details>
                   )}
 
                   <input
@@ -694,9 +1116,7 @@ export default function AdminGalleryPage() {
                     onChange={(e) => {
                       const files = Array.from(e.target.files ?? []);
                       e.target.value = '';
-                      if (files.length > 0) {
-                        void runPhotoAction(() => galleryService.addPhotos(draft.id, files), draft.id);
-                      }
+                      if (files.length > 0) void uploadPhotos(files);
                     }}
                   />
                 </>
@@ -713,11 +1133,23 @@ export default function AdminGalleryPage() {
       <ConfirmModal
         open={!!deleting}
         title="Delete this album?"
-        description="The album, its photos and their uploaded files are removed from the site."
+        description="The album, its photos and their uploaded files are removed from the site. A picture a homepage banner still uses is kept for the banner."
         confirmLabel={saving ? 'Deleting...' : 'Delete'}
         danger
         onCancel={() => setDeleting(null)}
         onConfirm={confirmDelete}
+      />
+
+      <ConfirmModal
+        open={!!removingPhotos}
+        title={
+          removingPhotos?.length === 1 ? 'Remove this photo?' : `Remove ${removingPhotos?.length ?? 0} photos?`
+        }
+        description="They are taken out of this album and their files deleted. A picture the album cover or a homepage banner still uses is kept for it."
+        confirmLabel="Remove"
+        danger
+        onCancel={() => setRemovingPhotos(null)}
+        onConfirm={() => void confirmRemovePhotos()}
       />
     </div>
   );

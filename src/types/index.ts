@@ -502,6 +502,8 @@ export interface GalleryImage {
   id: string;
   url: string;
   caption: string;
+  /** The tile shape the album page gives it. Null for photos stored before shapes were recorded. */
+  orientation: 'landscape' | 'portrait' | null;
 }
 
 export interface GalleryAlbum {

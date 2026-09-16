@@ -8,11 +8,13 @@
  * whoever pressed Save second erase the other's photos without either of them seeing it.
  *
  * gallery_photos cascades on album delete but the storage objects do not, so the delete path
- * reads the photo paths before the row goes and sweeps them out of the bucket.
+ * reads the photo paths before the row goes and sweeps them out of the bucket -- except files
+ * something else on the site still shows (see pathsStillInUse).
  */
 
 import { supabase } from '@/lib/supabase';
 import type { GalleryAlbum, GalleryImage } from '@/types';
+import { readImageOrientation, type ImageOrientation } from '@/utils/imageSize';
 
 /**
  * Gallery art shares the events bucket rather than getting one of its own, because creating a
@@ -29,7 +31,7 @@ const GALLERY_PREFIX = 'gallery';
 
 const albumColumns =
   'id,title,date,description,cover_image_url,cover_image_path,sort_order,created_at,updated_at';
-const photoColumns = 'id,album_id,image_url,image_path,caption,sort_order,created_at';
+const photoColumns = 'id,album_id,image_url,image_path,caption,orientation,sort_order,created_at';
 
 interface GalleryAlbumRow {
   id: string;
@@ -49,6 +51,8 @@ interface GalleryPhotoRow {
   image_url: string;
   image_path: string | null;
   caption: string | null;
+  // Optional and nullable: added by 20260917003000.
+  orientation?: string | null;
   sort_order: number | null;
   created_at: string;
 }
@@ -69,6 +73,13 @@ export interface AdminGalleryAlbum extends GalleryAlbum {
   images: AdminGalleryPhoto[];
 }
 
+/** Progress for one file of a multi-photo upload, by its position in the list given. */
+export interface PhotoUploadUpdate {
+  index: number;
+  state: 'uploading' | 'done' | 'failed';
+  message?: string;
+}
+
 export interface AlbumSaveInput {
   title: string;
   date: string;
@@ -82,6 +93,7 @@ const toPhoto = (row: GalleryPhotoRow): AdminGalleryPhoto => ({
   albumId: row.album_id,
   url: row.image_url,
   caption: row.caption ?? '',
+  orientation: row.orientation === 'landscape' || row.orientation === 'portrait' ? row.orientation : null,
   imagePath: row.image_path,
   sortOrder: row.sort_order ?? 0,
 });
@@ -135,6 +147,8 @@ const friendlyReadError = (message: string) => {
 /** Said whenever a write names a row the database no longer holds, however that is discovered. */
 const STALE_ROW_MESSAGE = 'That album or photo is no longer there. Reload the gallery to see what is stored.';
 
+const ALBUM_GONE_MESSAGE = 'This album no longer exists. Reload the gallery and try again.';
+
 const friendlyWriteError = (message: string) => {
   const lower = message.toLowerCase();
 
@@ -144,11 +158,14 @@ const friendlyWriteError = (message: string) => {
   if (lower.includes('gallery_albums_title_check')) {
     return 'Please enter the album title.';
   }
+  if (lower.includes('gallery_photos_orientation_check')) {
+    return 'A photo can only be landscape or portrait.';
+  }
   if (lower.includes('gallery_photos_image_url_check')) {
     return 'That photo has no image address to store.';
   }
   if (lower.includes('foreign key') || lower.includes('gallery_photos_album_id_fkey')) {
-    return 'This album no longer exists. Reload the gallery and try again.';
+    return ALBUM_GONE_MESSAGE;
   }
   // PostgREST's answer when a single-row write matched nothing, which here almost always means
   // another content manager deleted the album or the photo while this drawer was open.
@@ -209,11 +226,59 @@ function safeFileName(file: File, index: number): string {
  * the admin's trust in the screen.
  */
 async function sweepStorage(paths: (string | null)[]): Promise<void> {
-  const present = paths.filter((path): path is string => Boolean(path));
+  const present = [...new Set(paths.filter((path): path is string => Boolean(path)))];
   if (present.length === 0) return;
 
-  const { error } = await supabase.storage.from(GALLERY_BUCKET).remove(present);
+  const inUse = await pathsStillInUse(present);
+  if (!inUse) {
+    console.warn('Gallery files were kept: could not confirm that nothing else still shows them.');
+    return;
+  }
+
+  const unused = present.filter((path) => !inUse.has(path));
+  if (unused.length === 0) return;
+
+  const { error } = await supabase.storage.from(GALLERY_BUCKET).remove(unused);
   if (error) console.warn('Gallery photos could not be removed from storage', error);
+}
+
+/**
+ * Of these bucket paths, the ones a row somewhere still displays.
+ *
+ * One file can back several things. A photo can be its album's cover, and since the photo picker
+ * arrived it can be a homepage banner's website or phone picture as well -- the banner stores the
+ * same path, not a copy. Removing the photo used to delete the file outright, which blanked the
+ * cover and the banner along with it. Now the file stays for as long as anything still names it.
+ *
+ * Null when any of the reads fails. The caller must then keep every file: an orphaned object
+ * costs a little storage, a wrongly deleted one is a broken picture on the homepage.
+ */
+async function pathsStillInUse(paths: string[]): Promise<Set<string> | null> {
+  const [photos, covers, banners, phoneBanners] = await Promise.all([
+    supabase.from('gallery_photos').select('image_path').in('image_path', paths),
+    supabase.from('gallery_albums').select('cover_image_path').in('cover_image_path', paths),
+    supabase.from('site_banners').select('image_path').in('image_path', paths),
+    supabase.from('site_banners').select('mobile_image_path').in('mobile_image_path', paths),
+  ]);
+
+  const failed = [photos, covers, banners, phoneBanners].find((result) => result.error);
+  if (failed) {
+    console.warn('Could not check which gallery files are still in use', failed.error);
+    return null;
+  }
+
+  const used = new Set<string>();
+  const collect = (rows: Record<string, unknown>[] | null, column: string) => {
+    for (const row of rows ?? []) {
+      const value = row[column];
+      if (typeof value === 'string' && value) used.add(value);
+    }
+  };
+  collect(photos.data, 'image_path');
+  collect(covers.data, 'cover_image_path');
+  collect(banners.data, 'image_path');
+  collect(phoneBanners.data, 'mobile_image_path');
+  return used;
 }
 
 /**
@@ -258,6 +323,29 @@ async function fetchAlbums(): Promise<GalleryAlbumRow[]> {
 /** Kept module-level so the service's own methods can reach it without going through `this`. */
 const listPhotosFor = async (albumId: string): Promise<AdminGalleryPhoto[]> =>
   (await fetchPhotos([albumId])).map(toPhoto);
+
+/**
+ * The rows go first: a file swept from a row that then survives would show as a broken photo.
+ * A file the album cover or a banner still uses is kept -- see pathsStillInUse.
+ */
+async function removePhotosFrom(albumId: string, photos: AdminGalleryPhoto[]): Promise<AdminGalleryPhoto[]> {
+  if (photos.length === 0) return listPhotosFor(albumId);
+  await refreshAuthSession();
+
+  // Same reasoning as remove(): a refusal comes back as zero rows and no error, and the
+  // sweep below is irreversible.
+  const { error, count } = await supabase
+    .from('gallery_photos')
+    .delete({ count: 'exact' })
+    .eq('album_id', albumId)
+    .in('id', photos.map((photo) => photo.id));
+
+  if (error) throw new Error(friendlyWriteError(error.message));
+  if (count === 0) throw new Error(STALE_ROW_MESSAGE);
+
+  await sweepStorage(photos.map((photo) => photo.imagePath));
+  return listPhotosFor(albumId);
+}
 
 export const galleryService = {
   /** Every album with its photos. The gallery has no draft state, so admin and public read the same list. */
@@ -400,56 +488,136 @@ export const galleryService = {
   },
 
   /**
-   * Uploads then inserts, in that order, because gallery_photos.image_url is NOT NULL and
-   * CHECKed non-empty: there is no valid row to write until the file exists. Anything that
-   * fails after an upload sweeps its own files back out before it rethrows.
+   * Adds photos one at a time, each saved the moment it is uploaded.
+   *
+   * This used to be all or nothing: every file uploaded, then one insert for the lot, so the 30th
+   * photo of a 30-photo event failing threw away the 29 before it. A bulk upload is exactly when
+   * one file is bad -- too large, a HEIC renamed to .jpg -- and the admin should lose that one
+   * file, not the batch. Each photo is therefore uploaded and inserted on its own, a failure is
+   * reported against that file, and the rest carry on.
+   *
+   * Per photo the order is still upload then insert, because gallery_photos.image_url is NOT NULL
+   * and CHECKed non-empty; a photo whose insert fails has its file swept back out.
+   *
+   * `orientation` null means "read it from the picture". A picture that cannot be measured is
+   * stored with no shape rather than refused, and the album page measures it when shown.
    *
    * The returned list is re-read rather than assembled from the inserts, so a photo another
    * admin added or deleted meanwhile shows up here instead of being papered over.
    */
-  async addPhotos(albumId: string, files: File[]): Promise<AdminGalleryPhoto[]> {
-    if (files.length === 0) return listPhotosFor(albumId);
-    for (const file of files) assertGalleryImage(file);
+  async addPhotos(
+    albumId: string,
+    items: { file: File; orientation: ImageOrientation | null }[],
+    onProgress?: (update: PhotoUploadUpdate) => void
+  ): Promise<{ photos: AdminGalleryPhoto[]; failed: number }> {
+    if (items.length === 0) return { photos: await listPhotosFor(albumId), failed: 0 };
 
     await refreshAuthSession();
     const { data: userData } = await supabase.auth.getUser();
 
     const existing = await fetchPhotos([albumId]);
-    const nextIndex = existing.reduce((max, photo) => Math.max(max, (photo.sort_order ?? 0) + 1), 0);
+    let nextIndex = existing.reduce((max, photo) => Math.max(max, (photo.sort_order ?? 0) + 1), 0);
+    let failed = 0;
 
-    const uploaded: { url: string; path: string }[] = [];
+    for (const [index, item] of items.entries()) {
+      let uploadedPath: string | null = null;
+      try {
+        assertGalleryImage(item.file);
+        onProgress?.({ index, state: 'uploading' });
 
-    try {
-      for (const [index, file] of files.entries()) {
-        const path = `${GALLERY_PREFIX}/${albumId}/${safeFileName(file, index)}`;
-        const { error } = await supabase.storage
+        const orientation = item.orientation ?? (await readImageOrientation(item.file).catch(() => null));
+
+        const path = `${GALLERY_PREFIX}/${albumId}/${safeFileName(item.file, index)}`;
+        const { error: uploadError } = await supabase.storage
           .from(GALLERY_BUCKET)
-          .upload(path, file, { cacheControl: '3600', upsert: false });
-
-        if (error) throw new Error(friendlyStorageError(error.message));
+          .upload(path, item.file, { cacheControl: '3600', upsert: false });
+        if (uploadError) throw new Error(friendlyStorageError(uploadError.message));
+        uploadedPath = path;
 
         const { data } = supabase.storage.from(GALLERY_BUCKET).getPublicUrl(path);
-        uploaded.push({ url: data.publicUrl, path });
-      }
-
-      const { error } = await supabase.from('gallery_photos').insert(
-        uploaded.map((item, index) => ({
+        const { error: insertError } = await supabase.from('gallery_photos').insert({
           album_id: albumId,
-          image_url: item.url,
-          image_path: item.path,
+          image_url: data.publicUrl,
+          image_path: path,
           caption: '',
-          sort_order: nextIndex + index,
+          orientation,
+          sort_order: nextIndex,
           created_by: userData.user?.id ?? null,
-        }))
-      );
+        });
+        if (insertError) throw new Error(friendlyWriteError(insertError.message));
 
-      if (error) throw new Error(friendlyWriteError(error.message));
-    } catch (cause) {
-      await sweepStorage(uploaded.map((item) => item.path));
-      throw cause;
+        nextIndex += 1;
+        onProgress?.({ index, state: 'done' });
+      } catch (cause) {
+        if (uploadedPath) await sweepStorage([uploadedPath]);
+        const message = cause instanceof Error && cause.message ? cause.message : 'This photo could not be added.';
+        failed += 1;
+        onProgress?.({ index, state: 'failed', message });
+
+        // The album itself is gone -- deleted by someone else mid-upload. Every file still to
+        // come would upload, fail the same way and be swept again, so they are failed here.
+        if (message === ALBUM_GONE_MESSAGE) {
+          for (let rest = index + 1; rest < items.length; rest += 1) {
+            failed += 1;
+            onProgress?.({ index: rest, state: 'failed', message });
+          }
+          break;
+        }
+      }
     }
 
+    return { photos: await listPhotosFor(albumId), failed };
+  },
+
+  /**
+   * Sets the tile shape of several photos at once.
+   *
+   * Scoped to the album as well as the ids, so a stale selection can never reach into another
+   * album. A count short of the ids asked for means some of them are gone, and says so.
+   */
+  async setPhotoOrientation(
+    albumId: string,
+    photoIds: string[],
+    orientation: ImageOrientation
+  ): Promise<AdminGalleryPhoto[]> {
+    if (photoIds.length === 0) return listPhotosFor(albumId);
+    await refreshAuthSession();
+
+    const { error, count } = await supabase
+      .from('gallery_photos')
+      .update({ orientation }, { count: 'exact' })
+      .eq('album_id', albumId)
+      .in('id', photoIds);
+
+    if (error) throw new Error(friendlyWriteError(error.message));
+    if (count !== null && count < photoIds.length) throw new Error(STALE_ROW_MESSAGE);
     return listPhotosFor(albumId);
+  },
+
+  /**
+   * Stores the shapes the portal measured for photos that had none recorded.
+   *
+   * Only ever fills a blank (`orientation IS NULL`): a measurement taken when the drawer opened
+   * must not overwrite a shape somebody chose since. Quiet on failure -- this is housekeeping the
+   * admin did not ask for, and the page measures unrecorded photos itself in the meantime.
+   */
+  async recordMeasuredOrientations(
+    albumId: string,
+    measured: { id: string; orientation: ImageOrientation }[]
+  ): Promise<void> {
+    for (const orientation of ['landscape', 'portrait'] as const) {
+      const ids = measured.filter((item) => item.orientation === orientation).map((item) => item.id);
+      if (ids.length === 0) continue;
+
+      const { error } = await supabase
+        .from('gallery_photos')
+        .update({ orientation })
+        .eq('album_id', albumId)
+        .in('id', ids)
+        .is('orientation', null);
+
+      if (error) console.warn('Measured photo shapes could not be stored', error);
+    }
   },
 
   async updateCaption(photoId: string, caption: string): Promise<AdminGalleryPhoto> {
@@ -465,22 +633,12 @@ export const galleryService = {
     return toPhoto(data as GalleryPhotoRow);
   },
 
-  /** The row goes first: a file swept from a row that then survives would show as a broken photo. */
   async removePhoto(photo: AdminGalleryPhoto): Promise<AdminGalleryPhoto[]> {
-    await refreshAuthSession();
+    return removePhotosFrom(photo.albumId, [photo]);
+  },
 
-    // Same reasoning as remove(): a refusal comes back as zero rows and no error, and the
-    // sweep below is irreversible.
-    const { error, count } = await supabase
-      .from('gallery_photos')
-      .delete({ count: 'exact' })
-      .eq('id', photo.id);
-
-    if (error) throw new Error(friendlyWriteError(error.message));
-    if (count === 0) throw new Error(STALE_ROW_MESSAGE);
-
-    await sweepStorage([photo.imagePath]);
-    return listPhotosFor(photo.albumId);
+  async removePhotos(albumId: string, photos: AdminGalleryPhoto[]): Promise<AdminGalleryPhoto[]> {
+    return removePhotosFrom(albumId, photos);
   },
 
   /**
@@ -561,7 +719,8 @@ export const galleryService = {
   /**
    * Called after a cover has been replaced or a save was rolled back, both of which can be the
    * first bucket write in a while. The sweep only warns, so an expired token here would orphan
-   * the file with nobody the wiser — the refresh is what keeps that from being routine.
+   * the file with nobody the wiser — the refresh is what keeps that from being routine. A cover
+   * that is also one of the album's photos, or a banner's picture, is kept by the sweep.
    */
   async removeCoverImage(path?: string | null): Promise<void> {
     if (!path) return;

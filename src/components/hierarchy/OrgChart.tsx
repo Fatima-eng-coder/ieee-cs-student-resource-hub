@@ -1,6 +1,7 @@
-import { Fragment, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment } from 'react';
 // lucide has no LinkedIn glyph in this version; the site already ships its own.
 import { MemberAvatar } from './MemberAvatar';
+import { useMeasuredWidth } from '@/hooks/useMeasuredWidth';
 import { memberLinks } from '@/lib/memberLinks';
 import { hrefForLink, platformMeta } from '@/lib/socialPlatforms';
 import { titleForRole, type HierarchyMemberRecord } from '@/services/hierarchyService';
@@ -57,42 +58,6 @@ const ringFor = (prominence: Prominence) =>
 
 /** Depth in the chart, used only for emphasis — never for layout or for the connectors. */
 const prominenceFor = (index: number): Prominence => (index === 0 ? 'lead' : index < 3 ? 'exec' : 'core');
-
-/**
- * The rendered width of the chart's own box.
- *
- * A layout effect rather than an effect: the measurement has to land before the browser paints,
- * or the first frame is the stacked rail on a desktop that has room for the tree.
- */
-function useMeasuredWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-
-    // Sub-pixel jitter from a scrollbar appearing would otherwise loop the observer.
-    const record = (next: number) => setWidth((previous) => (Math.abs(previous - next) < 0.5 ? previous : next));
-    const measure = () => record(element.getBoundingClientRect().width);
-
-    const observer = new ResizeObserver((entries) => record(entries[0]?.contentRect.width ?? 0));
-    observer.observe(element);
-    // The observer is the real mechanism: this box can change width with the window sitting
-    // still. The listener is a second, cheaper path to the same measurement, for the case
-    // where observer callbacks are not being delivered — they ride the frame lifecycle, so a
-    // document that is not being rendered does not get them.
-    window.addEventListener('resize', measure);
-    measure();
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, []);
-
-  return [ref, width] as const;
-}
 
 /**
  * The branch joining one level to the next: risers up into a bus, one stem across the gap, a
