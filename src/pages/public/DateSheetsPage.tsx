@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BookOpen, CalendarClock, Download, FileText, Megaphone } from 'lucide-react';
-import ComingSoon, { type MeanwhileLink } from '@/components/layout/ComingSoon';
+import EmptyDirectory, { type MeanwhileLink } from '@/components/layout/EmptyDirectory';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import EmptyState from '@/components/ui/EmptyState';
@@ -32,22 +32,22 @@ const meanwhile: MeanwhileLink[] = [
 const breadcrumb = [{ label: 'Home', to: '/' }, { label: 'Date Sheets' }];
 
 /*
- * Said as "none published yet", not as "this section is being rebuilt".
+ * Said as "this directory is empty", never as "this section is being built".
  *
- * The previous copy described a changeover that is finished: the table, the uploader, the
- * publish toggle and this listing all work, and the page turns itself into the real thing the
- * moment a sheet is published. Telling a student the feature is paused would send them looking
- * elsewhere for something that is simply waiting on the exam office.
+ * The table, the uploader, the publish toggle and this listing all work, and the page turns into
+ * the real list the moment a sheet is published. Telling a student the feature is unfinished
+ * would send them looking elsewhere for something that is simply waiting on the exam office.
  *
  * There is no student CTA here on purpose, unlike the projects showcase. A date sheet is issued
  * by the department; a student upload would be a rumour with a download button on it.
  */
-const parkedScreen = (
-  <ComingSoon
+const emptyScreen = (
+  <EmptyDirectory
     eyebrow="Exams"
     breadcrumb={breadcrumb}
     title="No date sheets have been published yet."
-    description="The team puts each program's schedule here as the department releases it. Nothing is up right now — check the announcements for exam notices in the meantime."
+    description="The team puts each program's schedule here as the department releases it. Check the announcements for exam notices in the meantime."
+    note="The date sheets directory is empty right now. Nothing is broken — sheets show up here on their own as soon as they are published."
     icon={CalendarClock}
     meanwhile={meanwhile}
   />
@@ -56,8 +56,8 @@ const parkedScreen = (
 /**
  * Held while the read is in flight.
  *
- * Deliberately neutral: it must not say the section is paused, because the very next render may
- * be a full listing, and it must not say there is nothing here, because nobody has looked yet.
+ * Deliberately neutral: it must not say the directory is empty, because nobody has looked yet
+ * and the very next render may be a full listing.
  */
 const loadingScreen = (
   <div className="relative">
@@ -103,14 +103,13 @@ const downloadName = (sheet: AdminDateSheet) =>
 /**
  * Deliberately two pages in one.
  *
- * The parked "coming back" screen is still what a visitor sees, and is what they will keep
- * seeing until somebody publishes a date sheet in the portal — the table is empty today, so
- * nothing about the site changes on the day this ships. The moment there is at least one
- * published sheet, this page turns itself into the real listing without anyone editing code.
+ * Until somebody publishes a date sheet in the portal, a visitor is told the directory is empty.
+ * The moment there is at least one published sheet, this page turns itself into the real listing
+ * without anyone editing code.
  *
  * The three outcomes are kept distinct on purpose. An empty result means "nothing published
- * yet" and shows the parked screen; a failed read means "we do not know" and says so. Falling
- * back to the parked screen when the read fails would tell a student their date sheet does not
+ * yet" and shows the empty screen; a failed read means "we do not know" and says so. Falling
+ * back to the empty screen when the read fails would tell a student their date sheet does not
  * exist because a request timed out.
  */
 export default function DateSheetsPage() {
@@ -156,15 +155,12 @@ export default function DateSheetsPage() {
   }
 
   /*
-   * Nothing published: the parked screen is the page's default and stays it.
-   *
-   * "Still loading" used to be folded in here, which told every visitor the section was paused
-   * before the read had answered — and then swapped it for a real listing a moment later. A
-   * page that says "this is unavailable" and then contradicts itself is worse than one that
-   * takes a beat.
+   * "Still loading" is kept apart from "nothing published". Folded together, every visitor would
+   * be told the directory is empty before the read had answered -- and then shown a full listing
+   * a moment later. A page that contradicts itself is worse than one that takes a beat.
    */
   if (loading) return loadingScreen;
-  if (sheets.length === 0) return parkedScreen;
+  if (sheets.length === 0) return emptyScreen;
 
   const groups = groupByProgram(sheets);
 

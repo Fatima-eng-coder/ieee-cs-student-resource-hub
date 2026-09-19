@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowUpRight, CalendarDays, Compass, FileText, LayoutGrid, Users2 } from 'lucide-react';
-import ComingSoon, { type MeanwhileLink } from '@/components/layout/ComingSoon';
+import EmptyDirectory, { type MeanwhileLink } from '@/components/layout/EmptyDirectory';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import { projectsService, refreshProjectsOnReturn, type Project } from '@/services/projectsService';
@@ -29,16 +29,15 @@ const meanwhile: MeanwhileLink[] = [
 ];
 
 /**
- * The showcase, still parked — but parked on the data rather than on a hard-coded screen.
+ * The student project showcase.
  *
- * public.projects is live and collecting; nothing has been approved yet, so this renders the
- * same coming-soon page it always did. The moment a content manager approves the first project
- * the grid below takes over on its own, with no code change and no deploy. That is the whole
- * point of wiring it this way: "the page is off" and "there is nothing approved to show" are the
- * same state, and the second one ends by itself.
+ * public.projects is live and collecting. Until a content manager approves the first project,
+ * a visitor is told the directory is empty -- with the way to submit one on screen -- and the
+ * moment one is approved the grid below takes over on its own, with no code change and no
+ * deploy.
  *
- * A failed read is deliberately NOT folded into that. An error rendered as coming-soon would
- * tell a visitor the showcase is parked when in fact nobody knows what is in it.
+ * A failed read is deliberately NOT folded into that. An error rendered as an empty directory
+ * would tell a visitor there are no projects when in fact nobody knows what is in it.
  */
 export default function ProjectsExpoPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
@@ -87,8 +86,8 @@ export default function ProjectsExpoPage() {
     );
   }
 
-  // Nothing has come back yet. Rendering the parked screen here would flash it on every visit
-  // once projects exist, so the page holds a quiet placeholder until the read answers.
+  // Nothing has come back yet. Rendering the empty screen here would flash "no projects" on
+  // every visit once projects exist, so the page holds a quiet placeholder until the read answers.
   if (projects === null) {
     return (
       <div className="relative">
@@ -112,20 +111,18 @@ export default function ProjectsExpoPage() {
   }
 
   /*
-   * The copy here used to read "we're reworking how student projects are submitted ...
-   * Submissions reopen with it", which was not true: /projects-expo/submit has been live and
-   * accepting the whole time. Worse, the only link to it sat in the branch below -- the one
-   * that renders when there is at least one approved project -- so the page told students
-   * submissions were closed AND hid the form that was open. The showcase is empty for one
-   * reason: nothing has been approved yet. It says that now, and the way in is on screen.
+   * The showcase is empty for one reason: nothing has been approved yet. It says exactly that,
+   * and puts the way in on screen -- /projects-expo/submit takes submissions the whole time, and
+   * its only other link is in the branch below, which does not render until something is live.
    */
   if (projects.length === 0) {
     return (
-      <ComingSoon
+      <EmptyDirectory
         eyebrow="Projects"
         breadcrumb={[{ label: 'Home', to: '/' }, { label: 'Projects' }]}
         title="No projects have been published yet."
         description="The showcase fills up as the team reviews what students send in. Nothing has cleared review so far — so if you have built something, yours can be the first."
+        note="The projects directory is empty right now. Nothing is broken — projects show up here on their own as soon as the team approves them."
         icon={LayoutGrid}
         action={{
           label: 'Submit your project',

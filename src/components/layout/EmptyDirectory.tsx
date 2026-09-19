@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion, type Variants } from 'framer-motion';
-import { ArrowUpRight, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, Inbox, type LucideIcon } from 'lucide-react';
 import PageHero, { type Crumb } from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 
-/** A single prominent call to action, for a parked page that still has somewhere to send you. */
-export interface ComingSoonAction {
+/** A single prominent call to action, for an empty page that still has somewhere to send you. */
+export interface EmptyDirectoryAction {
   label: string;
   to: string;
   /** One line under the button saying what happens next. */
@@ -20,12 +20,17 @@ export interface MeanwhileLink {
   icon: LucideIcon;
 }
 
-interface ComingSoonProps {
+interface EmptyDirectoryProps {
   /** Small mono label above the title, e.g. "Projects". */
   eyebrow: string;
   title: ReactNode;
-  /** One or two sentences on what is happening and what to expect. */
+  /** One or two sentences on what belongs here and how it gets filled. */
   description: ReactNode;
+  /**
+   * Says, in this directory's own words, that it is empty and that nothing is wrong -- e.g.
+   * "The date sheets directory is empty ...". Shown under the "Directory empty" badge.
+   */
+  note: ReactNode;
   breadcrumb?: Crumb[];
   /** The module's own icon, shown large in the medallion. */
   icon: LucideIcon;
@@ -34,12 +39,11 @@ interface ComingSoonProps {
   /**
    * The one thing a visitor can still do here, shown as a primary button.
    *
-   * A parked page is not always a page with nothing behind it. The projects showcase, for
-   * instance, is empty only because nothing has been approved yet -- submissions are open the
-   * whole time, and the page that takes them was reachable from nowhere while this screen was
-   * up. Without this prop the parked state had to either lie about that or hide it.
+   * An empty directory is not always one with nothing to do. The projects showcase is empty only
+   * because nothing has been approved yet -- submissions are open the whole time, and without
+   * this the page that takes them would be reachable from nowhere while the showcase is empty.
    */
-  action?: ComingSoonAction;
+  action?: EmptyDirectoryAction;
 }
 
 const listVariants: Variants = {
@@ -53,19 +57,26 @@ const cardVariants: Variants = {
 };
 
 /**
- * Placeholder screen for a module that is deliberately parked rather than
- * broken. Reuses the standard hero/section shell so a parked page still reads
- * as a designed part of the site, and always offers somewhere else to go.
+ * What a working section shows while it has nothing in it -- no date sheet published, no project
+ * approved yet.
+ *
+ * It says the directory is empty, not that the page is being built. This screen used to read
+ * "In development ... parked while the section is rebuilt", which stopped being true once both
+ * sections were finished: it told students a working page was switched off, and sent them looking
+ * elsewhere for something that simply had not been posted yet. It reuses the standard hero and
+ * section shell so an empty page still reads as a designed part of the site, and always offers
+ * somewhere else to go.
  */
-export default function ComingSoon({
+export default function EmptyDirectory({
   eyebrow,
   title,
   description,
+  note,
   breadcrumb,
   icon: Icon,
   meanwhile = [],
   action,
-}: ComingSoonProps) {
+}: EmptyDirectoryProps) {
   const reduceMotion = useReducedMotion();
 
   return (
@@ -106,20 +117,13 @@ export default function ComingSoon({
             />
           </motion.div>
 
+          {/* A still badge: the pulsing dot this used to carry read as "work in progress". */}
           <span className="mt-8 inline-flex items-center gap-2 rounded-full border border-ieee-orange/25 bg-ieee-orange/10 px-4 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-ieee-orange-dark">
-            <motion.span
-              aria-hidden="true"
-              className="h-1.5 w-1.5 rounded-full bg-ieee-orange"
-              animate={reduceMotion ? undefined : { opacity: [1, 0.45, 1], scale: [1, 1.4, 1] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            In development
+            <Inbox aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+            Directory empty
           </span>
 
-          <p className="mt-5 max-w-md text-sm leading-relaxed text-slate-600">
-            Nothing here is broken — this page is parked while the section is rebuilt, and it will
-            return at this same address. The rest of the site is working as usual.
-          </p>
+          <p className="mt-5 max-w-md text-sm leading-relaxed text-slate-600">{note}</p>
 
           {action && (
             <div className="mt-7 flex flex-col items-center">
@@ -142,7 +146,7 @@ export default function ComingSoon({
           <div className="mt-12">
             <div className="flex items-center gap-4">
               <h2 className="font-mono text-[11px] font-medium uppercase tracking-widest text-slate-400">
-                In the meantime
+                Elsewhere on the site
               </h2>
               <span aria-hidden="true" className="h-px flex-1 bg-black/10" />
             </div>

@@ -367,17 +367,17 @@ export default function AdminDateSheetsPage() {
         )}
 
         {/*
-         * The public page shows its parked "coming back" screen until at least one sheet is
+         * The public page tells visitors the directory is empty until at least one sheet is
          * published, and swaps itself over the moment one is. Said here because otherwise the
          * only way to discover it is to publish something and watch the site change.
          */}
         {!loading && !error && (
           <div className="mb-4 rounded-xl border border-black/5 bg-white px-4 py-3 text-sm text-slate-600">
             {publishedCount === 0
-              ? 'The public Date Sheets page is showing its "coming back" screen. Publish a sheet here and the page switches itself over to the real list.'
-              : `The public Date Sheets page is live, showing ${publishedCount} published ${
-                  publishedCount === 1 ? 'sheet' : 'sheets'
-                }. Unpublishing them all returns it to the "coming back" screen.`}
+              ? 'The public Date Sheets page is telling visitors that the directory is empty. Publish a sheet here and the page switches itself over to the real list.'
+              : publishedCount === 1
+                ? 'The public Date Sheets page is showing 1 published sheet. Unpublishing it makes the page tell visitors the directory is empty again.'
+                : `The public Date Sheets page is showing ${publishedCount} published sheets. Unpublishing them all makes the page tell visitors the directory is empty again.`}
           </div>
         )}
 

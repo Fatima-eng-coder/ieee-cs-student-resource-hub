@@ -7,9 +7,9 @@
  * by visitors — a student may read back their own submission while it waits, which is what
  * gives "did it arrive?" an answer that is not "ask an admin".
  *
- * The public page is parked behind a coming-soon screen today. That is a rendering decision,
- * not a storage one: everything submitted from now on is stored, so turning the page on later
- * is a change of screen rather than a discovery that nothing was kept.
+ * The public page lists approved projects, and says the directory is empty while there are
+ * none. Everything submitted is stored either way, so the first approval is a change of screen
+ * rather than a discovery that nothing was kept.
  */
 
 import { supabase } from '@/lib/supabase';

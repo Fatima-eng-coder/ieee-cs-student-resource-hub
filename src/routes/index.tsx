@@ -98,7 +98,7 @@ export const router = createBrowserRouter([
       { path: 'events/:id/register', element: <EventRegisterPage /> },
       { path: 'navigation', element: <NavigationPage /> },
       { path: 'navigation/report', element: <NavigationReportPage /> },
-      // The showcase renders the real grid and falls back to a parked screen only while no
+      // The showcase renders the real grid, and says the directory is empty only while no
       // project has been approved; /projects-expo/submit takes student submissions the whole
       // time, and /projects-expo/:id serves approved projects only. React Router ranks the
       // static 'submit' segment above ':id', so the order here is not what makes that work.

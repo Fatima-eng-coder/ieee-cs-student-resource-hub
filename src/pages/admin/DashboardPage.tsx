@@ -11,6 +11,8 @@ import {
   FileText,
   BookOpen,
   CalendarDays,
+  CalendarClock,
+  LayoutGrid,
   Megaphone,
   Image as ImageIcon,
   CheckCircle2,
@@ -25,8 +27,10 @@ import { adminAuthService } from '@/services/adminAuthService';
 import { useCourses } from '@/hooks/useCourses';
 import { announcementsService, subscribeAnnouncementsChanged } from '@/services/announcementsService';
 import { eventsService, subscribeEventsChanged } from '@/services/eventsService';
+import { dateSheetsService } from '@/services/dateSheetsService';
 import { galleryService } from '@/services/galleryService';
 import { papersService, subscribeMaterialsChanged } from '@/services/papersService';
+import { projectsService } from '@/services/projectsService';
 import type { Paper } from '@/types';
 
 const quickActions = [
@@ -47,6 +51,10 @@ const loadPapers = () => papersService.list();
 const loadEvents = () => eventsService.listAdmin();
 const loadAnnouncements = () => announcementsService.list();
 const loadGalleryAlbumCount = () => galleryService.count();
+// What visitors see, not what is stored: published sheets and approved projects, the same reads
+// the public pages make. A draft or a submission still in review is not on the site yet.
+const loadPublishedDateSheetCount = () => dateSheetsService.listPublished().then((sheets) => sheets.length);
+const loadApprovedProjectCount = () => projectsService.listApproved().then((projects) => projects.length);
 
 /**
  * Loads one dashboard number and keeps hold of whether the read actually succeeded. A
@@ -180,6 +188,8 @@ export default function DashboardPage() {
   const events = useMetricSource('events', loadEvents, subscribeEventsChanged);
   const announcements = useMetricSource('announcements', loadAnnouncements, subscribeAnnouncementsChanged);
   const gallery = useMetricCount('gallery albums', loadGalleryAlbumCount);
+  const dateSheets = useMetricCount('published date sheets', loadPublishedDateSheetCount);
+  const projects = useMetricCount('approved projects', loadApprovedProjectCount);
   const { courses, loading: coursesLoading, error: coursesError } = useCourses();
   const coursesStatus: MetricStatus = coursesLoading ? 'loading' : coursesError ? 'unavailable' : 'ready';
 
@@ -225,10 +235,6 @@ export default function DashboardPage() {
     },
   ];
 
-  // Date sheets and the projects expo are switched off behind "coming soon" screens for
-  // visitors. Both are database-backed now, so a count here would be real — it is left out
-  // because a headline number for a section the public cannot reach invites the reading that
-  // it is live, and the portal editors are one click away for anyone who wants the figure.
   const library = [
     {
       label: 'Course Material',
@@ -252,6 +258,20 @@ export default function DashboardPage() {
       status: gallery.status,
       icon: ImageIcon,
       to: '/portal/gallery',
+    },
+    {
+      label: 'Published Date Sheets',
+      value: dateSheets.count,
+      status: dateSheets.status,
+      icon: CalendarClock,
+      to: '/portal/date-sheets',
+    },
+    {
+      label: 'Approved Projects',
+      value: projects.count,
+      status: projects.status,
+      icon: LayoutGrid,
+      to: '/portal/projects',
     },
   ];
 

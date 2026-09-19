@@ -206,9 +206,8 @@ function buildIndex(): SearchResult[] {
     })
   );
 
-  // Projects Expo and Date Sheets are deferred behind a coming-soon screen, so their
-  // entries are not indexed — a search hit that lands on "this module is being rebuilt" is
-  // worse than no hit at all.
+  // Approved projects and published date sheets are not indexed yet. Both directories are
+  // empty today; indexing them means adding their own loaders above, like the ones for events.
 
   siteContent.faqs.forEach((f) =>
     results.push({ id: f.id, title: f.question, type: 'FAQ', description: f.answer, tags: [f.category], link: `/faq-contact` })
