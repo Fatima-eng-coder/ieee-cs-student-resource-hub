@@ -66,11 +66,17 @@ export default function ChipScroller({
 
   return (
     <div className="relative">
+      {/*
+        scroll-p-14 keeps a chip scrolled into view clear of the arrows, so a chip reached by Tab
+        is never parked under one. The vertical padding is room for a selected chip's glow, which
+        the scrollport would otherwise clip, and the negative margin keeps the strip the height it
+        looks on the page.
+      */}
       <div
         ref={trackRef}
         role="group"
         aria-label={label}
-        className="flex gap-2 overflow-x-auto scroll-smooth px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="-my-2 flex gap-2 overflow-x-auto scroll-p-14 scroll-smooth px-1 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>
@@ -93,14 +99,17 @@ function Arrow({
   onClick: () => void;
 }) {
   const left = side === 'left';
+  // The fade is never interactive itself: it is as wide as a chip, so taking clicks across all
+  // of it swallowed taps meant for the chip underneath -- and, since it sits outside the
+  // scrolling track, a swipe started on it scrolled the page instead of the strip.
   const fade = tone === 'white' ? '#ffffff' : 'var(--color-cream)';
 
   return (
     <div
       aria-hidden="true"
-      className={`absolute inset-y-0 flex items-center transition-opacity duration-200 ${
+      className={`pointer-events-none absolute inset-y-0 flex items-center transition-opacity duration-200 ${
         left ? 'left-0 pr-6' : 'right-0 pl-6'
-      } ${show ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      } ${show ? 'opacity-100' : 'opacity-0'}`}
       style={{
         // Fade the chips out under the arrow instead of letting them collide with it.
         background: `linear-gradient(to ${left ? 'right' : 'left'}, ${fade} 45%, transparent)`,
@@ -110,7 +119,7 @@ function Arrow({
         type="button"
         tabIndex={-1}
         onClick={onClick}
-        className="flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-slate-500 shadow-sm transition hover:border-ieee-orange/40 hover:text-ieee-orange"
+        className={`${show ? 'pointer-events-auto' : 'pointer-events-none'} flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-white text-slate-500 shadow-sm transition hover:border-ieee-orange/40 hover:text-ieee-orange`}
       >
         {left ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
       </button>

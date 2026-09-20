@@ -203,6 +203,8 @@ export default function NavigationPage() {
 
       <PageSection tone="cream" top width="wide">
         {/* ---- 2D or 3D --------------------------------------------- */}
+        {/* The picker leads the section now that the beta notice is gone, so it sits flush at
+            the top — the margin it used to need under the notice was removed with it. */}
         <NavigationModePicker />
 
         {/* ---- From / To -------------------------------------------- */}

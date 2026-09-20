@@ -67,7 +67,7 @@ function MiniPlan() {
 
 export default function NavigationModePicker() {
   return (
-    <div className="mt-8 grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2">
       {/* ---- 2D: the view you are already looking at ------------------ */}
       {/*
         A div, not a link. This card is the page you are on, so there is nowhere for it to go;

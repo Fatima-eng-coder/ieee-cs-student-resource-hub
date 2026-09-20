@@ -11,18 +11,26 @@ const memberColumns = 'id,term_id,role_slug,name,seat,photo_url,photo_path,email
 /** Where a member whose role is not in the catalogue sorts: last, but still on the page. */
 export const UNFILED_TIER = 99;
 
-/** Season names as they are written here, in the order a year runs. */
-const SEASON_RANK: Record<string, number> = {
-  sp: 1,
-  spring: 1,
-  su: 2,
-  summer: 2,
-  fa: 3,
-  fall: 3,
-  autumn: 3,
-  wi: 4,
-  winter: 4,
-};
+/**
+ * Season names as the chapter writes them, in the order a year runs.
+ *
+ * A Map rather than an object literal: the key comes from a term somebody typed, and an object
+ * would answer for inherited names like "constructor" as well -- which would put a function
+ * where a rank belongs and quietly break the comparator that uses it.
+ *
+ * Winter is deliberately absent. The portal only offers Fall and Spring, and "Winter 2024" is
+ * read as January by some chapters and as December by others; an unranked term falls back to
+ * the entry order rather than being placed wrongly with confidence.
+ */
+const SEASON_RANK = new Map([
+  ['sp', 1],
+  ['spring', 1],
+  ['su', 2],
+  ['summer', 2],
+  ['fa', 3],
+  ['fall', 3],
+  ['autumn', 3],
+]);
 
 /**
  * When a term happened, as one sortable number — or null when its name does not say.
@@ -35,7 +43,7 @@ export function termChronology(term: Pick<HierarchyTermRecord, 'term' | 'label'>
     const match = (text ?? '').trim().toLowerCase().match(/^([a-z]+)\s*'?\s*(\d{2}|\d{4})$/);
     if (!match) continue;
 
-    const season = SEASON_RANK[match[1]];
+    const season = SEASON_RANK.get(match[1]);
     if (!season) continue;
 
     const year = match[2].length === 4 ? Number(match[2]) : 2000 + Number(match[2]);

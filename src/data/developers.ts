@@ -80,17 +80,17 @@ export const DEVELOPERS: DeveloperCredit[] = [
     work: [
       {
         title: 'Built the first skeleton frontend',
-        detail: 'The pages, layout and navigation the rest of the site grew from.',
+        detail: 'The first pages, the layout and the navigation — the shape the rest of the site grew from.',
       },
       {
-        title: 'Built the backend the site runs on',
+        title: 'Built out the backend',
         detail:
-          'Moved the rest of the site from browser storage onto Supabase, then built banners, announcements, the gallery, projects, date sheets, forms, the timeline and the committee roster on it — along with team roles and access, file storage, and the review of submitted papers.',
+          'Moved what was still kept in the browser onto Supabase, and built the gallery, projects, date sheets, the timeline and the committee roster on it — with the banners and homepage promotions, the announcement ticker, team roles and access, file storage, and the duplicate checks behind the paper review queue.',
       },
       {
         title: 'Built the 2D and 3D campus navigation apps',
         detail:
-          'The interactive floor plan on this site, and the separate 3D navigator, drawn from a survey of the CS block.',
+          'The interactive floor plan on this site, and the separate 3D navigator, both built on hand-surveyed plans of the CS block.',
       },
     ],
   },
@@ -100,16 +100,17 @@ export const DEVELOPERS: DeveloperCredit[] = [
       {
         title: 'Connected the first backend to the frontend',
         detail:
-          'Set up the Supabase client and moved announcements, courses, faculty and past papers onto it, building on the frontend side as well.',
+          'Set up the Supabase client the site still runs on, then moved announcements, courses, faculty and past papers out of the browser and onto it — building the frontend side of those pages too.',
       },
       {
         title: 'Helped with account migrations and sign-up',
         detail:
-          "Wired Supabase sign-in for students and admins, and helped move the project onto the chapter's accounts.",
+          "Wired Supabase sign-in for students and for the admin portal, carried the existing accounts through the change, and helped move the project onto the chapter's own accounts.",
       },
       {
         title: 'Built the faculty, past papers and courses flows, and the events module',
-        detail: 'The pages students use to browse them, plus the faculty page in the admin portal.',
+        detail:
+          'The pages students use to browse and search them, plus the faculty page in the admin portal.',
       },
     ],
   },
@@ -120,12 +121,12 @@ export const DEVELOPERS: DeveloperCredit[] = [
       {
         title: 'Built and refined the frontend',
         detail:
-          "Reworked the site's pages around one visual theme, with custom 3D backgrounds, smooth animations, shared layouts, a site-wide cursor and scroll bar, and seamless page transitions.",
+          "Reworked the site's pages around one visual theme, improved the page structure they already had, and added custom 3D backgrounds, smooth animations, shared layouts, a site-wide cursor and scroll bar, and seamless page transitions.",
       },
       {
         title: 'Made the site fully responsive',
         detail:
-          'Adjusted headings, spacing and layouts for smaller screens, and tuned the admin portal for phones.',
+          'Stopped the sideways scrolling on phones, adjusted headings, spacing and layouts for smaller screens, and tuned the admin portal for mobile devices.',
       },
       {
         title: 'Polished and tested the experience',
