@@ -1,5 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import type { TimelineEvent } from '@/types';
+import {
+  isRealDate,
+  normalizeMilestoneDate,
+  type MilestonePrecision,
+} from '@/utils/milestoneDate';
 
 /**
  * Chapter milestones, read by the public timeline and written from the portal.
@@ -14,14 +19,20 @@ import type { TimelineEvent } from '@/types';
  * be offering to put 2024 before 2023.
  */
 
-const columns = 'id,happened_on,title,description';
+const columns = 'id,happened_on,date_precision,title,description';
 
 interface MilestoneRow {
   id: string;
   happened_on: string;
+  // Optional and nullable: added by 20260921001000. A row read before that migration reached
+  // this client is treated as a full date, which is what every row held until it landed.
+  date_precision?: string | null;
   title: string;
   description: string | null;
 }
+
+const toPrecision = (value: string | null | undefined): MilestonePrecision =>
+  value === 'year' || value === 'month' ? value : 'day';
 
 export type MilestoneInput = Omit<TimelineEvent, 'id'>;
 
@@ -31,18 +42,23 @@ const toMilestone = (row: MilestoneRow): TimelineEvent => ({
   // front end wants: turning it into a Date here would re-introduce the midnight drift the
   // column type exists to avoid.
   date: row.happened_on,
+  precision: toPrecision(row.date_precision),
   title: row.title,
   description: row.description ?? '',
 });
 
+/**
+ * The stored date carries only the parts somebody vouched for: an unknown month or day is
+ * written as 1, never as the day the milestone happened to be typed on. The table checks the
+ * same thing (timeline_milestones_precision_parts_check) -- this keeps the payload from ever
+ * asking for the state it refuses.
+ */
 const toPayload = (input: MilestoneInput) => ({
-  happened_on: input.date,
+  happened_on: normalizeMilestoneDate(input.date, input.precision),
+  date_precision: input.precision,
   title: input.title.trim(),
   description: input.description.trim(),
 });
-
-/** Plain calendar dates only. Anything else would be handed to Postgres to guess at. */
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Said whenever a write names a row the database no longer holds, however that is discovered. */
 const STALE_ROW_MESSAGE = 'That milestone is no longer there. Reload the page to see what is stored.';
@@ -50,7 +66,10 @@ const STALE_ROW_MESSAGE = 'That milestone is no longer there. Reload the page to
 /** Everything the database would refuse, said in the admin's own words first. */
 function assertMilestone(input: MilestoneInput): void {
   if (!input.title.trim()) throw new Error('Please enter a heading for this milestone.');
-  if (!ISO_DATE.test(input.date)) throw new Error('Please pick the date this milestone happened on.');
+  if (!isRealDate(input.date)) throw new Error('Please enter the date this milestone happened on.');
+  if (input.precision !== 'year' && input.precision !== 'month' && input.precision !== 'day') {
+    throw new Error('Please choose how much of the date to show.');
+  }
 
   // Re-checked rather than left to timeline_milestones_happened_on_check, because a date input
   // lets the year be typed as well as picked, and 0202 is one slipped keystroke from 2020.
@@ -59,9 +78,6 @@ function assertMilestone(input: MilestoneInput): void {
     throw new Error('That year does not look right. Please check the date.');
   }
 
-  // Date.parse of a 'YYYY-MM-DD' string is defined to be UTC, so this compares like with like
-  // and no timezone can make a valid date look invalid.
-  if (Number.isNaN(Date.parse(input.date))) throw new Error('That is not a real date.');
 }
 
 const friendlyReadError = (message: string): string => {
@@ -89,6 +105,10 @@ const friendlyWriteError = (error: { code?: string; message: string }): string =
   }
   if (error.code === '23514' || lower.includes('violates check constraint')) {
     if (lower.includes('title')) return 'Please enter a heading for this milestone.';
+    if (lower.includes('date_precision')) return 'Please choose how much of the date to show.';
+    if (lower.includes('precision_parts') || lower.includes('precision_day')) {
+      return 'The parts of the date you left out cannot be saved. Please reopen the milestone and try again.';
+    }
     if (lower.includes('happened_on')) return 'That year does not look right. Please check the date.';
     return 'Some of these details are not allowed. Please check the fields and try again.';
   }

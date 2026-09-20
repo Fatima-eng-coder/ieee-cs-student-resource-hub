@@ -9,6 +9,12 @@ import EmptyState from '@/components/ui/EmptyState';
 import { adminAuthService } from '@/services/adminAuthService';
 import { timelineService, type MilestoneInput } from '@/services/timelineService';
 import type { TimelineEvent } from '@/types';
+import {
+  formatMilestoneDate,
+  joinMilestoneDate,
+  splitMilestoneDate,
+  type MilestoneDateParts,
+} from '@/utils/milestoneDate';
 
 /**
  * The chapter timeline, editable.
@@ -24,23 +30,7 @@ const actionBtn =
 const dangerBtn =
   'flex items-center gap-1 rounded-lg border border-black/5 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600';
 
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-/**
- * Formatted from the stored characters rather than through a Date, for the same reason the
- * public page does it: 'YYYY-MM-DD' is parsed as UTC midnight, so a Date would show an admin a
- * different day from the one the row holds and the one visitors are shown.
- */
-function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-');
-  const name = MONTHS[Number(month) - 1];
-  return name ? `${day} ${name} ${year}` : iso;
-}
-
-/** Today, in the local calendar, as the date input wants it. */
+/** Today, in the local calendar. */
 function todayIso(): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -50,21 +40,110 @@ function todayIso(): string {
 const emptyMilestone = (): TimelineEvent => ({
   id: '',
   date: todayIso(),
+  precision: 'day',
   title: '',
   description: '',
 });
 
 const toInput = (draft: TimelineEvent): MilestoneInput => ({
   date: draft.date,
+  precision: draft.precision,
   title: draft.title,
   description: draft.description,
 });
+
+/** Just the digits, so a pasted "Sep" or a stray dash never reaches the date. */
+const digitsOnly = (value: string, max: number) => value.replace(/\D/g, '').slice(0, max);
+
+/**
+ * The date, in three boxes, because not every milestone is remembered to the day.
+ *
+ * A single date input cannot say "some time in 2019": it insists on a day, and whatever day it
+ * was opened on then becomes part of the record. Here the month and the day are optional, and
+ * what is left out is what the public page leaves out -- the year alone, the month and year, or
+ * the whole date. The line under the boxes shows exactly what visitors will read, so the choice
+ * is never guessed at from the empty fields.
+ */
+function MilestoneDateField({
+  parts,
+  onChange,
+}: {
+  parts: MilestoneDateParts;
+  onChange: (parts: MilestoneDateParts) => void;
+}) {
+  const joined = joinMilestoneDate(parts);
+  const yearTyped = parts.year.trim().length > 0;
+
+  return (
+    /* A fieldset, not AdminField: that renders a <label>, and the three boxes carry labels of
+       their own — a label inside a label points at the wrong control and reads as one field. */
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="text-sm font-semibold text-slate-700">
+        Date<span className="ml-0.5 text-ieee-orange">*</span>
+      </legend>
+      <p className="text-xs text-slate-400">
+        The year is needed. Leave the month or day blank — or type 00 — when nobody is sure, and
+        the page simply will not show that part.
+      </p>
+      <div className="mt-1 flex items-end gap-2">
+        {[
+          { key: 'year' as const, label: 'Year', placeholder: '2019', width: 'w-24', max: 4 },
+          { key: 'month' as const, label: 'Month', placeholder: '00', width: 'w-20', max: 2 },
+          { key: 'day' as const, label: 'Day', placeholder: '00', width: 'w-20', max: 2 },
+        ].map(({ key, label, placeholder, width, max }) => (
+          <label key={key} className="flex flex-col gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-wide text-slate-400">{label}</span>
+            <AdminInput
+              className={width}
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label={key === 'year' ? 'Year' : `${label} (optional)`}
+              placeholder={placeholder}
+              value={parts[key]}
+              onChange={(e) => onChange({ ...parts, [key]: digitsOnly(e.target.value, max) })}
+            />
+          </label>
+        ))}
+      </div>
+
+      <p
+        className={`mt-2 text-xs ${joined ? 'text-slate-500' : yearTyped ? 'text-rose-600' : 'text-slate-400'}`}
+        aria-live="polite"
+      >
+        {joined ? (
+          <>
+            Shown on the page as{' '}
+            <span className="font-semibold text-slate-700">
+              {formatMilestoneDate(joined.date, joined.precision)}
+            </span>
+            {joined.precision === 'year' && ' — year only.'}
+            {joined.precision === 'month' && ' — month and year.'}
+            {joined.precision === 'day' && ' — the full date.'}
+          </>
+        ) : yearTyped ? (
+          'That is not a date yet. A four-digit year is needed; the month must be 1–12 and the day must exist in it.'
+        ) : (
+          'Enter the year this happened.'
+        )}
+      </p>
+    </fieldset>
+  );
+}
 
 export default function AdminTimelinePage() {
   const [milestones, setMilestones] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<TimelineEvent | null>(null);
+  /**
+   * The three boxes as typed, kept beside the draft rather than derived from it.
+   *
+   * A half-typed year ("20") is not a date, so the draft cannot hold it — but the box has to,
+   * or the admin's own keystrokes would be rewritten as they type. The draft is updated only
+   * when what is in the boxes reads as a date.
+   */
+  const [dateParts, setDateParts] = useState<MilestoneDateParts>({ year: '', month: '', day: '' });
   const [isNew, setIsNew] = useState(false);
   const [deleting, setDeleting] = useState<TimelineEvent | null>(null);
   const [saving, setSaving] = useState(false);
@@ -94,17 +173,32 @@ export default function AdminTimelinePage() {
   const sorted = (items: TimelineEvent[]) =>
     [...items].sort((a, b) => a.date.localeCompare(b.date));
 
+  const openDraft = (milestone: TimelineEvent, fresh: boolean) => {
+    setDraft(milestone);
+    setDateParts(splitMilestoneDate(milestone.date, milestone.precision));
+    setIsNew(fresh);
+  };
+
   const save = async () => {
     if (!draft) return;
+
+    // What is in the boxes wins over the draft: the draft only moves when the boxes read as a
+    // date, so anything unfinished is caught here rather than saved as the last good value.
+    const joined = joinMilestoneDate(dateParts);
+    if (!joined) {
+      setError('Please check the date. A year is needed; month and day can be left blank or 00.');
+      return;
+    }
+    const dated: TimelineEvent = { ...draft, ...joined };
 
     setSaving(true);
     setError(null);
     try {
       if (isNew) {
-        const created = await timelineService.create(toInput(draft));
+        const created = await timelineService.create(toInput(dated));
         setMilestones((items) => sorted([...items, created]));
       } else {
-        const updated = await timelineService.update(draft.id, toInput(draft));
+        const updated = await timelineService.update(dated.id, toInput(dated));
         setMilestones((items) => sorted(items.map((item) => (item.id === updated.id ? updated : item))));
       }
       setDraft(null);
@@ -134,7 +228,11 @@ export default function AdminTimelinePage() {
     {
       key: 'date',
       header: 'Date',
-      render: (m) => <span className="font-mono text-xs whitespace-nowrap text-slate-500">{formatDate(m.date)}</span>,
+      render: (m) => (
+        <span className="font-mono text-xs whitespace-nowrap text-slate-500">
+          {formatMilestoneDate(m.date, m.precision)}
+        </span>
+      ),
     },
     {
       key: 'title',
@@ -165,10 +263,7 @@ export default function AdminTimelinePage() {
             <button
               type="button"
               className={actionBtn}
-              onClick={() => {
-                setDraft(m);
-                setIsNew(false);
-              }}
+              onClick={() => openDraft(m, false)}
             >
               <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
@@ -189,10 +284,7 @@ export default function AdminTimelinePage() {
         action={
           canManage ? (
             <button
-              onClick={() => {
-                setDraft(emptyMilestone());
-                setIsNew(true);
-              }}
+              onClick={() => openDraft(emptyMilestone(), true)}
               className="flex items-center gap-1.5 rounded-xl bg-ieee-orange px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-ieee-orange-dark"
             >
               <Plus className="h-4 w-4" /> New milestone
@@ -244,17 +336,14 @@ export default function AdminTimelinePage() {
       >
         {draft && (
           <div className="flex flex-col gap-4">
-            <AdminField label="Date" required hint="The day this happened. The page shows the month and year.">
-              <AdminInput
-                type="date"
-                value={draft.date}
-                // The browser's own bounds, so the picker will not walk to a year the database
-                // would refuse — an out-of-range date is easier to prevent than to explain.
-                min="1963-01-01"
-                max="2100-12-31"
-                onChange={(e) => setDraft({ ...draft, date: e.target.value })}
-              />
-            </AdminField>
+            <MilestoneDateField
+              parts={dateParts}
+              onChange={(next) => {
+                setDateParts(next);
+                const joined = joinMilestoneDate(next);
+                if (joined) setDraft((current) => (current ? { ...current, ...joined } : current));
+              }}
+            />
             <AdminField label="Heading" required hint="Short, and in the past tense — this is the milestone itself.">
               <AdminInput
                 value={draft.title}

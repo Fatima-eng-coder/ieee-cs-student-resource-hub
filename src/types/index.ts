@@ -444,6 +444,8 @@ export interface HierarchyTerm {
 export interface TimelineEvent {
   id: string;
   date: string;
+  /** How much of `date` is known — see @/utils/milestoneDate. */
+  precision: 'year' | 'month' | 'day';
   title: string;
   description: string;
 }

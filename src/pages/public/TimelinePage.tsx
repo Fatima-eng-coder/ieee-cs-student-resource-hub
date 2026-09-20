@@ -6,6 +6,7 @@ import PageSection from '@/components/layout/PageSection';
 import EmptyState from '@/components/ui/EmptyState';
 import RichText from '@/components/ui/RichText';
 import { timelineService } from '@/services/timelineService';
+import { formatMilestoneDate } from '@/utils/milestoneDate';
 import type { TimelineEvent } from '@/types';
 
 /**
@@ -22,25 +23,6 @@ const breadcrumb = [
   { label: 'About', to: '/about' },
   { label: 'Timeline' },
 ];
-
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-/**
- * Formatted from the stored characters, not via a Date.
- *
- * `new Date('2020-09-01')` is parsed as UTC midnight, and toLocaleDateString then renders it in
- * the reader's zone — so anywhere west of Greenwich a milestone dated the 1st displays as the
- * previous month. The column holds a plain calendar date with no zone attached to it, and this
- * shows exactly that date to everyone.
- */
-function formatDate(iso: string): string {
-  const [year, month] = iso.split('-');
-  const name = MONTHS[Number(month) - 1];
-  return name ? `${name} ${year}` : year;
-}
 
 export default function TimelinePage() {
   const [milestones, setMilestones] = useState<TimelineEvent[]>([]);
@@ -140,7 +122,7 @@ export default function TimelinePage() {
 
                 <div className="group rounded-2xl border border-black/5 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-ieee-orange/30 hover:shadow-lg">
                   <span className="font-mono text-xs font-semibold uppercase tracking-widest text-ieee-orange">
-                    {formatDate(event.date)}
+                    {formatMilestoneDate(event.date, event.precision)}
                   </span>
                   <h3 className="mt-1.5 font-display text-lg font-bold text-slate-900">{event.title}</h3>
                   {/* RichText rather than a bare <p>: the description is typed into a textarea, so
