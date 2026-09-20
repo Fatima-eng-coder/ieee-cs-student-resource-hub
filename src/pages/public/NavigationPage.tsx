@@ -14,9 +14,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, CircleDot, MapPin, Navigation as NavigationIcon, TriangleAlert, X } from 'lucide-react';
+import { ArrowRight, CircleDot, MapPin, Navigation as NavigationIcon, X } from 'lucide-react';
 import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import FloorPlan from '@/components/navigation/FloorPlan';
@@ -26,7 +26,7 @@ import RoutePanel from '@/components/navigation/RoutePanel';
 import NavigationModePicker from '@/components/navigation/NavigationModePicker';
 import ThreeDNavigatorCard from '@/components/navigation/ThreeDNavigatorCard';
 import CategoryGlyph from '@/components/navigation/CategoryGlyph';
-import ChipScroller from '@/components/navigation/ChipScroller';
+import ChipScroller from '@/components/ui/ChipScroller';
 import {
   BUILDING_NAME,
   categoryMeta,
@@ -202,19 +202,6 @@ export default function NavigationPage() {
       />
 
       <PageSection tone="cream" top width="wide">
-        {/* ---- Beta notice ------------------------------------------ */}
-        <div className="mx-auto flex max-w-4xl items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3">
-          <TriangleAlert className="mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-600" />
-          <p className="text-sm leading-snug text-amber-800">
-            <span className="font-semibold">Beta.</span> Plans were surveyed by student volunteers, so a door or room
-            name may still be wrong —{' '}
-            <Link to="/navigation/report" className="font-semibold underline underline-offset-2 hover:text-amber-900">
-              tell us if something's off
-            </Link>
-            .
-          </p>
-        </div>
-
         {/* ---- 2D or 3D --------------------------------------------- */}
         <NavigationModePicker />
 

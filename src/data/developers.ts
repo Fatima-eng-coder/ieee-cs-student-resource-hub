@@ -80,16 +80,17 @@ export const DEVELOPERS: DeveloperCredit[] = [
     work: [
       {
         title: 'Built the first skeleton frontend',
-        detail: 'What the site grew from, and its navigation.',
+        detail: 'The pages, layout and navigation the rest of the site grew from.',
       },
       {
-        title: 'Worked on the backend',
+        title: 'Built the backend the site runs on',
         detail:
-          'Moved the rest of the site from browser storage onto Supabase, then worked on banners, announcements, the gallery, projects, date sheets, forms and the committee roster, along with team roles and access, file storage, and the review of submitted papers.',
+          'Moved the rest of the site from browser storage onto Supabase, then built banners, announcements, the gallery, projects, date sheets, forms, the timeline and the committee roster on it — along with team roles and access, file storage, and the review of submitted papers.',
       },
       {
         title: 'Built the 2D and 3D campus navigation apps',
-        detail: 'The interactive floor plan on this site, and the separate 3D navigator.',
+        detail:
+          'The interactive floor plan on this site, and the separate 3D navigator, drawn from a survey of the CS block.',
       },
     ],
   },
@@ -117,19 +118,19 @@ export const DEVELOPERS: DeveloperCredit[] = [
     id: 'shaharyar-zia',
     work: [
       {
-        title: 'Refined the look and feel of the frontend',
+        title: 'Built and refined the frontend',
         detail:
-          "Rebuilt the site's pages on the homepage's theme, with shared page layouts, a site-wide cursor and scroll bar, and smoother page changes.",
+          "Reworked the site's pages around one visual theme, with custom 3D backgrounds, smooth animations, shared layouts, a site-wide cursor and scroll bar, and seamless page transitions.",
       },
       {
-        title: 'Made the site work well on phones',
+        title: 'Made the site fully responsive',
         detail:
-          'Stopped sideways scrolling, resized headings and spacing, and made the admin portal work on phones.',
+          'Adjusted headings, spacing and layouts for smaller screens, and tuned the admin portal for phones.',
       },
       {
-        title: 'Tested the site',
+        title: 'Polished and tested the experience',
         detail:
-          'Checked pages and flows, and fixed what team feedback raised on the homepage, navbar, announcement banner and events carousel.',
+          'Reviewed pages and user flows, fixed frontend issues, and folded in team feedback across the homepage, navbar, announcement banner, events carousel and other sections.',
       },
     ],
   },

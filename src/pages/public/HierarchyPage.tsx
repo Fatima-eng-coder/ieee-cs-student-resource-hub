@@ -4,6 +4,7 @@ import PageHero from '@/components/layout/PageHero';
 import PageSection from '@/components/layout/PageSection';
 import SectionHeading from '@/components/layout/SectionHeading';
 import EmptyState from '@/components/ui/EmptyState';
+import ChipScroller from '@/components/ui/ChipScroller';
 import OrgChart from '@/components/hierarchy/OrgChart';
 import { MemberAvatar } from '@/components/hierarchy/MemberAvatar';
 import { groupByTier } from '@/components/hierarchy/groupByTier';
@@ -160,26 +161,34 @@ export default function HierarchyPage() {
       {/* ---- Archive ------------------------------------------------- */}
       {terms.length > 1 && (
         <PageSection tone="white">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          {/*
+            One scrolling strip rather than a block that wraps: a council is added every
+            semester, and wrapped rows would push the rosters further down the page every term
+            until the archive was mostly buttons. The strip stays one line tall for good, on a
+            phone and on a desktop alike, and the arrows say there is more past the edge.
+          */}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <SectionHeading eyebrow="Council Archive" title="Every term, remembered." />
-            <div className="flex flex-wrap gap-2">
-              {terms.map((term) => (
-                <button
-                  key={term.id}
-                  type="button"
-                  onClick={() => setSelectedTermId(term.id)}
-                  data-cursor="link"
-                  aria-pressed={selectedTermId === term.id}
-                  className={`rounded-full px-4 py-1.5 font-mono text-xs font-semibold tracking-wide uppercase transition ${
-                    selectedTermId === term.id
-                      ? 'bg-ieee-orange text-white shadow-[0_6px_20px_rgba(255,108,12,0.3)]'
-                      : 'border border-black/10 bg-white text-slate-600 hover:border-ieee-orange/50 hover:text-ieee-orange'
-                  }`}
-                >
-                  {term.term}
-                  {term.isCurrent && <span className="ml-1.5 text-[9px] opacity-70">now</span>}
-                </button>
-              ))}
+            <div className="min-w-0 lg:max-w-[58%] lg:flex-1">
+              <ChipScroller tone="white" label="Council terms">
+                {terms.map((term) => (
+                  <button
+                    key={term.id}
+                    type="button"
+                    onClick={() => setSelectedTermId(term.id)}
+                    data-cursor="link"
+                    aria-pressed={selectedTermId === term.id}
+                    className={`shrink-0 rounded-full px-4 py-1.5 font-mono text-xs font-semibold tracking-wide uppercase transition ${
+                      selectedTermId === term.id
+                        ? 'bg-ieee-orange text-white shadow-[0_6px_20px_rgba(255,108,12,0.3)]'
+                        : 'border border-black/10 bg-white text-slate-600 hover:border-ieee-orange/50 hover:text-ieee-orange'
+                    }`}
+                  >
+                    {term.term}
+                    {term.isCurrent && <span className="ml-1.5 text-[9px] opacity-70">now</span>}
+                  </button>
+                ))}
+              </ChipScroller>
             </div>
           </div>
 

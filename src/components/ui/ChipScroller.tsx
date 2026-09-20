@@ -18,7 +18,16 @@ const STEP_FRACTION = 0.75;
 /** Sub-pixel slack, so a strip scrolled fully to one end doesn't keep its arrow. */
 const EPSILON = 4;
 
-export default function ChipScroller({ children, label }: { children: ReactNode; label: string }) {
+export default function ChipScroller({
+  children,
+  label,
+  tone = 'cream',
+}: {
+  children: ReactNode;
+  label: string;
+  /** The background the arrows fade the chips into — whatever the section behind it is. */
+  tone?: 'cream' | 'white';
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -66,14 +75,25 @@ export default function ChipScroller({ children, label }: { children: ReactNode;
         {children}
       </div>
 
-      <Arrow side="left" show={canScrollLeft} onClick={() => nudge(-1)} />
-      <Arrow side="right" show={canScrollRight} onClick={() => nudge(1)} />
+      <Arrow side="left" show={canScrollLeft} tone={tone} onClick={() => nudge(-1)} />
+      <Arrow side="right" show={canScrollRight} tone={tone} onClick={() => nudge(1)} />
     </div>
   );
 }
 
-function Arrow({ side, show, onClick }: { side: 'left' | 'right'; show: boolean; onClick: () => void }) {
+function Arrow({
+  side,
+  show,
+  tone,
+  onClick,
+}: {
+  side: 'left' | 'right';
+  show: boolean;
+  tone: 'cream' | 'white';
+  onClick: () => void;
+}) {
   const left = side === 'left';
+  const fade = tone === 'white' ? '#ffffff' : 'var(--color-cream)';
 
   return (
     <div
@@ -83,7 +103,7 @@ function Arrow({ side, show, onClick }: { side: 'left' | 'right'; show: boolean;
       } ${show ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       style={{
         // Fade the chips out under the arrow instead of letting them collide with it.
-        background: `linear-gradient(to ${left ? 'right' : 'left'}, var(--color-cream) 45%, transparent)`,
+        background: `linear-gradient(to ${left ? 'right' : 'left'}, ${fade} 45%, transparent)`,
       }}
     >
       <button

@@ -11,6 +11,62 @@ const memberColumns = 'id,term_id,role_slug,name,seat,photo_url,photo_path,email
 /** Where a member whose role is not in the catalogue sorts: last, but still on the page. */
 export const UNFILED_TIER = 99;
 
+/** Season names as they are written here, in the order a year runs. */
+const SEASON_RANK: Record<string, number> = {
+  sp: 1,
+  spring: 1,
+  su: 2,
+  summer: 2,
+  fa: 3,
+  fall: 3,
+  autumn: 3,
+  wi: 4,
+  winter: 4,
+};
+
+/**
+ * When a term happened, as one sortable number — or null when its name does not say.
+ *
+ * Reads either spelling a term carries: the short code ("FA26") or the label ("Fall 2026"), and
+ * a two-digit year as 20xx. Anything else is left unranked rather than guessed at.
+ */
+export function termChronology(term: Pick<HierarchyTermRecord, 'term' | 'label'>): number | null {
+  for (const text of [term.term, term.label]) {
+    const match = (text ?? '').trim().toLowerCase().match(/^([a-z]+)\s*'?\s*(\d{2}|\d{4})$/);
+    if (!match) continue;
+
+    const season = SEASON_RANK[match[1]];
+    if (!season) continue;
+
+    const year = match[2].length === 4 ? Number(match[2]) : 2000 + Number(match[2]);
+    return year * 10 + season;
+  }
+  return null;
+}
+
+/**
+ * The serving term first, then newest to oldest.
+ *
+ * Sorted on the term's own name, not on created_at as the read used to be: created_at is the
+ * order somebody TYPED the councils in, and this chapter's archive was entered newest-first, so
+ * the oldest council came out at the front of the list — right beside the current one. A term
+ * whose name cannot be read keeps the entry order as its tie-break and sorts after the rest,
+ * so an odd label can never push a real term out of sequence.
+ */
+export function sortTerms(terms: HierarchyTermRecord[]): HierarchyTermRecord[] {
+  return [...terms].sort((a, b) => {
+    if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
+
+    const left = termChronology(a);
+    const right = termChronology(b);
+    if (left !== null && right !== null && left !== right) return right - left;
+    if (left === null && right !== null) return 1;
+    if (left !== null && right === null) return -1;
+
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+}
+
 /**
  * A row of public.hierarchy_terms.
  *
@@ -372,7 +428,12 @@ export const hierarchyService = {
     return (data ?? []).map((row) => toRole(row as HierarchyRoleRow));
   },
 
-  /** Current term first, then newest to oldest — the order the archive selector reads in. */
+  /**
+   * Current term first, then newest to oldest — the order the archive selector reads in.
+   *
+   * The database ordering only makes the read deterministic; the order that reaches the page is
+   * sortTerms(), which ranks the councils by when they actually were. See the note there.
+   */
   async listTerms(): Promise<HierarchyTermRecord[]> {
     const { data, error } = await supabase
       .from('hierarchy_terms')
@@ -381,7 +442,7 @@ export const hierarchyService = {
       .order('created_at', { ascending: false });
 
     if (error) throw readError(error);
-    return (data ?? []).map((row) => toTerm(row as HierarchyTermRow));
+    return sortTerms((data ?? []).map((row) => toTerm(row as HierarchyTermRow)));
   },
 
   async listMembers(termId: string): Promise<HierarchyMemberRecord[]> {
