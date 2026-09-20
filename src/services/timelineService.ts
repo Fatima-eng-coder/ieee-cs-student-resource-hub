@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase';
 import type { TimelineEvent } from '@/types';
 import {
   isRealDate,
+  MILESTONE_YEAR_MAX,
+  MILESTONE_YEAR_MIN,
   normalizeMilestoneDate,
   type MilestonePrecision,
 } from '@/utils/milestoneDate';
@@ -66,17 +68,19 @@ const STALE_ROW_MESSAGE = 'That milestone is no longer there. Reload the page to
 /** Everything the database would refuse, said in the admin's own words first. */
 function assertMilestone(input: MilestoneInput): void {
   if (!input.title.trim()) throw new Error('Please enter a heading for this milestone.');
-  if (!isRealDate(input.date)) throw new Error('Please enter the date this milestone happened on.');
   if (input.precision !== 'year' && input.precision !== 'month' && input.precision !== 'day') {
     throw new Error('Please choose how much of the date to show.');
   }
 
-  // Re-checked rather than left to timeline_milestones_happened_on_check, because a date input
-  // lets the year be typed as well as picked, and 0202 is one slipped keystroke from 2020.
+  // The year is checked first, and before the date as a whole: a mistyped year is the mistake
+  // this field actually attracts, and "that year does not look right" names it, where "that is
+  // not a date" would send the admin looking at the month and day instead.
   const year = Number(input.date.slice(0, 4));
-  if (year < 1963 || year > 2100) {
+  if (year < MILESTONE_YEAR_MIN || year > MILESTONE_YEAR_MAX) {
     throw new Error('That year does not look right. Please check the date.');
   }
+
+  if (!isRealDate(input.date)) throw new Error('Please enter the date this milestone happened on.');
 
 }
 

@@ -23,14 +23,26 @@ export interface MilestoneDateParts {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * The years a milestone may fall in, matching timeline_milestones_happened_on_check.
+ *
+ * Checked here as well as in the service so the editor can say "that year is wrong" while it is
+ * being typed, rather than affirming 0202 in its preview and then failing on save.
+ */
+export const MILESTONE_YEAR_MIN = 1963;
+export const MILESTONE_YEAR_MAX = 2100;
+
 /** Whether a string is a plain 'YYYY-MM-DD' calendar date that really exists. */
 export function isRealDate(iso: string): boolean {
   if (!ISO_DATE.test(iso)) return false;
 
   // Round-tripped through UTC, so 2025-02-31 (which Date would roll into March) is refused
-  // rather than silently moved.
+  // rather than silently moved. The year is set after construction because Date.UTC reads 0-99
+  // as 1900-1999, which would report a mistyped "0020" as a day that does not exist instead of
+  // as a year out of range.
   const [year, month, day] = iso.split('-').map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const parsed = new Date(Date.UTC(2000, month - 1, day));
+  parsed.setUTCFullYear(year);
   return (
     parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day
   );
@@ -85,6 +97,7 @@ export function splitMilestoneDate(iso: string, precision: MilestonePrecision): 
 export function joinMilestoneDate(parts: MilestoneDateParts): { date: string; precision: MilestonePrecision } | null {
   const year = parts.year.trim();
   if (!/^\d{4}$/.test(year)) return null;
+  if (Number(year) < MILESTONE_YEAR_MIN || Number(year) > MILESTONE_YEAR_MAX) return null;
 
   const unknown = (value: string) => {
     const trimmed = value.trim();

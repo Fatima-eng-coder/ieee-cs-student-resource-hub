@@ -12,6 +12,8 @@ import type { TimelineEvent } from '@/types';
 import {
   formatMilestoneDate,
   joinMilestoneDate,
+  MILESTONE_YEAR_MAX,
+  MILESTONE_YEAR_MIN,
   splitMilestoneDate,
   type MilestoneDateParts,
 } from '@/utils/milestoneDate';
@@ -30,17 +32,18 @@ const actionBtn =
 const dangerBtn =
   'flex items-center gap-1 rounded-lg border border-black/5 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600';
 
-/** Today, in the local calendar. */
-function todayIso(): string {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
+/**
+ * A new milestone starts as this year and nothing else.
+ *
+ * It used to open on today's date at full precision, which quietly undid the point of the three
+ * boxes: an admin recording something they only knew the year of would leave the month and day
+ * "as they were" and save the day they happened to be typing on. Now leaving them alone records
+ * the year alone, and a day is only ever stored because somebody typed one.
+ */
 const emptyMilestone = (): TimelineEvent => ({
   id: '',
-  date: todayIso(),
-  precision: 'day',
+  date: `${new Date().getFullYear()}-01-01`,
+  precision: 'year',
   title: '',
   description: '',
 });
@@ -81,7 +84,7 @@ function MilestoneDateField({
       <legend className="text-sm font-semibold text-slate-700">
         Date<span className="ml-0.5 text-ieee-orange">*</span>
       </legend>
-      <p className="text-xs text-slate-400">
+      <p id="milestone-date-help" className="text-xs text-slate-400">
         The year is needed. Leave the month or day blank — or type 00 — when nobody is sure, and
         the page simply will not show that part.
       </p>
@@ -99,6 +102,9 @@ function MilestoneDateField({
               inputMode="numeric"
               autoComplete="off"
               aria-label={key === 'year' ? 'Year' : `${label} (optional)`}
+              aria-describedby="milestone-date-help milestone-date-preview"
+              // Colour alone does not say a field is wrong, and the boxes are read one at a time.
+              aria-invalid={!joined && yearTyped}
               placeholder={placeholder}
               value={parts[key]}
               onChange={(e) => onChange({ ...parts, [key]: digitsOnly(e.target.value, max) })}
@@ -108,6 +114,7 @@ function MilestoneDateField({
       </div>
 
       <p
+        id="milestone-date-preview"
         className={`mt-2 text-xs ${joined ? 'text-slate-500' : yearTyped ? 'text-rose-600' : 'text-slate-400'}`}
         aria-live="polite"
       >
@@ -122,7 +129,7 @@ function MilestoneDateField({
             {joined.precision === 'day' && ' — the full date.'}
           </>
         ) : yearTyped ? (
-          'That is not a date yet. A four-digit year is needed; the month must be 1–12 and the day must exist in it.'
+          `That is not a date yet. The year must be four digits, between ${MILESTONE_YEAR_MIN} and ${MILESTONE_YEAR_MAX}; the month must be 1–12, and the day must exist in that month.`
         ) : (
           'Enter the year this happened.'
         )}
@@ -144,6 +151,12 @@ export default function AdminTimelinePage() {
    * when what is in the boxes reads as a date.
    */
   const [dateParts, setDateParts] = useState<MilestoneDateParts>({ year: '', month: '', day: '' });
+  /**
+   * Kept apart from `error`, which renders in the page body — behind the drawer's own backdrop.
+   * A save refused while the drawer is open has to be said inside it, or pressing Save looks
+   * like it did nothing at all.
+   */
+  const [formError, setFormError] = useState<string | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [deleting, setDeleting] = useState<TimelineEvent | null>(null);
   const [saving, setSaving] = useState(false);
@@ -176,6 +189,7 @@ export default function AdminTimelinePage() {
   const openDraft = (milestone: TimelineEvent, fresh: boolean) => {
     setDraft(milestone);
     setDateParts(splitMilestoneDate(milestone.date, milestone.precision));
+    setFormError(null);
     setIsNew(fresh);
   };
 
@@ -186,13 +200,16 @@ export default function AdminTimelinePage() {
     // date, so anything unfinished is caught here rather than saved as the last good value.
     const joined = joinMilestoneDate(dateParts);
     if (!joined) {
-      setError('Please check the date. A year is needed; month and day can be left blank or 00.');
+      setFormError(
+        `Please check the date. A year from ${MILESTONE_YEAR_MIN} to ${MILESTONE_YEAR_MAX} is needed; the month and day can be left blank or 00.`
+      );
       return;
     }
     const dated: TimelineEvent = { ...draft, ...joined };
 
     setSaving(true);
     setError(null);
+    setFormError(null);
     try {
       if (isNew) {
         const created = await timelineService.create(toInput(dated));
@@ -203,7 +220,7 @@ export default function AdminTimelinePage() {
       }
       setDraft(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save the milestone.');
+      setFormError(err instanceof Error ? err.message : 'Failed to save the milestone.');
     } finally {
       setSaving(false);
     }
@@ -336,6 +353,14 @@ export default function AdminTimelinePage() {
       >
         {draft && (
           <div className="flex flex-col gap-4">
+            {formError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+              >
+                {formError}
+              </div>
+            )}
             <MilestoneDateField
               parts={dateParts}
               onChange={(next) => {
